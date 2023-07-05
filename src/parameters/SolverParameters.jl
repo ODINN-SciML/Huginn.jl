@@ -1,5 +1,5 @@
 
-  mutable struct SolverParameters{F <: AbstractFloat, I <: Int}
+  mutable struct SolverParameters{F <: AbstractFloat, I <: Integer}
     solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm
     reltol::F
     tstops::Union{Nothing,Vector{F}} 
@@ -26,7 +26,7 @@ function SolverParameters(;
             tstops::Union{Nothing,Vector{F}} = nothing,
             progress::Bool = true,
             progress_steps::I = 10
-            ) where {F <: AbstractFloat, I <: In}
+            ) where {F <: AbstractFloat, I <: Integer}
     # Build the solver parameters based on input values
     solver_parameters = SolverParameters(solver, reltol, 
                                         tstops,

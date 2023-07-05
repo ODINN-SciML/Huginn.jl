@@ -5,7 +5,7 @@ export SIA2Dmodel
 ###### SHALLOW ICE APPROXIMATION MODELS #######
 ###############################################
 
-mutable struct SIA2Dmodel{F <: AbstractFloat, I <: Integereger} <: SIAmodel
+mutable struct SIA2Dmodel{F <: AbstractFloat, I <: Integer} <: SIAmodel
     A::Union{Ref{F}, Nothing}
     H::Union{Matrix{F}, Nothing}
     H̄::Union{Matrix{F}, Nothing}
