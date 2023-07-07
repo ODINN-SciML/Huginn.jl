@@ -17,7 +17,6 @@ import Pkg
 using Distributed
 using ProgressMeter
 using PyCall
-using TimerOutputs
 using Reexport
 
 ### ODINN.jl dependencies  ###

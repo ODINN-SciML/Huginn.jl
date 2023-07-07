@@ -1,6 +1,8 @@
 
 export SIA2Dmodel
 
+include("SIA2D_utils.jl")
+
 ###############################################
 ###### SHALLOW ICE APPROXIMATION MODELS #######
 ###############################################
@@ -34,7 +36,7 @@ mutable struct SIA2Dmodel{F <: AbstractFloat, I <: Integer} <: SIAmodel
     glacier_idx::Union{Ref{I}, Nothing}
 end
 
-function SIA2Dmodel(params::Parameters; 
+function SIA2Dmodel(params::Sleipnir.Parameters;
                     A::Union{Ref{F}, Nothing} = nothing,
                     H::Union{Matrix{F}, Nothing} = nothing,
                     H̄::Union{Matrix{F}, Nothing} = nothing,
@@ -71,22 +73,26 @@ function SIA2Dmodel(params::Parameters;
 end
 
 """
-    initialize_iceflow_model!(; glacier::Glacier,
-                                params::Parameters
-                                ) where F <: AbstractFloat
+function initialize_iceflow_model!(iceflow_model::IF,  
+    glacier_idx::I,
+    glacier::AbstractGlacier,
+    params::Sleipnir.Parameters
+    ) where {IF <: IceflowModel, I <: Int}
 
 Initialize iceflow model data structures to enable in-place mutation.
 
 Keyword arguments
 =================
+    - `iceflow_model`: Iceflow model used for simulation. 
+    - `glacier_idx`: Index of glacier.
     - `glacier`: `Glacier` to provide basic initial state of the ice flow model.
-    - `parameters`: `Parameters` to configure some physical variables
+    - `parameters`: `Parameters` to configure some physical variables.
 """
 function initialize_iceflow_model!(iceflow_model::IF,  
-                                    glacier_idx::I,
-                                    glacier::Glacier,
-                                     params::Parameters
-                                     ) where {IF <: IceflowModel, I <: Int}
+                                   glacier_idx::I,
+                                   glacier::Sleipnir.AbstractGlacier,
+                                   params::Sleipnir.Parameters
+                                   ) where {IF <: IceflowModel, I <: Int}
     nx, ny = glacier.nx, glacier.ny
     F = params.simulation.float_type
     iceflow_model.A = Ref{F}(params.physical.A)

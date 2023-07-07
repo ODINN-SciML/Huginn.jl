@@ -8,11 +8,10 @@ Compute an in-place step of the Shallow Ice Approximation PDE in a forward model
 function SIA2D!(dH::Matrix{F}, H::Matrix{F}, simulation::SIM, t::F) where {F <: AbstractFloat, SIM <: Simulation}
     
     # Retrieve parameters
-    @timeit get_timer("ODINN") "Variable assignment" begin
     SIA2D_model::SIA2Dmodel = simulation.model.iceflow
-    glacier::Glacier = simulation.glaciers[simulation.model.iceflow.glacier_idx[]]
-    params::Parameters = simulation.parameters
-    int_type = simulation.parameters.simulation.int_type
+    glacier::Sleipnir.Glacier2D = simulation.glaciers[simulation.model.iceflow.glacier_idx[]]
+    params::Sleipnir.Parameters = simulation.parameters
+        int_type = simulation.parameters.simulation.int_type
     H̄::Matrix{F} = SIA2D_model.H̄
     A::Ref{F} = SIA2D_model.A
     B::Matrix{F} = glacier.B
@@ -37,60 +36,46 @@ function SIA2D!(dH::Matrix{F}, H::Matrix{F}, simulation::SIM, t::F) where {F <: 
     n::int_type = simulation.parameters.physical.n
     ρ::F = simulation.parameters.physical.ρ
     g::F = simulation.parameters.physical.g
-    end
 
-    @timeit get_timer("ODINN") "H to zero" begin
     # First, enforce values to be positive
     map!(x -> ifelse(x>0.0,x,0.0), H, H)
     # Update glacier surface altimetry
     S .= B .+ H
-    end
 
     # All grid variables computed in a staggered grid
     # Compute surface gradients on edges
-    @timeit get_timer("ODINN") "Surface gradients" begin
     diff_x!(dSdx, S, Δx)  
     diff_y!(dSdy, S, Δy) 
     avg_y!(∇Sx, dSdx)
     avg_x!(∇Sy, dSdy)
     ∇S .= (∇Sx.^2 .+ ∇Sy.^2).^((n - 1)/2) 
-    end
 
-    @timeit get_timer("ODINN") "Diffusivity" begin
     # @infiltrate
     avg!(H̄, H)
     Γ[] = 2.0 * A[] * (ρ * g)^n / (n+2) # 1 / m^3 s 
     D .= Γ[] .* H̄.^(n + 2) .* ∇S
-    end
 
     # Compute flux components
-    @timeit get_timer("ODINN") "Gradients edges" begin
     @views diff_x!(dSdx_edges, S[:,2:end - 1], Δx)
     @views diff_y!(dSdy_edges, S[2:end - 1,:], Δy)
-    end
+
     # Cap surface elevaton differences with the upstream ice thickness to 
     # imporse boundary condition of the SIA equation
-    @timeit get_timer("ODINN") "Capping flux" begin
     η₀ = params.physical.η₀
-    dSdx_edges .= @views @. min(dSdx_edges,  η₀ * H[1:end-1, 2:end-1]/Δx,  η₀ * H[2:end, 2:end-1]/Δx)
-    dSdy_edges .= @views @. min(dSdy_edges,  η₀ * H[2:end-1, 1:end-1]/Δy,  η₀ * H[2:end-1, 2:end]/Δy) 
-    dSdx_edges .= @views @. max(dSdx_edges, -η₀ * H[1:end-1, 2:end-1]/Δx, -η₀ * H[2:end, 2:end-1]/Δx)
-    dSdy_edges .= @views @. max(dSdy_edges, -η₀ * H[2:end-1, 1:end-1]/Δy, -η₀ * H[2:end-1, 2:end]/Δy)
-    end
+    dSdx_edges .= @views @. min(dSdx_edges,  η₀ * H[2:end, 2:end-1]/Δx)
+    dSdx_edges .= @views @. max(dSdx_edges, -η₀ * H[1:end-1, 2:end-1]/Δx)
+    dSdy_edges .= @views @. min(dSdy_edges,  η₀ * H[2:end-1, 2:end]/Δy)
+    dSdy_edges .= @views @. max(dSdy_edges, -η₀ * H[2:end-1, 1:end-1]/Δy)
 
-    @timeit get_timer("ODINN") "Flux" begin
     avg_y!(Dx, D)
     avg_x!(Dy, D)
     Fx .= .-Dx .* dSdx_edges
     Fy .= .-Dy .* dSdy_edges 
-    end
 
     #  Flux divergence
-    @timeit get_timer("ODINN") "dH" begin
     diff_x!(Fxx, Fx, Δx)
     diff_y!(Fyy, Fy, Δy)
     inn(dH) .= .-(Fxx .+ Fyy) 
-    end
 end
 
 # Dummy function to bypass ice flow
@@ -130,10 +115,14 @@ function SIA2D(H, SIA2Dmodel)
     # imporse boundary condition of the SIA equation
     # We need to do this with Tullio or something else that allow us to set indices.
     η₀ = 1.0
-    dSdx_edges .= min.(dSdx_edges,  η₀ * H[1:end-1, 2:end-1]./Δx,  η₀ * H[2:end, 2:end-1]./Δx)
-    dSdy_edges .= min.(dSdy_edges,  η₀ * H[2:end-1, 1:end-1]./Δy,  η₀ * H[2:end-1, 2:end]./Δy) 
-    dSdx_edges .= max.(dSdx_edges, -η₀ * H[1:end-1, 2:end-1]./Δx, -η₀ * H[2:end, 2:end-1]./Δx)
-    dSdy_edges .= max.(dSdy_edges, -η₀ * H[2:end-1, 1:end-1]./Δy, -η₀ * H[2:end-1, 2:end]./Δy)
+    dSdx_edges .= @views @. min(dSdx_edges,  η₀ * H[2:end, 2:end-1]/Δx)
+    dSdx_edges .= @views @. max(dSdx_edges, -η₀ * H[1:end-1, 2:end-1]/Δx)
+    dSdy_edges .= @views @. min(dSdy_edges,  η₀ * H[2:end-1, 2:end]/Δy)
+    dSdy_edges .= @views @. max(dSdy_edges, -η₀ * H[2:end-1, 1:end-1]/Δy)
+    # dSdx_edges .= min.(dSdx_edges,  η₀ * H[1:end-1, 2:end-1]./Δx,  η₀ * H[2:end, 2:end-1]./Δx)
+    # dSdy_edges .= min.(dSdy_edges,  η₀ * H[2:end-1, 1:end-1]./Δy,  η₀ * H[2:end-1, 2:end]./Δy) 
+    # dSdx_edges .= max.(dSdx_edges, -η₀ * H[1:end-1, 2:end-1]./Δx, -η₀ * H[2:end, 2:end-1]./Δx)
+    # dSdy_edges .= max.(dSdy_edges, -η₀ * H[2:end-1, 1:end-1]./Δy, -η₀ * H[2:end-1, 2:end]./Δy)
 
     Fx = .-avg_y(D) .* dSdx_edges
     Fy = .-avg_x(D) .* dSdy_edges 
@@ -190,11 +179,11 @@ end
 Computes the ice surface velocity for a given glacier state
 """
 function surface_V!(H::Matrix{F}, simulation::SIM) where {F <: AbstractFloat, SIM <: Simulation}
-    params::Parameters = simulation.parameters
+    params::Sleipnir.Parameters = simulation.parameters
     ft = params.simulation.float_type
     it = params.simulation.int_type
     iceflow_model = simulation.model.iceflow
-    glacier::Glacier = simulation.glaciers[iceflow_model.glacier_idx[]]
+    glacier::Sleipnir.Glacier2D = simulation.glaciers[iceflow_model.glacier_idx[]]
     B::Matrix{ft} = glacier.B
     H̄::Matrix{F} = iceflow_model.H̄
     dSdx::Matrix{ft} = iceflow_model.dSdx
