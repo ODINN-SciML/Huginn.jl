@@ -1,16 +1,4 @@
 
-using Revise
-using Infiltrator
-using Test 
-using Plots
-using Reexport
-
-# @reexport using Sleipnir 
-using Huginn
-
-# Include utils for halfar 
-include("./utils_test.jl")
-
 """
     unit_halfar_test(; A, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol=0.02, atol=1.0, distance_to_border=3, save_plot=false)
 
@@ -36,7 +24,8 @@ function unit_halfar_test(; A, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol=0.
                                                             use_MB=false,
                                                             use_iceflow=true,
                                                             multiprocessing=true,
-                                                            workers=1),
+                                                            workers=1,
+                                                            working_dir=Huginn.root_dir),
                             physical=PhysicalParameters(A=A),
                             solver=SolverParameters(reltol=1e-12))
 
