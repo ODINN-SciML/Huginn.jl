@@ -23,7 +23,7 @@ function batch_iceflow_PDE(glacier_idx::Int, simulation::Prediction)
     params = simulation.parameters
     glacier = simulation.glaciers[glacier_idx]
 
-    glacier_id = isnothing(glacier.gdir) ? "unnamed" : glacier.gdir
+    glacier_id = isnothing(glacier.gdir) ? "unnamed" : glacier.rgi_id
     println("Processing glacier: ", glacier_id)
     
     # Initialize glacier ice flow model

@@ -10,13 +10,25 @@ function params_constructor_specified(save_refs::Bool = false)
                                     progress_steps = 10)
 
     if save_refs
-        jldsave(joinpath(Sleipnir.root_dir, "test/data/params/solver_params.jld2"); solver_params)
+        jldsave(joinpath(Huginn.root_dir, "test/data/params/solver_params_specified.jld2"); solver_params)
     end
                     
+    solver_params_ref = load(joinpath(Huginn.root_dir, "test/data/params/solver_params_specified.jld2"))["solver_params"]
+
+    @test solver_params == solver_params_ref
 
 end
 
-function params_constructor_default()
+function params_constructor_default(save_refs::Bool = false)
 
+    solver_params = SolverParameters()
+
+    if save_refs
+        jldsave(joinpath(Huginn.root_dir, "test/data/params/solver_params_default.jld2"); solver_params)
+    end
+
+    solver_params_ref = load(joinpath(Huginn.root_dir, "test/data/params/solver_params_default.jld2"))["solver_params"]
+
+    @test solver_params == solver_params_ref
 
 end

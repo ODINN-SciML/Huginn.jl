@@ -38,6 +38,10 @@ function SolverParameters(;
     return solver_parameters
 end
 
+Base.:(==)(a::SolverParameters, b::SolverParameters) = a.solver == b.solver && a.reltol == b.reltol && a.step == b.step && 
+                                      a.tstops == b.tstops && a.save_everystep == b.save_everystep && a.progress == b.progress &&
+                                      a.progress_steps == b.progress_steps
+
 """
 Parameters(;
         simulation::SimulationParameters = SimulationParameters()
@@ -66,7 +70,6 @@ function Parameters(;
     return parameters
 end
 
-# Base.:(==)(a::Parameters, b::Parameters) = a.physical == b.physical && a.simulation == b.simulation && a.OGGM == b.OGGM && a.solver == b.solver
 
 """
     define_callback_steps(tspan::Tuple{Float64, Float64}, step::Float64)

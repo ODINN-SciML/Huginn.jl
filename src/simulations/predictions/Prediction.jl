@@ -21,9 +21,9 @@ Keyword arguments
 """
 function Prediction(
     model::Sleipnir.Model,
-    glaciers::Vector{Sleipnir.AbstractGlacier},
+    glaciers::Vector{G},
     parameters::Sleipnir.Parameters
-    )
+    ) where {G <: Sleipnir.AbstractGlacier}
 
     # Build the results struct based on input values
     prediction = Prediction(model,
