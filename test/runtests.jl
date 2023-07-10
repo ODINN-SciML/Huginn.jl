@@ -14,7 +14,7 @@ include("utils_test.jl")
 include("params_construction.jl")
 include("halfar.jl")
 include("PDE_UDE_solve.jl")
-# include("mass_conservation.jl")
+include("mass_conservation.jl")
 
 # Activate to avoid GKS backend Plot issues in the JupyterHub
 ENV["GKSwstype"]="nul"
@@ -28,4 +28,5 @@ ENV["GKSwstype"]="nul"
 atol = 0.01
 @testset "PDE solving integration tests" pde_solve_test(atol; MB=false, fast=true)
 
-# @testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(rtol=1.0e-7, atol=1000)
+@testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(rtol=1.0e-7)
+
