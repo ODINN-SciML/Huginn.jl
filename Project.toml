@@ -28,6 +28,7 @@ Plots = "1"
 ProgressMeter = "1"
 PyCall = "1"
 Reexport = "1"
+Revise = "3"
 Tullio = "0.3"
 
 [extras]
