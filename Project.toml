@@ -29,6 +29,7 @@ ProgressMeter = "1"
 PyCall = "1"
 Reexport = "1"
 Revise = "3"
+Sleipnir = "0.1"
 Tullio = "0.3"
 
 [extras]
