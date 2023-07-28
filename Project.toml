@@ -1,7 +1,7 @@
 name = "Huginn"
 uuid = "9cb796e9-d0ea-421b-b37d-eb97bc1add55"
 authors = ["Jordi Bolibar <jordi.bolibar@gmail.com>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
@@ -28,6 +28,8 @@ Plots = "1"
 ProgressMeter = "1"
 PyCall = "1"
 Reexport = "1"
+Revise = "3"
+Sleipnir = "0.2"
 Tullio = "0.3"
 
 [extras]
