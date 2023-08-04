@@ -14,6 +14,7 @@ function SIA2D!(dH::Matrix{F}, H::Matrix{F}, simulation::SIM, t::F) where {F <: 
         int_type = simulation.parameters.simulation.int_type
     H̄::Matrix{F} = SIA2D_model.H̄
     A::Ref{F} = SIA2D_model.A
+    n::Ref{F} = SIA2D_model.n
     B::Matrix{F} = glacier.B
     S::Matrix{F} = SIA2D_model.S
     dSdx::Matrix{F} = SIA2D_model.dSdx
@@ -33,7 +34,6 @@ function SIA2D!(dH::Matrix{F}, H::Matrix{F}, simulation::SIM, t::F) where {F <: 
     Δx::F = glacier.Δx
     Δy::F = glacier.Δy
     Γ::Ref{F} = SIA2D_model.Γ
-    n::int_type = simulation.parameters.physical.n
     ρ::F = simulation.parameters.physical.ρ
     g::F = simulation.parameters.physical.g
 
@@ -48,12 +48,12 @@ function SIA2D!(dH::Matrix{F}, H::Matrix{F}, simulation::SIM, t::F) where {F <: 
     diff_y!(dSdy, S, Δy) 
     avg_y!(∇Sx, dSdx)
     avg_x!(∇Sy, dSdy)
-    ∇S .= (∇Sx.^2 .+ ∇Sy.^2).^((n - 1)/2) 
+    ∇S .= (∇Sx.^2 .+ ∇Sy.^2).^((n[] - 1)/2) 
 
     # @infiltrate
     avg!(H̄, H)
-    Γ[] = 2.0 * A[] * (ρ * g)^n / (n+2) # 1 / m^3 s 
-    D .= Γ[] .* H̄.^(n + 2) .* ∇S
+    Γ[] = 2.0 * A[] * (ρ * g)^n[] / (n[]+2) # 1 / m^3 s 
+    D .= Γ[] .* H̄.^(n[] + 2) .* ∇S
 
     # Compute flux components
     @views diff_x!(dSdx_edges, S[:,2:end - 1], Δx)
@@ -94,6 +94,7 @@ function SIA2D(H, SIA2Dmodel)
     Δx = SIA2Dmodel.Δx
     Δy = SIA2Dmodel.Δy
     A = SIA2Dmodel.A
+    n = SIA2Dmodel.n
 
     # Update glacier surface altimetry
     S = B .+ H
@@ -174,7 +175,7 @@ function avg_surface_V(ifm::IF, temp::F, sim, θ=nothing, UA_f=nothing; testmode
 end
 
 """
-    surface_V(H, B, Δx, Δy, temp, sim, A_noise, θ=[], UA_f=[])
+    surface_V!(H, B, Δx, Δy, temp, sim, A_noise, θ=[], UA_f=[])
 
 Computes the ice surface velocity for a given glacier state
 """
@@ -196,9 +197,9 @@ function surface_V!(H::Matrix{F}, simulation::SIM) where {F <: AbstractFloat, SI
     Dx::Matrix{ft} = iceflow_model.Dx
     Dy::Matrix{ft} = iceflow_model.Dy
     A::Ref{ft} = iceflow_model.A
+    n::Ref{ft} = iceflow_model.n
     Δx::ft = glacier.Δx
     Δy::ft = glacier.Δy
-    n::it = params.physical.n
     ρ::ft = params.physical.ρ
     g::ft = params.physical.g
     
@@ -211,11 +212,11 @@ function surface_V!(H::Matrix{F}, simulation::SIM) where {F <: AbstractFloat, SI
     diff_y!(dSdy, S, Δy) 
     avg_y!(∇Sx, dSdx)
     avg_x!(∇Sy, dSdy)
-    ∇S .= (∇Sx.^2 .+ ∇Sy.^2).^((n - 1)/2) 
+    ∇S .= (∇Sx.^2 .+ ∇Sy.^2).^((n[] - 1)/2) 
 
     avg!(H̄, H)
-    Γꜛ[] = 2.0 * A[] * (ρ * g)^n / (n+1) # surface stress (not average)  # 1 / m^3 s 
-    D .= Γꜛ[] .* H̄.^(n + 1) .* ∇S
+    Γꜛ[] = 2.0 * A[] * (ρ * g)^n[] / (n[]+1) # surface stress (not average)  # 1 / m^3 s 
+    D .= Γꜛ[] .* H̄.^(n[] + 1) .* ∇S
     
     # Compute averaged surface velocities
     Vx = .-D .* ∇Sx

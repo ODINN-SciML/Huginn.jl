@@ -27,13 +27,11 @@ Arguments:
     - t: time
     - ν = (A, H₀, R₀) 
 """
-function halfar_solution(R, t, h₀, r₀, physical_parameters::PhysicalParameters)
+function halfar_solution(R, t, h₀, r₀, A, n, physical_parameters::PhysicalParameters)
 
     # parameters of Halfar solutions
     ρ = physical_parameters.ρ
     g = physical_parameters.g
-    n = physical_parameters.n
-    A = physical_parameters.A
 
     Γ = 2 * A * (ρ * g)^n / (n+2)
     # Characteristic time

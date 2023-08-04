@@ -17,7 +17,7 @@ Arguments
     - `distance_to_border`: Minimum distance to the border used to evaluate test. Points close to the border are not considered. 
     - `save_plot`: Save plot with comparision of prediction and true solution.
 """
-function unit_halfar_test(; A, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol=0.02, atol=1.0, distance_to_border=3, save_plot=false)
+function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol=0.02, atol=1.0, distance_to_border=3, save_plot=false)
 
     # Get parameters for a simulation 
     parameters = Parameters(simulation=SimulationParameters(tspan=(t₀, t₁),
@@ -26,26 +26,24 @@ function unit_halfar_test(; A, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol=0.
                                                             multiprocessing=true,
                                                             workers=1,
                                                             working_dir=Huginn.root_dir),
-                            physical=PhysicalParameters(A=A),
+                            physical=PhysicalParameters(),
                             solver=SolverParameters(reltol=1e-12))
 
     # Bed (it has to be flat for the Halfar solution)
     B = zeros((nx,ny))
 
-    model = Model(iceflow = SIA2Dmodel(parameters)) #,
-                #   mass_balance = nothing, # TImodel1(parameters; DDF=8.0/1000.0, acc_factor=1.0/1000.0),
-                #   machine_learning = nothing) # NN(parameters))
+    model = Model(iceflow = SIA2Dmodel(parameters)) 
 
     # Initial condition of the glacier
     R₀ = [sqrt((Δx * (i - nx/2))^2 + (Δy * (j - ny/2))^2) for i in 1:nx, j in 1:ny]
-    H₀ = halfar_solution(R₀, t₀, h₀, r₀, parameters.physical)
+    H₀ = halfar_solution(R₀, t₀, h₀, r₀, A, n, parameters.physical)
     S = B + H₀
     # Final expected solution
-    H₁ = halfar_solution(R₀, t₁, h₀, r₀, parameters.physical)
+    H₁ = halfar_solution(R₀, t₁, h₀, r₀, A, n, parameters.physical)
 
     # Define glacier object
-    glacier = Glacier(rgi_id = "toy", H₀ = H₀, S = S, B = B, 
-                      Δx=Δx, Δy=Δy, nx=nx, ny=ny)
+    glacier = Glacier2D(rgi_id = "toy", H₀ = H₀, S = S, B = B, A = A, n=n, 
+                        Δx=Δx, Δy=Δy, nx=nx, ny=ny)
     glaciers = Vector{Sleipnir.AbstractGlacier}([glacier])
 
     prediction = Prediction(model, glaciers, parameters)
@@ -93,13 +91,13 @@ Arguments
     - `atol`: Absolute tolerance for ice thickness H 
 """
 function halfar_test(; rtol, atol)
-    unit_halfar_test(A=4e-17, t₀=5.0, t₁=10.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=1000, rtol=rtol, atol=atol)
-    unit_halfar_test(A=8e-17, t₀=5.0, t₁=10.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=1000, rtol=rtol, atol=atol)
-    unit_halfar_test(A=4e-17, t₀=5.0, t₁=40.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600, rtol=rtol, atol=atol)
-    unit_halfar_test(A=8e-17, t₀=5.0, t₁=40.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600, rtol=rtol, atol=atol)
-    unit_halfar_test(A=4e-17, t₀=5.0, t₁=100.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600, rtol=rtol, atol=atol)
-    unit_halfar_test(A=8e-17, t₀=5.0, t₁=100.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600, rtol=rtol, atol=atol)
-    unit_halfar_test(A=4e-17, t₀=5.0, t₁=40.0, Δx=80.0, Δy=80.0, nx=100, ny=100, h₀=300, r₀=1000, rtol=rtol, atol=atol)
-    unit_halfar_test(A=8e-17, t₀=5.0, t₁=40.0, Δx=80.0, Δy=80.0, nx=100, ny=100, h₀=300, r₀=1000, rtol=rtol, atol=atol)
-    unit_halfar_test(A=4e-17, t₀=5.0, t₁=10.0, Δx=10.0, Δy=10.0, nx=500, ny=500, h₀=300, r₀=1000, rtol=rtol, atol=atol)
+    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=10.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=1000, rtol=rtol, atol=atol)
+    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=10.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=1000, rtol=rtol, atol=atol)
+    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=40.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600, rtol=rtol, atol=atol)
+    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=40.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600, rtol=rtol, atol=atol)
+    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=100.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600, rtol=rtol, atol=atol)
+    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=100.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600, rtol=rtol, atol=atol)
+    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=40.0, Δx=80.0, Δy=80.0, nx=100, ny=100, h₀=300, r₀=1000, rtol=rtol, atol=atol)
+    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=40.0, Δx=80.0, Δy=80.0, nx=100, ny=100, h₀=300, r₀=1000, rtol=rtol, atol=atol)
+    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=10.0, Δx=10.0, Δy=10.0, nx=500, ny=500, h₀=300, r₀=1000, rtol=rtol, atol=atol)
 end
