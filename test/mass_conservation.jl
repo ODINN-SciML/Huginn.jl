@@ -21,7 +21,7 @@ Arguments
     - `rtol`: Relative tolerance
     - `save_plot`: Optional bool to save plot during simulation
 """
-function unit_mass_test(; H₀, B, A, t_sim, Δx, Δy, rtol=0.02, save_plot=false)
+function unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=false)
 
     # Get parameters for a simulation 
     parameters = Parameters(simulation=SimulationParameters(tspan=(0.0, t_sim),
@@ -29,7 +29,7 @@ function unit_mass_test(; H₀, B, A, t_sim, Δx, Δy, rtol=0.02, save_plot=fals
                                                             use_iceflow=true,
                                                             multiprocessing=true,
                                                             workers=1),
-                            physical=PhysicalParameters(A=A),
+                            physical=PhysicalParameters(),
                             solver=SolverParameters(reltol=1e-12))
 
     model = Model(iceflow = SIA2Dmodel(parameters))
@@ -39,8 +39,8 @@ function unit_mass_test(; H₀, B, A, t_sim, Δx, Δy, rtol=0.02, save_plot=fals
     nx, ny = size(H₀)
 
     # Define glacier object
-    glacier = Glacier(rgi_id = "toy", H₀ = H₀, S = S, B = B, 
-                      Δx=Δx, Δy=Δy, nx=nx, ny=ny)
+    glacier = Glacier2D(rgi_id = "toy", H₀ = H₀, S = S, B = B, A = A, n = n, 
+                        Δx=Δx, Δy=Δy, nx=nx, ny=ny)
     glaciers = Vector{Sleipnir.AbstractGlacier}([glacier])
 
     prediction = Prediction(model, glaciers, parameters)
@@ -99,7 +99,7 @@ function unit_mass_flatbed_test(; rtol)
                     H₀ = zeros((nx,ny))
                     @views H₀[floor(Int,nx/3):floor(Int,2nx/3), floor(Int,ny/3):floor(Int,2ny/3)] .= 400
                 end
-                unit_mass_test(; H₀=H₀, B=B, A=A, t_sim=10.0, Δx=50.0, Δy=50.0, rtol=rtol, save_plot=false)
+                unit_mass_test(; H₀=H₀, B=B, A=A, n=3.0, t_sim=10.0, Δx=50.0, Δy=50.0, rtol=rtol, save_plot=false)
             end
         end
     end

@@ -23,10 +23,9 @@ ENV["GKSwstype"]="nul"
 
 @testset "Solver parameters construction with default variables" params_constructor_default()
 
-@testset "Halfar Solution" halfar_test(rtol=0.02, atol=1.0)
+@testset "Halfar Solution" halfar_test(; rtol=0.02, atol=1.0)
 
-atol = 0.01
-@testset "PDE solving integration tests" pde_solve_test(atol; MB=false, fast=true)
+@testset "PDE solving integration tests" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=false, fast=true)
 
-@testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(rtol=1.0e-7)
+@testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
 
