@@ -10,6 +10,7 @@ include("SIA2D_utils.jl")
 mutable struct SIA2Dmodel{F <: AbstractFloat, I <: Integer} <: SIAmodel
     A::Union{Ref{F}, Nothing}
     n::Union{Ref{F}, Nothing}
+    H₀::Union{Matrix{F}, Nothing}
     H::Union{Matrix{F}, Nothing}
     H̄::Union{Matrix{F}, Nothing}
     S::Union{Matrix{F}, Nothing}
@@ -40,6 +41,7 @@ end
 function SIA2Dmodel(params::Sleipnir.Parameters;
                     A::Union{Ref{F}, Nothing} = nothing,
                     n::Union{Ref{F}, Nothing} = nothing,
+                    H₀::Union{Matrix{F}, Nothing} = nothing,
                     H::Union{Matrix{F}, Nothing} = nothing,
                     H̄::Union{Matrix{F}, Nothing} = nothing,
                     S::Union{Matrix{F}, Nothing} = nothing,
@@ -68,7 +70,7 @@ function SIA2Dmodel(params::Sleipnir.Parameters;
     
     ft = params.simulation.float_type
     it = params.simulation.int_type
-    SIA2D_model = SIA2Dmodel{ft,it}(A, n, H, H̄, S, dSdx, dSdy, D, Dx, Dy, dSdx_edges, dSdy_edges,
+    SIA2D_model = SIA2Dmodel{ft,it}(A, n, H₀, H, H̄, S, dSdx, dSdy, D, Dx, Dy, dSdx_edges, dSdy_edges,
                             ∇S, ∇Sx, ∇Sy, Fx, Fy, Fxx, Fyy, V, Vx, Vy, Γ, MB, MB_mask, MB_total, glacier_idx)
 
     return SIA2D_model
@@ -99,6 +101,7 @@ function initialize_iceflow_model!(iceflow_model::IF,
     F = params.simulation.float_type
     iceflow_model.A = Ref{F}(glacier.A)
     iceflow_model.n = Ref{F}(glacier.n)
+    iceflow_model.H₀ = deepcopy(glacier.H₀)::Matrix{F}
     iceflow_model.H = deepcopy(glacier.H₀)::Matrix{F}
     iceflow_model.H̄ = zeros(F,nx-1,ny-1)
     iceflow_model.S = deepcopy(glacier.S)::Matrix{F}
@@ -126,5 +129,34 @@ function initialize_iceflow_model!(iceflow_model::IF,
     iceflow_model.glacier_idx = Ref{I}(glacier_idx)
 end
 
+"""
+function initialize_iceflow_model(iceflow_model::IF,  
+    glacier_idx::I,
+    glacier::AbstractGlacier,
+    params::Sleipnir.Parameters
+    ) where {IF <: IceflowModel, I <: Int}
 
+Initialize iceflow model data structures to enable out-of-place mutation.
+
+Keyword arguments
+=================
+    - `iceflow_model`: Iceflow model used for simulation. 
+    - `glacier_idx`: Index of glacier.
+    - `glacier`: `Glacier` to provide basic initial state of the ice flow model.
+    - `parameters`: `Parameters` to configure some physical variables.
+"""
+function initialize_iceflow_model(iceflow_model::IF,  
+                                   glacier_idx::I,
+                                   glacier::Sleipnir.AbstractGlacier,
+                                   params::Sleipnir.Parameters
+                                   ) where {IF <: IceflowModel, I <: Int}
+    nx, ny = glacier.nx, glacier.ny
+    F = params.simulation.float_type
+    iceflow_model.A = Ref{F}(glacier.A)
+    iceflow_model.n = Ref{F}(glacier.n)
+    iceflow_model.glacier_idx = Ref{I}(glacier_idx)
+    # We just need initial condition to run out-of-place forward model
+    iceflow_model.H₀ = deepcopy(glacier.H₀)::Matrix{F}
+    iceflow_model.H  = deepcopy(glacier.H₀)::Matrix{F}
+end
 
