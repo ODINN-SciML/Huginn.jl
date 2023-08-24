@@ -17,7 +17,7 @@ Arguments
     - `distance_to_border`: Minimum distance to the border used to evaluate test. Points close to the border are not considered. 
     - `save_plot`: Save plot with comparision of prediction and true solution.
 """
-function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol=0.02, atol=1.0, distance_to_border=3, save_plot=false)
+function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol=0.02, atol=1.0, distance_to_border=3, save_plot=false, inplace=true)
 
     # Get parameters for a simulation 
     parameters = Parameters(simulation=SimulationParameters(tspan=(t₀, t₁),
@@ -47,7 +47,11 @@ function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol
     glaciers = Vector{Sleipnir.AbstractGlacier}([glacier])
 
     prediction = Prediction(model, glaciers, parameters)
-    run!(prediction) 
+    if inplace
+        run!(prediction) 
+    else
+        run₀(prediction)
+    end
 
     # Final solution
     H₁_pred = prediction.results[1].H[end]
@@ -82,22 +86,23 @@ function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol
 end
 
 """
-    function halfar_test(; rtol, atol)
+    function halfar_test(; rtol, atol, inplace)
 Multiple tests using Halfar solution. 
 
 Arguments
 =================
     - `rtol`: Relative tolerance for ice thickness H
     - `atol`: Absolute tolerance for ice thickness H 
+    - `inplace`: Use in-place or out-of-place evaluation for PDE solver
 """
-function halfar_test(; rtol, atol)
-    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=10.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=1000, rtol=rtol, atol=atol)
-    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=10.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=1000, rtol=rtol, atol=atol)
-    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=40.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600, rtol=rtol, atol=atol)
-    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=40.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600, rtol=rtol, atol=atol)
-    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=100.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600, rtol=rtol, atol=atol)
-    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=100.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600, rtol=rtol, atol=atol)
-    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=40.0, Δx=80.0, Δy=80.0, nx=100, ny=100, h₀=300, r₀=1000, rtol=rtol, atol=atol)
-    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=40.0, Δx=80.0, Δy=80.0, nx=100, ny=100, h₀=300, r₀=1000, rtol=rtol, atol=atol)
-    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=10.0, Δx=10.0, Δy=10.0, nx=500, ny=500, h₀=300, r₀=1000, rtol=rtol, atol=atol)
+function halfar_test(; rtol, atol, inplace)
+    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=10.0,  Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
+    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=10.0,  Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
+    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=40.0,  Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600,  rtol=rtol, atol=atol, inplace=inplace)
+    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=40.0,  Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600,  rtol=rtol, atol=atol, inplace=inplace)
+    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=100.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600,  rtol=rtol, atol=atol, inplace=inplace)
+    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=100.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600,  rtol=rtol, atol=atol, inplace=inplace)
+    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=40.0,  Δx=80.0, Δy=80.0, nx=100, ny=100, h₀=300, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
+    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=40.0,  Δx=80.0, Δy=80.0, nx=100, ny=100, h₀=300, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
+    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=10.0,  Δx=10.0, Δy=10.0, nx=500, ny=500, h₀=300, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
 end
