@@ -20,13 +20,13 @@ using PyCall
 using Reexport
 
 ### ODINN.jl dependencies  ###
-# @reexport using Sleipnir
-using Sleipnir
+@reexport using Sleipnir
 
 # ##############################################
 # ############    PARAMETERS     ###############
 # ##############################################
 
+cd(@__DIR__)
 const global root_dir::String = dirname(Base.current_project())
 const global root_plots::String = joinpath(root_dir, "plots")
 
