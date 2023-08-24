@@ -20,7 +20,8 @@ using PyCall
 using Reexport
 
 ### ODINN.jl dependencies  ###
-@reexport using Sleipnir
+# @reexport using Sleipnir
+using Sleipnir
 
 # ##############################################
 # ############    PARAMETERS     ###############
