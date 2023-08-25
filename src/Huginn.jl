@@ -58,6 +58,9 @@ const pd::PyObject = PyNULL()
 # ############  HUGINN LIBRARIES  ##############
 # ##############################################
 
+# Configuration file 
+include("setup/config.jl")
+
 include("parameters/SolverParameters.jl")
 # All structures and functions related to Ice flow models
 include("models/iceflow/IceflowModel.jl")
