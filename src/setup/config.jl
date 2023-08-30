@@ -27,7 +27,7 @@ function __init__()
     catch e
         @warn "[Huginn.jl] It looks like you have not installed and/or activated the virtual Python environment. \n 
         Please follow the guidelines in: https://github.com/ODINN-SciML/ODINN.jl#readme"
-        @warm exception=(e, catch_backtrace())
+        @warn exception=(e, catch_backtrace())
     end
 
 end
