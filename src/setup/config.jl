@@ -24,9 +24,10 @@ function __init__()
         copy!(pd, pyimport("pandas"))
         copy!(xr, pyimport("xarray"))
         copy!(rioxarray, pyimport("rioxarray"))
-    catch
+    catch e
         @warn "[Huginn.jl] It looks like you have not installed and/or activated the virtual Python environment. \n 
         Please follow the guidelines in: https://github.com/ODINN-SciML/ODINN.jl#readme"
+        @warm exception=(e, catch_backtrace())
     end
 
 end
