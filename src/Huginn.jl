@@ -40,4 +40,3 @@ include("models/iceflow/IceflowModel.jl")
 include("simulations/predictions/Prediction.jl")
 
 end # module
-
