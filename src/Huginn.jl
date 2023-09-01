@@ -17,10 +17,11 @@ import Pkg
 using Distributed
 using ProgressMeter
 using PyCall
-using Reexport
 
 ### ODINN.jl dependencies  ###
-@reexport using Sleipnir
+# using Reexport
+# @reexport using Sleipnir
+using Sleipnir
 
 # ##############################################
 # ############    PARAMETERS     ###############
