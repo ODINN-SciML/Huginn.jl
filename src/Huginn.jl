@@ -2,7 +2,7 @@ __precompile__() # this module is safe to precompile
 module Huginn
 
 # ##############################################
-# ###########       PACKAGES     ##############
+# ########### PACKAGES ##############
 # ##############################################
 
 using JLD2
@@ -18,20 +18,19 @@ using Distributed
 using ProgressMeter
 using PyCall
 
-### ODINN.jl dependencies  ###
-# using Reexport
-# @reexport using Sleipnir
-using Sleipnir
+### ODINN.jl dependencies ###
+using Reexport
+@reexport using Sleipnir
 
 # ##############################################
-# ############    PARAMETERS     ###############
+# ############ PARAMETERS ###############
 # ##############################################
 
 const global root_dir::String = dirname(Base.current_project())
 const global root_plots::String = joinpath(root_dir, "plots")
 
 # ##############################################
-# ############  PYTHON LIBRARIES  ##############
+# ############ PYTHON LIBRARIES ##############
 # ##############################################
 
 const netCDF4::PyObject = PyNULL()
@@ -52,7 +51,7 @@ const rioxarray::PyObject = PyNULL()
 const pd::PyObject = PyNULL()
 
 # ##############################################
-# ############  HUGINN LIBRARIES  ##############
+# ############ HUGINN LIBRARIES ##############
 # ##############################################
 
 # Include setup for Python in case this does not already exist
