@@ -144,7 +144,7 @@ end
 Computes the average ice surface velocity for a given glacier evolution period
 based on the initial and final ice thickness states. 
 """
-function avg_surface_V!(simulation::SIM) where {F <: AbstractFloat, SIM <: Simulation}
+function avg_surface_V!(simulation::SIM) where {SIM <: Simulation}
     # TODO: Add more datapoints to better interpolate this
     ft = simulation.parameters.simulation.float_type
     iceflow_model = simulation.model.iceflow
