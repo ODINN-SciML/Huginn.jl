@@ -21,6 +21,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Tullio = "bc48ee85-29a4-5162-ae0b-a64e1601d4bc"
 
 [compat]
+BenchmarkTools = "1"
 Infiltrator = "1"
 JLD2 = "0.4"
 OrdinaryDiffEq = "6"
