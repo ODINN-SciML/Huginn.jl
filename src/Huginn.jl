@@ -2,7 +2,7 @@ __precompile__() # this module is safe to precompile
 module Huginn
 
 # ##############################################
-# ###########       PACKAGES     ##############
+# ########### PACKAGES ##############
 # ##############################################
 
 using JLD2
@@ -17,21 +17,46 @@ import Pkg
 using Distributed
 using ProgressMeter
 using PyCall
-using Reexport
 
-### ODINN.jl dependencies  ###
+### ODINN.jl dependencies ###
+using Reexport
 @reexport using Sleipnir
 
 # ##############################################
-# ############    PARAMETERS     ###############
+# ############ PARAMETERS ###############
 # ##############################################
 
+cd(@__DIR__)
 const global root_dir::String = dirname(Base.current_project())
 const global root_plots::String = joinpath(root_dir, "plots")
 
 # ##############################################
-# ############  HUGINN LIBRARIES  ##############
+# ############ PYTHON LIBRARIES ##############
 # ##############################################
+
+const netCDF4::PyObject = PyNULL()
+const cfg::PyObject = PyNULL()
+const utils::PyObject = PyNULL()
+const workflow::PyObject = PyNULL()
+const tasks::PyObject = PyNULL()
+const global_tasks::PyObject = PyNULL()
+const graphics::PyObject = PyNULL()
+const bedtopo::PyObject = PyNULL()
+const millan22::PyObject = PyNULL()
+const MBsandbox::PyObject = PyNULL()
+const salem::PyObject = PyNULL()
+
+# Essential Python libraries
+const xr::PyObject = PyNULL()
+const rioxarray::PyObject = PyNULL()
+const pd::PyObject = PyNULL()
+
+# ##############################################
+# ############ HUGINN LIBRARIES ##############
+# ##############################################
+
+# Include setup for Python in case this does not already exist
+include("setup/config.jl")
 
 include("parameters/SolverParameters.jl")
 # All structures and functions related to Ice flow models
@@ -40,4 +65,3 @@ include("models/iceflow/IceflowModel.jl")
 include("simulations/predictions/Prediction.jl")
 
 end # module
-
