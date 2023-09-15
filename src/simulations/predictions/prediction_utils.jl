@@ -1,5 +1,5 @@
 
-export run₀, run!
+export run₀, run!, apply_MB_mask!
 
 """
     run!(simulation::Prediction)
@@ -38,7 +38,7 @@ function batch_iceflow_PDE!(glacier_idx::Int, simulation::Prediction)
     function action!(integrator)
         if params.simulation.use_MB 
             # Compute mass balance
-            MB_timestep!(model, glacier, params.solver, integrator.t)
+            MB_timestep!(model, glacier, params.solver.step, integrator.t)
             apply_MB_mask!(integrator.u, glacier, model.iceflow)
         end
     end
@@ -140,7 +140,7 @@ function batch_iceflow_PDE(glacier_idx::Int, simulation::Prediction)
     function action!(integrator)
         if params.simulation.use_MB 
             # Compute mass balance
-            MB_timestep!(model, glacier, params.solver, integrator.t)
+            MB_timestep!(model, glacier, params.solver.step, integrator.t)
             apply_MB_mask!(integrator.u, glacier, model.iceflow)
         end
     end
@@ -204,4 +204,12 @@ function simulate_iceflow_PDE(
     results = Sleipnir.create_results(simulation, glacier_idx[], iceflow_sol; light=true)
 
     return results
+end
+
+function apply_MB_mask!(H::Matrix{F}, glacier::G, ifm::IceflowModel) where {F <: AbstractFloat, G <: Sleipnir.AbstractGlacier}
+    # Appy MB only over ice, and avoid applying it to the borders in the accummulation area to avoid overflow
+    MB::Matrix{F}, MB_mask::BitMatrix, MB_total::Matrix{F} = ifm.MB, ifm.MB_mask, ifm.MB_total
+    MB_mask .= ((H .> 0.0) .&& (MB .< 0.0)) .|| ((H .> 0.0) .&& (glacier.dist_border .> 1.0) .&& (MB .>= 0.0)) 
+    H[MB_mask] .+= MB[MB_mask]
+    MB_total[MB_mask] .+= MB[MB_mask]
 end

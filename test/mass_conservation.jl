@@ -32,7 +32,7 @@ function unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=f
                             physical=PhysicalParameters(),
                             solver=SolverParameters(reltol=1e-12))
 
-    model = Model(iceflow = SIA2Dmodel(parameters))
+    model = Model(iceflow = SIA2Dmodel(parameters), mass_balance = nothing)
 
     # Surface
     S = B + H₀

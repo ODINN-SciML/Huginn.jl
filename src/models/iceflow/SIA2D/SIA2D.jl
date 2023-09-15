@@ -1,5 +1,5 @@
 
-export SIA2Dmodel
+export SIA2Dmodel, initialize_iceflow_model!
 
 include("SIA2D_utils.jl")
 
@@ -94,9 +94,9 @@ Keyword arguments
 """
 function initialize_iceflow_model!(iceflow_model::IF,  
                                    glacier_idx::I,
-                                   glacier::Sleipnir.AbstractGlacier,
+                                   glacier::G,
                                    params::Sleipnir.Parameters
-                                   ) where {IF <: IceflowModel, I <: Int}
+                                   ) where {IF <: IceflowModel, I <: Int, G <: Sleipnir.AbstractGlacier}
     nx, ny = glacier.nx, glacier.ny
     F = params.simulation.float_type
     iceflow_model.A = Ref{F}(glacier.A)

@@ -32,7 +32,7 @@ function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol
     # Bed (it has to be flat for the Halfar solution)
     B = zeros((nx,ny))
 
-    model = Model(iceflow = SIA2Dmodel(parameters)) 
+    model = Model(iceflow = SIA2Dmodel(parameters), mass_balance = nothing) 
 
     # Initial condition of the glacier
     R₀ = [sqrt((Δx * (i - nx/2))^2 + (Δy * (j - ny/2))^2) for i in 1:nx, j in 1:ny]

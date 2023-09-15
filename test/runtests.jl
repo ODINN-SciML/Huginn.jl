@@ -27,7 +27,11 @@ ENV["GKSwstype"]="nul"
 
 @testset "Halfar Solution (out-of-place)" halfar_test(; rtol=0.02, atol=1.0, inplace=false)
 
-@testset "PDE solving integration tests" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=false, fast=true)
+@testset "PDE solving integration tests w/o MB" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=false, fast=true)
+
+@testset "PDE solving integration tests w/ MB" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true)
+
+@testset "Run TI models in place" TI_run_test!()
 
 @testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
 

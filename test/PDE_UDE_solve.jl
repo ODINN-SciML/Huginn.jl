@@ -26,7 +26,11 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         "RGI60-07.00274", "RGI60-07.01323",  "RGI60-01.17316"]
     end
 
-    model = Model(iceflow = SIA2Dmodel(params))
+    if MB
+        model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    else
+        model = Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
+    end
 
     # We retrieve some glaciers for the simulation
     glaciers = initialize_glaciers(rgi_ids, params)
@@ -105,4 +109,41 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         end # let
     end
     end
+end
+
+function TI_run_test!(save_refs::Bool = false)
+
+    working_dir = joinpath(homedir(), "OGGM/Huginn_tests")
+    params = Parameters(OGGM = OGGMparameters(working_dir=working_dir,
+                                              multiprocessing=true,
+                                              workers=2,
+                                              ice_thickness_source = "Farinotti19"),
+                        simulation = SimulationParameters(use_MB=true,
+                                                          velocities=false,
+                                                          tspan=(2010.0, 2015.0),
+                                                          working_dir = Huginn.root_dir),
+                        solver = SolverParameters(reltol=1e-8)
+                        ) 
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    rgi_ids = ["RGI60-11.03638"]
+
+    glacier = initialize_glaciers(rgi_ids, params)[1]
+    initialize_iceflow_model!(model.iceflow, 1, glacier, params)
+    t = 2015.0
+
+    MB_timestep!(model, glacier, params.solver.step, t)
+    apply_MB_mask!(model.iceflow.H, glacier, model.iceflow)
+
+    # /!\ Saves current run as reference values
+    if save_refs
+        jldsave(joinpath(Huginn.root_dir, "test/data/PDE/MB_ref.jld2"); model.iceflow.MB)
+        jldsave(joinpath(Huginn.root_dir, "test/data/PDE/H_w_MB_ref.jld2"); model.iceflow.H)
+    end
+
+    MB_ref = load(joinpath(Huginn.root_dir, "test/data/PDE/MB_ref.jld2"))["MB"]
+    H_w_MB_ref = load(joinpath(Huginn.root_dir, "test/data/PDE/H_w_MB_ref.jld2"))["H"]
+
+    @test all(MB_ref .== model.iceflow.MB)
+    @test all(H_w_MB_ref .== model.iceflow.H)
+
 end
