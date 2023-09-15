@@ -16,11 +16,13 @@ function Model(;
 Initialize Huginn flow model
 
 """
-function Model(;
-    iceflow::IceflowModel
-    )
 
-    model = Sleipnir.Model(iceflow, nothing, nothing)
+function Model(;
+    iceflow::Union{IFM, Nothing},
+    mass_balance::Union{MBM, Nothing}
+    ) where {IFM <: IceflowModel, MBM <: MBmodel}
+
+    model = Sleipnir.Model(iceflow, mass_balance, nothing)
 
     return model
 end
