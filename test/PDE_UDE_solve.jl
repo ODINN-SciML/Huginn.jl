@@ -72,10 +72,6 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
             if result.rgi_id == PDE_ref.rgi_id
                 test_ref = PDE_ref
             end
-
-            # if result.rgi_id == H_V_pred[4]
-            #     UDE_pred = H_V_pred
-            # end
         end
 
         ##############################

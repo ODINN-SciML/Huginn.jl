@@ -8,6 +8,8 @@ In-place run of the model.
 """
 function run!(simulation::Prediction)
 
+    enable_multiprocessing(simulation.parameters.simulation.workers)
+
     println("Running forward in-place PDE ice flow model...\n")
     results_list = @showprogress pmap((glacier_idx) -> batch_iceflow_PDE!(glacier_idx, simulation), 1:length(simulation.glaciers))
 
@@ -209,7 +211,7 @@ end
 function apply_MB_mask!(H::Matrix{F}, glacier::G, ifm::IceflowModel) where {F <: AbstractFloat, G <: Sleipnir.AbstractGlacier}
     # Appy MB only over ice, and avoid applying it to the borders in the accummulation area to avoid overflow
     MB::Matrix{F}, MB_mask::BitMatrix, MB_total::Matrix{F} = ifm.MB, ifm.MB_mask, ifm.MB_total
-    MB_mask .= ((H .> 0.0) .&& (MB .< 0.0)) .|| ((H .> 0.0) .&& (glacier.dist_border .> 1.0) .&& (MB .>= 0.0)) 
+    MB_mask .= ((H .> 0.0) .&& (MB .< 0.0)) .|| ((H .> 10.0) .&& (MB .>= 0.0)) 
     H[MB_mask] .+= MB[MB_mask]
     MB_total[MB_mask] .+= MB[MB_mask]
 end
