@@ -69,6 +69,9 @@ function plot_analysis_flow_parameters(
     ny, nx = size(h_diff[1,1])
     h_diff = [reverse(h_diff[i,j]', dims=2) for i in 1:rows, j in 1:cols]
 
+    scale_width = 0.10*nx
+    scale_number = round(Δx * scale_width / 1000; digits=1)
+
     max_abs_value = max(abs(minimum(reduce(vcat, [vec(matrix) for matrix in h_diff]))), abs(maximum(reduce(vcat, [vec(matrix) for matrix in h_diff]))))
     
     # Initialize the figure
@@ -85,9 +88,6 @@ function plot_analysis_flow_parameters(
             ax_diff.xticklabelsvisible=false
             ax_diff.yticklabelsvisible=false
             
-
-            scale_width = 0.10*nx
-            scale_number = round(Δx * scale_width / 1000; digits=1)
             textsize=1.2*scale_width/max(rows,cols)
             
             if max(rows,cols) == 5
