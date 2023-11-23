@@ -67,7 +67,7 @@ include("models/iceflow/IceflowModel.jl")
 # Everything related to running forward simulations of ice flow
 include("simulations/predictions/Prediction.jl")
 
-# Everything related to analyzing glaciers
-include("analysis/Analysis.jl")
+# Everything related to plotting
+include("plotting/Plotting.jl")
 
 end # module

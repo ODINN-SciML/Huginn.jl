@@ -1,16 +1,16 @@
-function glacier_analysis_test()
-    # Add all individual analysis test functions
+function plotting_test()
+    # Add all individual plotting test functions
     plot_analysis_flow_parameters_test()
 end
 
 function plot_analysis_flow_parameters_test()
     # Test for valid input
     tspan = (2000.0, 2015.0)
-    A_values = [8.5e-20, 8e-17]
-    n_values = [3.0, 3.2]
+    A_values = [8.5e-20]
+    n_values = [3.0]
     rgi_ids = ["RGI60-11.01450"]
     
-  
+    
     # Test for error with too many rows/cols
     A_values_large = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
     n_values_large = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]

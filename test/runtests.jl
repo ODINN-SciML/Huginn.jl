@@ -15,7 +15,7 @@ include("params_construction.jl")
 include("halfar.jl")
 include("PDE_UDE_solve.jl")
 include("mass_conservation.jl")
-include("analysis.jl")
+include("plotting.jl")
 
 # Activate to avoid GKS backend Plot issues in the JupyterHub
 ENV["GKSwstype"]="nul"
@@ -36,4 +36,4 @@ ENV["GKSwstype"]="nul"
 
 @testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
 
-@testset "Glacier Analysis" glacier_analysis_test()
+@testset "Glacier Analysis" plotting_test()

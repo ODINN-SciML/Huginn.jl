@@ -58,7 +58,6 @@ function plot_analysis_flow_parameters(
     ]
     h_diff = [result[i,j].H[end]-result[i,j].H[1] for i in 1:rows, j in 1:cols]
     
-    
     Δx = result[1,1].Δx
     
     #Extract longitude and latitude 
@@ -71,7 +70,8 @@ function plot_analysis_flow_parameters(
 
     scale_width = 0.10*nx
     scale_number = round(Δx * scale_width / 1000; digits=1)
-
+    textsize=1.2*scale_width/max(rows,cols)
+    
     max_abs_value = max(abs(minimum(reduce(vcat, [vec(matrix) for matrix in h_diff]))), abs(maximum(reduce(vcat, [vec(matrix) for matrix in h_diff]))))
     
     # Initialize the figure
@@ -84,12 +84,10 @@ function plot_analysis_flow_parameters(
             hm_diff = Makie.heatmap!(ax_diff, h_diff[i,j],colormap=:redsblues,colorrange=(-max_abs_value, max_abs_value))
             
             ax_diff.xlabel = "A= $(A_values[j]), n= $(n_values[i])"
-            
             ax_diff.xticklabelsvisible=false
             ax_diff.yticklabelsvisible=false
             
-            textsize=1.2*scale_width/max(rows,cols)
-            
+
             if max(rows,cols) == 5
                 ax_diff.xlabelsize = 12.0
             end
@@ -104,11 +102,11 @@ function plot_analysis_flow_parameters(
             end
         end
     end
-    
+    rgi_id=rgi_ids[1]
     start_year, end_year = round.(Int, tspan)
-    fig[0, :] = Label(fig, "Ice Thickness difference ΔH for varying A and n $rgi_ids from $start_year to $end_year")
+    fig[0, :] = Label(fig, "Ice Thickness difference ΔH for varying A and n from $start_year to $end_year")
 
-    fig[rows+1, :] = Label(fig, "↑latitude = $lat ° →longitude = $lon ° - scale = $scale_number km ")
+    fig[rows+1, :] = Label(fig, "$rgi_id - latitude = $lat ° - longitude = $lon ° - scale = $scale_number km ")
     return fig
 end
 
@@ -170,6 +168,3 @@ function generate_result(
 end
 
 
-########################################################
-############# MSE analysing functions  #################
-########################################################
