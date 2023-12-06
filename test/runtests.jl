@@ -7,7 +7,7 @@ using JLD2
 using Plots
 using Infiltrator
 using OrdinaryDiffEq
-
+using CairoMakie
 using Huginn
 
 include("utils_test.jl")
@@ -36,4 +36,4 @@ ENV["GKSwstype"]="nul"
 
 @testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
 
-@testset "Glacier Analysis" plotting_test()
+@testset "Glacier Plotting" plot_analysis_flow_parameters_test()
