@@ -28,7 +28,7 @@ function plot_analysis_flow_parameters(
         A_values, 
         n_values, 
         rgi_ids, 
-        ice_thickness_source="Farinotti19", 
+        ;ice_thickness_source="Farinotti19", 
         workers=1, 
         use_iceflow=true, 
         use_MB=true, 
@@ -53,8 +53,8 @@ function plot_analysis_flow_parameters(
     result = [
         generate_result(
             tspan, A_values[j], n_values[i], rgi_ids, 
-            ice_thickness_source, workers, use_iceflow, use_MB, 
-            use_multiprocessing, reltol, iceflow_model, mass_balance_model
+            ice_thickness_source=ice_thickness_source, workers=workers, use_iceflow=use_iceflow, use_MB=use_MB, 
+            use_multiprocessing=use_multiprocessing, reltol=reltol, iceflow_model=iceflow_model, mass_balance_model=mass_balance_model
         ) for i in 1:rows, j in 1:cols
     ]
     h_diff = [result[i,j].H[end]-result[i,j].H[1] for i in 1:rows, j in 1:cols]
@@ -117,7 +117,7 @@ function generate_result(
         A, 
         n, 
         rgi_ids, 
-        ice_thickness_source="Farinotti19", 
+        ;ice_thickness_source="Farinotti19", 
         workers=1, 
         use_iceflow=true, 
         use_MB=true, 
