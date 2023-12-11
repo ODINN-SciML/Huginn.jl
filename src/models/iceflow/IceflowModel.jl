@@ -1,4 +1,4 @@
-export Model
+export Model, IceflowModel
 
 # Abstract type as a parent type for ice flow models
 abstract type IceflowModel <: AbstractModel end
@@ -11,9 +11,11 @@ include("SIA2D/SIA2D.jl")
 
 """
 function Model(;
-    iceflow::IceflowModel
-    )
-Initialize Huginn flow model
+    iceflow::Union{IFM, Nothing},
+    mass_balance::Union{MBM, Nothing}
+    ) where {IFM <: IceflowModel, MBM <: MBmodel}
+    
+Initialize Model at Huginn level (no machine learning model).
 
 """
 

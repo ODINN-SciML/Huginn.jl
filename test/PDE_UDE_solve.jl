@@ -57,13 +57,6 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         PDE_refs = load(joinpath(Huginn.root_dir, "test/data/PDE/PDE_refs_noMB.jld2"))["results"]
     end
 
-    # # Run one epoch of the UDE training
-    # θ = zeros(10) # dummy data for the NN
-    # UA_f = zeros(10)
-    # UDE_settings, train_settings = Huginn.get_default_training_settings!(gdirs)
-    # context_batches = Huginn.get_UDE_context(gdirs, tspan; testmode=true, velocities=false)
-    # H_V_preds = @time predict_iceflow(θ, UA_f, gdirs, context_batches, UDE_settings, mb_model) # Array{(H_pred, V̄x_pred, V̄y_pred, rgi_id)}
-
     let results=prediction.results
 
     for result in results
@@ -87,21 +80,12 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         plot_test_error(result, test_ref, "H",  result.rgi_id, atol, MB)
         plot_test_error(result, test_ref, "Vx", result.rgi_id, vtol, MB)
         plot_test_error(result, test_ref, "Vy", result.rgi_id, vtol, MB)
-        
-        ### UDE ###
-        # Huginn.plot_test_error(UDE_pred, test_ref, "H", rgi_id, atol, MB)
-        # Huginn.plot_test_error(UDE_pred, test_ref, "Vx", rgi_id, vtol, MB)
-        # Huginn.plot_test_error(UDE_pred, test_ref, "Vy", rgi_id, vtol, MB)
 
         # Test that the PDE simulations are correct
         @test all(isapprox.(result.H[end], test_ref.H[end], rtol=rtol, atol=atol))
         @test all(isapprox.(result.Vx, test_ref.Vx, rtol=rtol, atol=vtol))
         @test all(isapprox.(result.Vy, test_ref.Vy, rtol=rtol, atol=vtol))
         
-        # Test that the UDE simulations are correct
-        # @test all(isapprox.(UDE_pred[1], test_ref["H"], atol=atol))
-        # @test all(isapprox.(UDE_pred[2], test_ref["Vx"], atol=vtol)) 
-        # @test all(isapprox.(UDE_pred[3], test_ref["Vy"], atol=vtol))
         end # let
     end
     end

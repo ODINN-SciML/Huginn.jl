@@ -47,7 +47,8 @@ function clean()
             addprocs($procs - nprocs(); exeflags="--project")
             println("Number of cores: ", nprocs())
             println("Number of workers: ", nworkers())
-            @everywhere using Huginn
+            @everywhere using Reexport
+            @everywhere @reexport using Huginn
             end # @eval
         elseif nprocs() != procs && procs == 1
             @eval begin
