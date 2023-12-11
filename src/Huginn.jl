@@ -20,8 +20,7 @@ using PyCall
 
 ### ODINN.jl dependencies ###
 using Reexport
-@reexport using Sleipnir
-@reexport using Muninn
+@reexport using Muninn # imports Sleipnir as well
 
 # ##############################################
 # ############ PARAMETERS ###############
