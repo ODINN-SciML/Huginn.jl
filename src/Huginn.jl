@@ -12,7 +12,7 @@ using Tullio
 using Infiltrator
 using Plots, PlotThemes
 Plots.theme(:wong2) # sets overall theme for Plots
-# using CairoMakie, GeoMakie
+using CairoMakie
 import Pkg
 using Distributed
 using ProgressMeter
@@ -64,5 +64,8 @@ include("parameters/SolverParameters.jl")
 include("models/iceflow/IceflowModel.jl")
 # Everything related to running forward simulations of ice flow
 include("simulations/predictions/Prediction.jl")
+
+# Everything related to plotting
+include("plotting/plotting_utils.jl")
 
 end # module
