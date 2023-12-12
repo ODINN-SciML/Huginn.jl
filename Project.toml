@@ -24,6 +24,7 @@ Tullio = "bc48ee85-29a4-5162-ae0b-a64e1601d4bc"
 
 [compat]
 BenchmarkTools = "1"
+CairoMakie = "0.11"
 Infiltrator = "1"
 JLD2 = "0.4"
 Muninn = "0.2"
