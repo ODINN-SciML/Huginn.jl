@@ -24,17 +24,11 @@ Generate and plot the difference in ice thickness for a specified glacier over a
 """
 
 function plot_analysis_flow_parameters(
-        tspan, 
+        params, 
         A_values, 
         n_values, 
         rgi_ids, 
-        ;ice_thickness_source="Farinotti19", 
-        workers=1, 
-        use_iceflow=true, 
-        use_MB=true, 
-        use_multiprocessing=true, 
-        reltol=1e-8,
-        iceflow_model=SIA2Dmodel, 
+        ;iceflow_model=SIA2Dmodel, 
         mass_balance_model=TImodel1,
         
     )
@@ -52,9 +46,8 @@ function plot_analysis_flow_parameters(
 
     result = [
         generate_result(
-            tspan, A_values[j], n_values[i], rgi_ids, 
-            ice_thickness_source=ice_thickness_source, workers=workers, use_iceflow=use_iceflow, use_MB=use_MB, 
-            use_multiprocessing=use_multiprocessing, reltol=reltol, iceflow_model=iceflow_model, mass_balance_model=mass_balance_model
+            params, A_values[j], n_values[i], rgi_ids, 
+            iceflow_model, mass_balance_model
         ) for i in 1:rows, j in 1:cols
     ]
     h_diff = [result[i,j].H[end]-result[i,j].H[1] for i in 1:rows, j in 1:cols]
@@ -105,7 +98,7 @@ function plot_analysis_flow_parameters(
         end
     end
     rgi_id=rgi_ids[1]
-    start_year, end_year = round.(Int, tspan)
+    start_year, end_year = round.(Int, params.simulation.tspan)
     fig[0, :] = Label(fig, "Ice Thickness difference ΔH for varying A and n from $start_year to $end_year")
 
     fig[rows+1, :] = Label(fig, "$rgi_id - latitude = $lat ° - longitude = $lon ° - scale = $scale_number km ")
@@ -113,45 +106,15 @@ function plot_analysis_flow_parameters(
 end
 
 function generate_result(
-        tspan, 
+        params, 
         A, 
         n, 
         rgi_ids, 
-        ;ice_thickness_source="Farinotti19", 
-        workers=1, 
-        use_iceflow=true, 
-        use_MB=true, 
-        use_multiprocessing=true, 
-        reltol=1e-8,
-        iceflow_model=SIA2Dmodel, 
-        mass_balance_model=TImodel1, 
+        iceflow_model, 
+        mass_balance_model, 
         
     )
-    # Set up the working directory
-    working_dir = joinpath(dirname(Base.current_project()), "data")
-    if !ispath(working_dir)
-        mkdir("data")
-    end
-
-    # Configure parameters with the passed-in or default values
-    params = Parameters(
-        OGGM = OGGMparameters(
-            working_dir=working_dir,
-            multiprocessing=use_multiprocessing,
-            workers=workers,
-            ice_thickness_source=ice_thickness_source
-        ),
-        simulation = SimulationParameters(
-            use_MB=use_MB,
-            use_iceflow=use_iceflow,
-            tspan=tspan,
-            working_dir=working_dir,
-            multiprocessing=use_multiprocessing,
-            workers=workers
-        ),
-        solver = SolverParameters(reltol=reltol)
-    ) 
-
+    
     # Initialize the model using the specified or default models
     model = Model(
         iceflow = iceflow_model(params, n=n, A=A), 
