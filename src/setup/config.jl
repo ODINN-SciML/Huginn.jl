@@ -40,8 +40,9 @@ function clean()
     exit()
  end
 
- function enable_multiprocessing(procs::Int)
-    if procs > 0
+ function enable_multiprocessing(params::Sleipnir.Parameters)
+    procs::Int = params.simulation.workers
+    if procs > 0 && params.simulation.multiprocessing
         if nprocs() < procs
             @eval begin
             addprocs($procs - nprocs(); exeflags="--project")

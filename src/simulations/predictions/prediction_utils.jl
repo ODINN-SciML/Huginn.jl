@@ -8,7 +8,7 @@ In-place run of the model.
 """
 function run!(simulation::Prediction)
 
-    enable_multiprocessing(simulation.parameters.simulation.workers)
+    enable_multiprocessing(simulation.parameters)
 
     println("Running forward in-place PDE ice flow model...\n")
     results_list = @showprogress pmap((glacier_idx) -> batch_iceflow_PDE!(glacier_idx, simulation), 1:length(simulation.glaciers))
