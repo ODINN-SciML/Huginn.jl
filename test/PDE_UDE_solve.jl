@@ -12,8 +12,10 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
                         simulation = SimulationParameters(use_MB=MB,
                                                           velocities=false,
                                                           tspan=(2010.0, 2015.0),
-                                                          working_dir = Huginn.root_dir),
-                        solver = SolverParameters(reltol=1e-12)
+                                                          working_dir = Huginn.root_dir,
+                                                          workers=4,
+                                                          multiprocessing=true),
+                        solver = SolverParameters(reltol=1e-8)
                         ) 
 
     ## Retrieving gdirs and climate for the following glaciers
