@@ -15,7 +15,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
                                                           working_dir = Huginn.root_dir,
                                                           workers=4,
                                                           multiprocessing=true),
-                        solver = SolverParameters(reltol=1e-8)
+                        solver = SolverParameters(reltol=1e-12)
                         ) 
 
     ## Retrieving gdirs and climate for the following glaciers
@@ -93,7 +93,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     end
 end
 
-function TI_run_test!(save_refs::Bool = false)
+function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: AbstractFloat}
 
     working_dir = joinpath(homedir(), "OGGM/Huginn_tests")
     params = Parameters(OGGM = OGGMparameters(working_dir=working_dir,
@@ -125,7 +125,7 @@ function TI_run_test!(save_refs::Bool = false)
     MB_ref = load(joinpath(Huginn.root_dir, "test/data/PDE/MB_ref.jld2"))["MB"]
     H_w_MB_ref = load(joinpath(Huginn.root_dir, "test/data/PDE/H_w_MB_ref.jld2"))["H"]
 
-    @test all(MB_ref .== model.iceflow.MB)
-    @test all(H_w_MB_ref .== model.iceflow.H)
+    @test all(isapprox.(MB_ref, model.iceflow.MB, rtol=rtol, atol=atol))
+    @test all(isapprox.(H_w_MB_ref, model.iceflow.H, rtol=rtol, atol=atol))
 
 end

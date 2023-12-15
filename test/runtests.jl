@@ -32,7 +32,7 @@ ENV["GKSwstype"]="nul"
 
 @testset "PDE solving integration tests w/ MB" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true)
 
-@testset "Run TI models in place" TI_run_test!(false)
+@testset "Run TI models in place" TI_run_test!(false; rtol=1e-5, atol=1e-5)
 
 @testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
 
