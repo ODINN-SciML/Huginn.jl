@@ -67,6 +67,12 @@ function Parameters(;
     parameters = Sleipnir.Parameters(physical, simulation, OGGM,
                                      nothing, solver, nothing)
 
+    if parameters.simulation.multiprocessing
+        enable_multiprocessing(parameters)
+    end
+    
+    oggm_config(OGGM.working_dir; oggm_processes=OGGM.workers)
+
     return parameters
 end
 

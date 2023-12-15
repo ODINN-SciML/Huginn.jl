@@ -41,7 +41,7 @@ function clean()
  end
 
  function enable_multiprocessing(params::Sleipnir.Parameters)
-    procs::Int = params.simulation.workers
+    procs = params.simulation.workers
     if procs > 0 && params.simulation.multiprocessing
         if nprocs() < procs
             @eval begin
