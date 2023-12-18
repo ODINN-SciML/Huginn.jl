@@ -26,9 +26,7 @@ function unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=f
     # Get parameters for a simulation 
     parameters = Parameters(simulation=SimulationParameters(tspan=(0.0, t_sim),
                                                             use_MB=false,
-                                                            use_iceflow=true,
-                                                            multiprocessing=true,
-                                                            workers=1),
+                                                            use_iceflow=true),
                             physical=PhysicalParameters(),
                             solver=SolverParameters(reltol=1e-12))
 

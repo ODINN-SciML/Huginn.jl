@@ -13,8 +13,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
                                                           velocities=false,
                                                           tspan=(2010.0, 2015.0),
                                                           working_dir = Huginn.root_dir,
-                                                          workers=4,
-                                                          multiprocessing=true),
+                                                          test_mode = true),
                         solver = SolverParameters(reltol=1e-12)
                         ) 
 
@@ -103,7 +102,8 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
                         simulation = SimulationParameters(use_MB=true,
                                                           velocities=false,
                                                           tspan=(2010.0, 2015.0),
-                                                          working_dir = Huginn.root_dir),
+                                                          working_dir = Huginn.root_dir,
+                                                          test_mode = true),
                         solver = SolverParameters(reltol=1e-8)
                         ) 
     model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
