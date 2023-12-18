@@ -12,9 +12,7 @@ function plot_analysis_flow_parameters_test()
                         simulation = SimulationParameters(use_MB=true,
                                                           use_iceflow= true,
                                                           tspan=(2000.0, 2015.0),
-                                                          working_dir = working_dir,
-                                                          multiprocessing=true,
-                                                          workers=2),
+                                                          working_dir = working_dir),
                         solver = SolverParameters(reltol=1e-8)
                         ) 
     

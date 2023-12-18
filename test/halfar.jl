@@ -23,8 +23,6 @@ function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol
     parameters = Parameters(simulation=SimulationParameters(tspan=(t₀, t₁),
                                                             use_MB=false,
                                                             use_iceflow=true,
-                                                            multiprocessing=true,
-                                                            workers=1,
                                                             working_dir=Huginn.root_dir),
                             physical=PhysicalParameters(),
                             solver=SolverParameters(reltol=1e-12))
