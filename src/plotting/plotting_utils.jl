@@ -117,9 +117,11 @@ function generate_result(
     
     # Initialize the model using the specified or default models
     model = Model(
-        iceflow = iceflow_model(params, n=n, A=A), 
+        iceflow = iceflow_model(params), 
         mass_balance = mass_balance_model(params)
     )
+    model.iceflow.A=A
+    model.iceflow.n=n
     
     # Initialize glaciers and run prediction
     glaciers = initialize_glaciers(rgi_ids, params)

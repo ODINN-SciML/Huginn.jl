@@ -6,14 +6,15 @@ function plot_analysis_flow_parameters_test()
     end
 
     params = Parameters(OGGM = OGGMparameters(working_dir=working_dir,
-                                              multiprocessing=true,
-                                              workers=2,
+                                              multiprocessing=false,
+                                              workers=1,
                                               ice_thickness_source = "Farinotti19"),
                         simulation = SimulationParameters(use_MB=true,
-                                                          use_iceflow= true,
-                                                          tspan=(2000.0, 2015.0),
+                                                          tspan=(2010.0, 2015.0),
                                                           working_dir = working_dir,
                                                           test_mode = true),
+                                                          multiprocessing=false,
+                                                          workers=1),
                         solver = SolverParameters(reltol=1e-8)
                         ) 
     
