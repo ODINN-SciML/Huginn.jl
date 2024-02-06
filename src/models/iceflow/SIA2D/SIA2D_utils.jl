@@ -88,21 +88,21 @@ end
 
 Compute a step of the Shallow Ice Approximation UDE in a forward model. Allocates memory.
 """
-function SIA2D(H::Matrix{F}, simulation::SIM, t::F) where {F <: AbstractFloat, SIM <: Simulation}
+function SIA2D(H::Matrix{<:Real}, simulation::SIM, t) where { SIM <: Simulation}
 # function SIA2D(H, SIA2Dmodel)
     # Retrieve parameters
     SIA2D_model::SIA2Dmodel = simulation.model.iceflow
     glacier::Sleipnir.Glacier2D = simulation.glaciers[simulation.model.iceflow.glacier_idx[]]
     params::Sleipnir.Parameters = simulation.parameters
-        int_type = simulation.parameters.simulation.int_type
+    int_type = simulation.parameters.simulation.int_type
     # Retrieve parameters
-    B::Matrix{F} = glacier.B
-    Δx::F = glacier.Δx
-    Δy::F = glacier.Δy
-    A::Ref{F} = SIA2D_model.A
-    n::Ref{F} = SIA2D_model.n
-    ρ::F = params.physical.ρ
-    g::F = params.physical.g
+    B = glacier.B
+    Δx = glacier.Δx
+    Δy = glacier.Δy
+    A = SIA2D_model.A
+    n = SIA2D_model.n
+    ρ = params.physical.ρ
+    g = params.physical.g
 
     # Update glacier surface altimetry
     S = B .+ H

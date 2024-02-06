@@ -206,7 +206,7 @@ function simulate_iceflow_PDE(
     return results
 end
 
-function apply_MB_mask!(H::Matrix{<:Real}, glacier::G, ifm::IceflowModel) where {F <: Real, G <: Sleipnir.AbstractGlacier}
+function apply_MB_mask!(H::Matrix{<:Real}, glacier::G, ifm::IceflowModel) where {G <: Sleipnir.AbstractGlacier}
     # Appy MB only over ice, and avoid applying it to the borders in the accummulation area to avoid overflow
     MB::Matrix{<:Real}, MB_mask::BitMatrix, MB_total::Matrix{<:Real} = ifm.MB, ifm.MB_mask, ifm.MB_total
     MB_mask .= ((H .> 0.0) .&& (MB .< 0.0)) .|| ((H .> 10.0) .&& (MB .>= 0.0)) 

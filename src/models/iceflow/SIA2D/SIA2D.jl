@@ -66,7 +66,7 @@ function SIA2Dmodel(params::Sleipnir.Parameters;
                     MB::Union{Matrix{<: Real}, Nothing} = nothing,
                     MB_mask::Union{BitMatrix, Nothing} = nothing,
                     MB_total::Union{Matrix{<: Real}, Nothing} = nothing,
-                    glacier_idx::Union{I, Nothing} = nothing) where {F <: Real, I <: Integer}
+                    glacier_idx::Union{I, Nothing} = nothing) where {I <: Integer}
     
     ft = params.simulation.float_type
     it = params.simulation.int_type
@@ -165,11 +165,17 @@ function initialize_iceflow_model(iceflow_model::IF,
                                    ) where {IF <: IceflowModel, I <: Int}
     nx, ny = glacier.nx, glacier.ny
     F = params.simulation.float_type
-    iceflow_model.A = Ref{Real}(glacier.A)
-    iceflow_model.n = Ref{Real}(glacier.n)
-    iceflow_model.glacier_idx = Ref{I}(glacier_idx)
+    iceflow_model.A = glacier.A
+    iceflow_model.n = glacier.n
+    iceflow_model.glacier_idx = glacier_idx
     # We just need initial condition to run out-of-place forward model
-    iceflow_model.H₀ = deepcopy(glacier.H₀)::Matrix{F}
-    iceflow_model.H  = deepcopy(glacier.H₀)::Matrix{F}
+    iceflow_model.H₀ = deepcopy(glacier.H₀)
+    iceflow_model.H  = deepcopy(glacier.H₀)
+    
+    iceflow_model.MB = zeros(F,nx,ny)
+    iceflow_model.MB_mask = zeros(F,nx,ny)
+    iceflow_model.MB_total = zeros(F,nx,ny)
+
+
 end
 
