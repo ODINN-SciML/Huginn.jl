@@ -104,6 +104,9 @@ function SIA2D(H::Matrix{<:Real}, simulation::SIM, t) where { SIM <: Simulation}
     ρ = params.physical.ρ
     g = params.physical.g
 
+    # First, enforce values to be positive
+    map!(x -> ifelse(x>0.0,x,0.0), H, H)
+    
     # Update glacier surface altimetry
     S = B .+ H
 
