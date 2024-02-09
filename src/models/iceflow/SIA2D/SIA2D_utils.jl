@@ -101,6 +101,7 @@ function SIA2D(H::Matrix{<:Real}, simulation::SIM, t) where { SIM <: Simulation}
     Δy = glacier.Δy
     A = SIA2D_model.A
     n = SIA2D_model.n
+    C = SIA2D_model.C
     ρ = params.physical.ρ
     g = params.physical.g
 
