@@ -267,3 +267,40 @@ function surface_V(H::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
 
     return Vx, Vy    
 end
+
+function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
+    params::Sleipnir.Parameters = simulation.parameters
+    
+    iceflow_model = simulation.model.iceflow
+    glacier::Sleipnir.Glacier2D = simulation.glaciers[iceflow_model.glacier_idx[]]
+    B = glacier.B
+    Δx = glacier.Δx
+    Δy = glacier.Δy
+    A = iceflow_model.A
+    n = iceflow_model.n
+    ρ = params.physical.ρ
+    g = params.physical.g
+    H₀ = glacier.H₀
+
+    # Update glacier surface altimetry
+    S = glacier.S  
+    V = Huginn.avg(V)
+    
+    # All grid variables computed in a staggered grid
+    # Compute surface gradients on edges
+    dSdx = Huginn.diff_x(S) / Δx
+    dSdy = Huginn.diff_y(S) / Δy
+    ∇S = (Huginn.avg_y(dSdx).^2 .+ Huginn.avg_x(dSdy).^2).^(1/2)
+    ∇S[V .== 0] .= 0
+
+    Γꜛ = (2.0 * A[] * (ρ * g)^n[]) / (n[]+1) # surface stress (not average)  # 1 / m^3 s 
+    
+    
+
+    H = ( V ./ (Γꜛ .*(∇S .^ n[]))) .^ (1 / (n[] + 1)) #norm equation
+    
+    replace!(H, NaN=>0.0)
+    replace!(H, Inf=>0.0)
+    return H   
+end
+
