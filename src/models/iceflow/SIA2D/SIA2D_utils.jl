@@ -278,6 +278,7 @@ function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
     Δy = glacier.Δy
     A = iceflow_model.A
     n = iceflow_model.n
+    C = iceflow_model.C
     ρ = params.physical.ρ
     g = params.physical.g
     H₀ = glacier.H₀
@@ -295,9 +296,7 @@ function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
 
     Γꜛ = (2.0 * A[] * (ρ * g)^n[]) / (n[]+1) # surface stress (not average)  # 1 / m^3 s 
     
-    
-
-    H = ( V ./ (Γꜛ .*(∇S .^ n[]))) .^ (1 / (n[] + 1)) #norm equation
+    H = ( (V .+ C[]) ./ (Γꜛ .*(∇S .^ n[]))) .^ (1 / (n[] + 1)) #norm equation
     
     replace!(H, NaN=>0.0)
     replace!(H, Inf=>0.0)
