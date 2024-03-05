@@ -296,7 +296,9 @@ function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
 
     Γꜛ = (2.0 * A[] * (ρ * g)^n[]) / (n[]+1) # surface stress (not average)  # 1 / m^3 s 
     
-    H = ( (V .+ C[]) ./ (Γꜛ .*(∇S .^ n[]))) .^ (1 / (n[] + 1)) #norm equation
+    basal = C[]*(ρ * g .* ∇S).^(n[]+1)
+    
+    H = ( V ./ (basal + Γꜛ .*(∇S .^ n[]))) .^ (1 / (n[] + 1)) 
     
     replace!(H, NaN=>0.0)
     replace!(H, Inf=>0.0)
