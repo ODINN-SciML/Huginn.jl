@@ -29,13 +29,16 @@ function plot_analysis_flow_parameters(simulation::SIM, A_values, n_values) wher
     rows = length(n_values)
     cols = length(A_values)
 
+   
     if rows > 5 || cols > 5
         error("more than a 5x5 grid is not supported")
     end
 
     if length(simulation.glaciers) > 1
         error("only one glacier at a time is supported")
-    end
+    end   
+   
+    Huginn.initialize_iceflow_model!(simulation.model.iceflow, 1, simulation.glaciers[1], simulation.parameters)
 
     result = [
         generate_result(
@@ -99,8 +102,8 @@ end
 function generate_result(simulation::SIM, A, n,) where {SIM <: Simulation}
     
     # Initialize the model using the specified or default models
-    simulation.model.iceflow.A=A
-    simulation.model.iceflow.n=n
+    simulation.model.iceflow.A[]=A
+    simulation.model.iceflow.n[]=n
 
     run!(simulation)
 

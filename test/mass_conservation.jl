@@ -38,7 +38,7 @@ function unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=f
 
     # Define glacier object
     glacier = Glacier2D(rgi_id = "toy", H₀ = H₀, S = S, B = B, A = A, n = n, 
-                        Δx=Δx, Δy=Δy, nx=nx, ny=ny)
+                        Δx=Δx, Δy=Δy, nx=nx, ny=ny, C = 0.0)
     glaciers = Vector{Sleipnir.AbstractGlacier}([glacier])
 
     prediction = Prediction(model, glaciers, parameters)
