@@ -284,7 +284,7 @@ function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
     H₀ = glacier.H₀
 
     # Update glacier surface altimetry
-    S = glacier.S  
+    S = iceflow_model.S  
     V = Huginn.avg(V)
     
     # All grid variables computed in a staggered grid
@@ -292,7 +292,7 @@ function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
     dSdx = Huginn.diff_x(S) / Δx
     dSdy = Huginn.diff_y(S) / Δy
     ∇S = (Huginn.avg_y(dSdx).^2 .+ Huginn.avg_x(dSdy).^2).^(1/2)
-    ∇S[V .== 0] .= 0
+   
 
     Γꜛ = (2.0 * A[] * (ρ * g)^n[]) / (n[]+1) # surface stress (not average)  # 1 / m^3 s 
     

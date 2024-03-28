@@ -174,6 +174,7 @@ function initialize_iceflow_model(iceflow_model::IF,
     iceflow_model.A = glacier.A
     iceflow_model.n = glacier.n
     iceflow_model.C = glacier.C
+    iceflow_model.S = glacier.S
     iceflow_model.glacier_idx = glacier_idx
     # We just need initial condition to run out-of-place forward model
     iceflow_model.H₀ = deepcopy(glacier.H₀)
