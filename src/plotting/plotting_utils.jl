@@ -23,33 +23,27 @@ Generate and plot the difference in ice thickness for a specified glacier over a
 - Only supports analysis for one glacier at a time (length of `rgi_ids` should be 1).
 """
 
-function plot_analysis_flow_parameters(
-        params, 
-        A_values, 
-        n_values, 
-        rgi_ids, 
-        ;iceflow_model=SIA2Dmodel, 
-        mass_balance_model=TImodel1,
-        
-    )
+function plot_analysis_flow_parameters(simulation::SIM, A_values, n_values) where {SIM <: Simulation}
+    
     # Calculate the size of the grid
     rows = length(n_values)
     cols = length(A_values)
 
+   
     if rows > 5 || cols > 5
         error("more than a 5x5 grid is not supported")
     end
 
-    if length(rgi_ids) > 1
+    if length(simulation.glaciers) > 1
         error("only one glacier at a time is supported")
-    end
+    end   
+   
+    Huginn.initialize_iceflow_model!(simulation.model.iceflow, 1, simulation.glaciers[1], simulation.parameters)
 
     result = [
         generate_result(
-            params, A_values[j], n_values[i], rgi_ids, 
-            iceflow_model, mass_balance_model
-        ) for i in 1:rows, j in 1:cols
-    ]
+            simulation, A_values[j], n_values[i]) for i in 1:rows, j in 1:cols
+            ]
     h_diff = [result[i,j].H[end]-result[i,j].H[1] for i in 1:rows, j in 1:cols]
     
     
@@ -97,38 +91,24 @@ function plot_analysis_flow_parameters(
             end
         end
     end
-    rgi_id=rgi_ids[1]
-    start_year, end_year = round.(Int, params.simulation.tspan)
+    rgi_id = result[1].rgi_id
+    start_year, end_year = round.(Int, simulation.parameters.simulation.tspan)
     fig[0, :] = Label(fig, "Ice Thickness difference ΔH for varying A and n from $start_year to $end_year")
 
     fig[rows+1, :] = Label(fig, "$rgi_id - latitude = $lat ° - longitude = $lon ° - scale = $scale_number km ")
     return fig
 end
 
-function generate_result(
-        params, 
-        A, 
-        n, 
-        rgi_ids, 
-        iceflow_model, 
-        mass_balance_model, 
-        
-    )
+function generate_result(simulation::SIM, A, n,) where {SIM <: Simulation}
     
     # Initialize the model using the specified or default models
-    model = Model(
-        iceflow = iceflow_model(params, n=n, A=A), 
-        mass_balance = mass_balance_model(params)
-    )
-    
-    # Initialize glaciers and run prediction
-    glaciers = initialize_glaciers(rgi_ids, params)
-    prediction = Prediction(model, glaciers, params)
-    run!(prediction)
+    simulation.model.iceflow.A[]=A
+    simulation.model.iceflow.n[]=n
 
-    
+    run!(simulation)
+
     # Extract the first result 
-    result = prediction.results[1]
+    result = simulation.results[1]
     
     
     

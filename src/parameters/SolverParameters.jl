@@ -65,7 +65,7 @@ function Parameters(;
 
     # Build the parameters based on all the subtypes of parameters
     parameters = Sleipnir.Parameters(physical, simulation, OGGM,
-                                     nothing, solver, nothing)
+                                     nothing, solver, nothing, nothing)
 
     if parameters.simulation.multiprocessing
         enable_multiprocessing(parameters)
