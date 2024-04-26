@@ -12,7 +12,7 @@ function plot_analysis_flow_parameters_test()
                         simulation = SimulationParameters(use_MB=true,
                                                           tspan=(2010.0, 2015.0),
                                                           working_dir = working_dir,
-                                                          test_mode = true),
+                                                          test_mode = true,
                                                           multiprocessing=false,
                                                           workers=1),
                         solver = SolverParameters(reltol=1e-8)

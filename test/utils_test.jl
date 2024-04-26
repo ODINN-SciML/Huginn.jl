@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    is_border(A::Matrix, distance::Int)
+    is_border(A::Matrix, distance::I)
 
 Return a matrix with booleans indicating if a given pixel is at distance at most `distance` of the end of the 
 matrix, which is indicated by the first pixel value to reach zero. 
@@ -9,7 +9,7 @@ Arguments:
     - A: Array
     - distance: distance to the border, computed as the number of pixels we need to move to find a pixel with value zero
 """
-function is_border(A::Matrix{F}, distance::Int) where {F <: AbstractFloat}
+function is_border(A::Matrix{F}, distance::I) where {I <: Integer, F <: AbstractFloat}
     B = copy(A) 
     for i in 1:distance
         B .= min.(B, circshift(B, (1,0)), circshift(B, (-1,0)), circshift(B, (0,1)), circshift(B, (0,-1)))

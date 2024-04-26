@@ -18,11 +18,11 @@ function run!(simulation::Prediction)
 end
 
 """
-    batch_iceflow_PDE!(glacier_idx::Int, simulation::Prediction) 
+    batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) 
 
 Solve the Shallow Ice Approximation iceflow PDE for a given temperature series batch in-place.
 """
-function batch_iceflow_PDE!(glacier_idx::Int, simulation::Prediction) 
+function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: Integer}
     
     model = simulation.model
     params = simulation.parameters
@@ -119,11 +119,11 @@ function run₀(simulation::Prediction)
 end
 
 """
-    batch_iceflow_PDE(glacier_idx::Int, simulation::Prediction) 
+    batch_iceflow_PDE(glacier_idx::I, simulation::Prediction) 
 
 Solve the Shallow Ice Approximation iceflow PDE for a given temperature series batch out-of-place.
 """
-function batch_iceflow_PDE(glacier_idx::Int, simulation::Prediction) 
+function batch_iceflow_PDE(glacier_idx::I, simulation::Prediction) where {I <: Integer}
     
     model = simulation.model
     params = simulation.parameters
@@ -148,7 +148,7 @@ function batch_iceflow_PDE(glacier_idx::Int, simulation::Prediction)
     cb_MB = DiscreteCallback(stop_condition, action!)
 
     # Run iceflow PDE for this glacier
-    du = params.simulation.use_iceflow ? SIA2D : noSIA2D!
+    du = params.simulation.use_iceflow ? SIA2D! : noSIA2D!
     results = simulate_iceflow_PDE(simulation, model, params, cb_MB; du = du)
 
     return results
@@ -206,9 +206,9 @@ function simulate_iceflow_PDE(
     return results
 end
 
-function apply_MB_mask!(H::Matrix{<:Real}, glacier::G, ifm::IceflowModel) where {F <: Real, G <: Sleipnir.AbstractGlacier}
+function apply_MB_mask!(H, glacier::G, ifm::IceflowModel) where {G <: Sleipnir.AbstractGlacier}
     # Appy MB only over ice, and avoid applying it to the borders in the accummulation area to avoid overflow
-    MB::Matrix{<:Real}, MB_mask::BitMatrix, MB_total::Matrix{<:Real} = ifm.MB, ifm.MB_mask, ifm.MB_total
+    MB, MB_mask, MB_total = ifm.MB, ifm.MB_mask, ifm.MB_total
     MB_mask .= ((H .> 0.0) .&& (MB .< 0.0)) .|| ((H .> 10.0) .&& (MB .>= 0.0)) 
     H[MB_mask] .+= MB[MB_mask]
     MB_total[MB_mask] .+= MB[MB_mask]
