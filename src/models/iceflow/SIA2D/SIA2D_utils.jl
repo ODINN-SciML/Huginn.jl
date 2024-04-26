@@ -5,37 +5,37 @@ SIA2D!(dH, H, SIA2Dmodel)
 
 Compute an in-place step of the Shallow Ice Approximation PDE in a forward model
 """
-function SIA2D!(dH::Matrix{F}, H::Matrix{F}, simulation::SIM, t::F) where {F <: AbstractFloat, SIM <: Simulation}
+function SIA2D!(dH::Matrix{<:Real}, H::Matrix{<:Real}, simulation::SIM, t::F) where {F <: AbstractFloat, SIM <: Simulation}
     
     # Retrieve parameters
     SIA2D_model::SIA2Dmodel = simulation.model.iceflow
     glacier::Sleipnir.Glacier2D = simulation.glaciers[simulation.model.iceflow.glacier_idx[]]
     params::Sleipnir.Parameters = simulation.parameters
     int_type = simulation.parameters.simulation.int_type
-    H̄::Matrix{F} = SIA2D_model.H̄
-    A::Ref{F} = SIA2D_model.A
-    n::Ref{F} = SIA2D_model.n
-    B::Matrix{F} = glacier.B
-    S::Matrix{F} = SIA2D_model.S
-    dSdx::Matrix{F} = SIA2D_model.dSdx
-    dSdy::Matrix{F} = SIA2D_model.dSdy
-    D::Matrix{F} = SIA2D_model.D
-    Dx::Matrix{F} = SIA2D_model.Dx
-    Dy::Matrix{F} = SIA2D_model.Dy
-    dSdx_edges::Matrix{F} = SIA2D_model.dSdx_edges
-    dSdy_edges::Matrix{F} = SIA2D_model.dSdy_edges
-    ∇S::Matrix{F} = SIA2D_model.∇S
-    ∇Sx::Matrix{F} = SIA2D_model.∇Sx
-    ∇Sy::Matrix{F} = SIA2D_model.∇Sy
-    Fx::Matrix{F} = SIA2D_model.Fx
-    Fy::Matrix{F} = SIA2D_model.Fy
-    Fxx::Matrix{F} = SIA2D_model.Fxx
-    Fyy::Matrix{F} = SIA2D_model.Fyy
-    Δx::F = glacier.Δx
-    Δy::F = glacier.Δy
-    Γ::Ref{F} = SIA2D_model.Γ
-    ρ::F = simulation.parameters.physical.ρ
-    g::F = simulation.parameters.physical.g
+    H̄ = SIA2D_model.H̄
+    A = SIA2D_model.A
+    n = SIA2D_model.n
+    B = glacier.B
+    S = SIA2D_model.S
+    dSdx = SIA2D_model.dSdx
+    dSdy = SIA2D_model.dSdy
+    D = SIA2D_model.D
+    Dx = SIA2D_model.Dx
+    Dy = SIA2D_model.Dy
+    dSdx_edges = SIA2D_model.dSdx_edges
+    dSdy_edges = SIA2D_model.dSdy_edges
+    ∇S = SIA2D_model.∇S
+    ∇Sx = SIA2D_model.∇Sx
+    ∇Sy = SIA2D_model.∇Sy
+    Fx = SIA2D_model.Fx
+    Fy = SIA2D_model.Fy
+    Fxx = SIA2D_model.Fxx
+    Fyy = SIA2D_model.Fyy
+    Δx = glacier.Δx
+    Δy = glacier.Δy
+    Γ = SIA2D_model.Γ
+    ρ = simulation.parameters.physical.ρ
+    g = simulation.parameters.physical.g
 
     # First, enforce values to be positive
     map!(x -> ifelse(x>0.0,x,0.0), H, H)
@@ -110,6 +110,9 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
 
     @views H = ifelse.(H.<0.0, 0.0, H) # prevent values from going negative
 
+    # First, enforce values to be positive
+    map!(x -> ifelse(x>0.0,x,0.0), H, H)
+    
     # Update glacier surface altimetry
     S = B .+ H
 
@@ -194,7 +197,7 @@ end
 
 Computes the ice surface velocity for a given glacier state
 """
-function surface_V!(H::Matrix{F}, simulation::SIM) where {F <: AbstractFloat, SIM <: Simulation}
+function surface_V!(H::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
     params::Sleipnir.Parameters = simulation.parameters
     iceflow_model = simulation.model.iceflow
     glacier = simulation.glaciers[iceflow_model.glacier_idx[]]
@@ -229,7 +232,7 @@ function surface_V!(H::Matrix{F}, simulation::SIM) where {F <: AbstractFloat, SI
 
     avg!(H̄, H)
     Γꜛ[] = 2.0 * A[] * (ρ * g)^n[] / (n[]+1) # surface stress (not average)  # 1 / m^3 s 
-    D .= Γꜛ[] .* H̄.^(n[] + 1) .* ∇S
+    D = Γꜛ[] .* H̄.^(n[] + 1) .* ∇S
     
     # Compute averaged surface velocities
     Vx = .-D .* ∇Sx
@@ -279,3 +282,39 @@ function surface_V(H::Matrix{R}, simulation::SIM; batch_id::Union{Nothing, I} = 
 
     return Vx, Vy    
 end
+
+function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
+    params::Sleipnir.Parameters = simulation.parameters
+    
+    iceflow_model = simulation.model.iceflow
+    glacier::Sleipnir.Glacier2D = simulation.glaciers[iceflow_model.glacier_idx[]]
+    B = glacier.B
+    Δx = glacier.Δx
+    Δy = glacier.Δy
+    A = iceflow_model.A
+    n = iceflow_model.n
+    C = iceflow_model.C
+    ρ = params.physical.ρ
+    g = params.physical.g
+    H₀ = glacier.H₀
+
+    # Update glacier surface altimetry
+    S = iceflow_model.S  
+    V = Huginn.avg(V)
+    
+    # All grid variables computed in a staggered grid
+    # Compute surface gradients on edges
+    dSdx = Huginn.diff_x(S) / Δx
+    dSdy = Huginn.diff_y(S) / Δy
+    ∇S = (Huginn.avg_y(dSdx).^2 .+ Huginn.avg_x(dSdy).^2).^(1/2)
+   
+
+    Γꜛ = (2.0 * A[] * (ρ * g)^n[]) / (n[]+1) # surface stress (not average)  # 1 / m^3 s 
+    
+    H = ( V + C[] ./ (Γꜛ .*(∇S .^ n[]))) .^ (1 / (n[] + 1)) 
+    
+    replace!(H, NaN=>0.0)
+    replace!(H, Inf=>0.0)
+    return H   
+end
+

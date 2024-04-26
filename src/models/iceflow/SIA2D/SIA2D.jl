@@ -10,6 +10,7 @@ include("SIA2D_utils.jl")
 mutable struct SIA2Dmodel{F <: AbstractFloat, I <: Integer, R <: Real} <: SIAmodel
     A::Union{Ref{R}, Nothing}
     n::Union{Ref{R}, Nothing}
+    C::Union{Ref{R}, Matrix{R}, Nothing}
     H₀::Union{Matrix{R}, Nothing}
     H::Union{Matrix{R}, Nothing}
     H̄::Union{Matrix{R}, Nothing}
@@ -41,6 +42,7 @@ end
 function SIA2Dmodel(params::Sleipnir.Parameters;
                     A::Union{R, Nothing} = nothing,
                     n::Union{R, Nothing} = nothing,
+                    C::Union{R, Matrix{R}, Nothing} = nothing,
                     H₀::Union{Matrix{R}, Nothing} = nothing,
                     H::Union{Matrix{R}, Nothing} = nothing,
                     H̄::Union{Matrix{R}, Nothing} = nothing,
@@ -75,6 +77,9 @@ function SIA2Dmodel(params::Sleipnir.Parameters;
     end
     if !isnothing(n)
         n = Ref{R}(n)
+    end
+    if !isnothing(C)
+        A = Ref{F}(C)
     end
     if !isnothing(Γ)
         Γ = Ref{R}(Γ)
@@ -114,6 +119,7 @@ function initialize_iceflow_model!(iceflow_model::IF,
     F = params.simulation.float_type
     iceflow_model.A = isnothing(iceflow_model.A) ? Ref{Real}(glacier.A) : iceflow_model.A
     iceflow_model.n = isnothing(iceflow_model.n) ? Ref{Real}(glacier.n) : iceflow_model.n
+    iceflow_model.C = isnothing(iceflow_model.C) ? Ref{Real}(glacier.C) : iceflow_model.C
     iceflow_model.H₀ = deepcopy(glacier.H₀)
     iceflow_model.H = deepcopy(glacier.H₀)
     iceflow_model.H̄ = zeros(F,nx-1,ny-1)
