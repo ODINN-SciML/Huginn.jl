@@ -68,7 +68,7 @@ function SIA2Dmodel(params::Sleipnir.Parameters;
                     MB::Union{Matrix{R}, Nothing} = nothing,
                     MB_mask::Union{BitMatrix, Nothing} = nothing,
                     MB_total::Union{Matrix{R}, Nothing} = nothing,
-                    glacier_idx::Union{I, Nothing} = nothing) where {F <: AbstractFloat, I <: Integer, R <: Real}
+                    glacier_idx::Union{I, Nothing} = nothing) where {I <: Integer, R <: Real}
     
     ft = params.simulation.float_type
     it = params.simulation.int_type
@@ -79,7 +79,7 @@ function SIA2Dmodel(params::Sleipnir.Parameters;
         n = Ref{R}(n)
     end
     if !isnothing(C)
-        A = Ref{F}(C)
+        C = Ref{R}(C)
     end
     if !isnothing(Γ)
         Γ = Ref{R}(Γ)
@@ -88,7 +88,7 @@ function SIA2Dmodel(params::Sleipnir.Parameters;
         glacier_idx = Ref{I}(glacier_idx)
     end
 
-    SIA2D_model = SIA2Dmodel{ft, it, Real}(A, n, H₀, H, H̄, S, dSdx, dSdy, D, Dx, Dy, dSdx_edges, dSdy_edges,
+    SIA2D_model = SIA2Dmodel{ft, it, Real}(A, n, C, H₀, H, H̄, S, dSdx, dSdy, D, Dx, Dy, dSdx_edges, dSdy_edges,
                             ∇S, ∇Sx, ∇Sy, Fx, Fy, Fxx, Fyy, V, Vx, Vy, Γ, MB, MB_mask, MB_total, glacier_idx)
 
     return SIA2D_model
