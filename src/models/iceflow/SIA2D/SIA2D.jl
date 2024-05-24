@@ -7,7 +7,7 @@ include("SIA2D_utils.jl")
 ###### SHALLOW ICE APPROXIMATION MODELS #######
 ###############################################
 
-mutable struct SIA2Dmodel{F <: AbstractFloat, I <: Integer, R <: Real} <: SIAmodel
+mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
     A::Union{Ref{R}, Nothing}
     n::Union{Ref{R}, Nothing}
     C::Union{Ref{R}, Matrix{R}, Nothing}
@@ -73,22 +73,22 @@ function SIA2Dmodel(params::Sleipnir.Parameters;
     ft = params.simulation.float_type
     it = params.simulation.int_type
     if !isnothing(A)
-        A = Ref{R}(A)
+        A = Ref{ft}(A)
     end
     if !isnothing(n)
-        n = Ref{R}(n)
+        n = Ref{ft}(n)
     end
     if !isnothing(C)
-        C = Ref{R}(C)
+        C = Ref{ft}(C)
     end
     if !isnothing(Γ)
-        Γ = Ref{R}(Γ)
+        Γ = Ref{ft}(Γ)
     end
     if !isnothing(glacier_idx)
         glacier_idx = Ref{I}(glacier_idx)
     end
 
-    SIA2D_model = SIA2Dmodel{ft, it, Real}(A, n, C, H₀, H, H̄, S, dSdx, dSdy, D, Dx, Dy, dSdx_edges, dSdy_edges,
+    SIA2D_model = SIA2Dmodel{ft, it}(A, n, C, H₀, H, H̄, S, dSdx, dSdy, D, Dx, Dy, dSdx_edges, dSdy_edges,
                             ∇S, ∇Sx, ∇Sy, Fx, Fy, Fxx, Fyy, V, Vx, Vy, Γ, MB, MB_mask, MB_total, glacier_idx)
 
     return SIA2D_model
@@ -117,9 +117,9 @@ function initialize_iceflow_model!(iceflow_model::IF,
                                    ) where {IF <: IceflowModel, I <: Integer, G <: Sleipnir.AbstractGlacier}
     nx, ny = glacier.nx, glacier.ny
     F = params.simulation.float_type
-    iceflow_model.A = isnothing(iceflow_model.A) ? Ref{Real}(glacier.A) : iceflow_model.A
-    iceflow_model.n = isnothing(iceflow_model.n) ? Ref{Real}(glacier.n) : iceflow_model.n
-    iceflow_model.C = isnothing(iceflow_model.C) ? Ref{Real}(glacier.C) : iceflow_model.C
+    iceflow_model.A = isnothing(iceflow_model.A) ? Ref{F}(glacier.A) : iceflow_model.A
+    iceflow_model.n = isnothing(iceflow_model.n) ? Ref{F}(glacier.n) : iceflow_model.n
+    iceflow_model.C = isnothing(iceflow_model.C) ? Ref{F}(glacier.C) : iceflow_model.C
     iceflow_model.H₀ = deepcopy(glacier.H₀)
     iceflow_model.H = deepcopy(glacier.H₀)
     iceflow_model.H̄ = zeros(F,nx-1,ny-1)
@@ -141,7 +141,7 @@ function initialize_iceflow_model!(iceflow_model::IF,
     iceflow_model.V = zeros(F,nx,ny)
     iceflow_model.Vx = zeros(F,nx,ny)
     iceflow_model.Vy = zeros(F,nx,ny)
-    iceflow_model.Γ = isnothing(iceflow_model.Γ) ? Ref{Real}(0.0) : iceflow_model.Γ
+    iceflow_model.Γ = isnothing(iceflow_model.Γ) ? Ref{F}(0.0) : iceflow_model.Γ
     iceflow_model.MB = zeros(F,nx,ny)
     iceflow_model.MB_mask= zeros(F,nx,ny)
     iceflow_model.MB_total = zeros(F,nx,ny)
@@ -172,8 +172,8 @@ function initialize_iceflow_model(iceflow_model::IF,
     # nx, ny = glacier.nx, glacier.ny
     F = params.simulation.float_type
     nx, ny = glacier.nx, glacier.ny
-    iceflow_model.A = Ref{Real}(glacier.A)
-    iceflow_model.n = Ref{Real}(glacier.n)
+    iceflow_model.A = Ref{F}(glacier.A)
+    iceflow_model.n = Ref{F}(glacier.n)
     iceflow_model.glacier_idx = Ref{I}(glacier_idx)
     iceflow_model.H₀ = deepcopy(glacier.H₀)
     iceflow_model.H  = deepcopy(glacier.H₀)

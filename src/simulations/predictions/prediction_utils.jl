@@ -70,6 +70,7 @@ function simulate_iceflow_PDE!(
 
     # Define problem to be solved
     iceflow_prob = ODEProblem{true,SciMLBase.FullSpecialize}(du, model.iceflow.H, params.simulation.tspan, tstops=params.solver.tstops, simulation)
+   
     iceflow_sol = solve(iceflow_prob, 
                         params.solver.solver, 
                         callback=cb, 
@@ -148,7 +149,7 @@ function batch_iceflow_PDE(glacier_idx::I, simulation::Prediction) where {I <: I
     cb_MB = DiscreteCallback(stop_condition, action!)
 
     # Run iceflow PDE for this glacier
-    du = params.simulation.use_iceflow ? SIA2D! : noSIA2D!
+    du = params.simulation.use_iceflow ? SIA2D : noSIA2D
     results = simulate_iceflow_PDE(simulation, model, params, cb_MB; du = du)
 
     return results
@@ -187,12 +188,12 @@ function simulate_iceflow_PDE(
     map!(x -> ifelse(x>0.0,x,0.0), model.iceflow.H, model.iceflow.H)
     
     # Average surface velocity
-    Vx, Vy, V = avg_surface_V( model.iceflow.H, simulation)
+    avg_surface_V(simulation)
 
     # Since we are doing out-of-place, we need to add this to the result
-    model.iceflow.Vx = Vx
-    model.iceflow.Vy = Vy
-    model.iceflow.V  = V
+    # model.iceflow.Vx = Vx
+    # model.iceflow.Vy = Vy
+    # model.iceflow.V  = V
     
     glacier_idx = simulation.model.iceflow.glacier_idx
     glacier::Sleipnir.Glacier2D = simulation.glaciers[glacier_idx[]]

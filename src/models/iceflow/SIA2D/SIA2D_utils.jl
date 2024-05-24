@@ -5,8 +5,7 @@ SIA2D!(dH, H, SIA2Dmodel)
 
 Compute an in-place step of the Shallow Ice Approximation PDE in a forward model
 """
-function SIA2D!(dH::Matrix{<:Real}, H::Matrix{<:Real}, simulation::SIM, t::F) where {F <: AbstractFloat, SIM <: Simulation}
-    
+function SIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R) where {R <:Real, SIM <: Simulation}
     # Retrieve parameters
     SIA2D_model::SIA2Dmodel = simulation.model.iceflow
     glacier::Sleipnir.Glacier2D = simulation.glaciers[simulation.model.iceflow.glacier_idx[]]
@@ -160,8 +159,8 @@ function avg_surface_V!(simulation::SIM) where {SIM <: Simulation}
     Vx₀, Vy₀ = surface_V!(iceflow_model.H₀, simulation)
     Vx,  Vy  = surface_V!(iceflow_model.H,  simulation)
 
-    iceflow_model.Vx .= (Vx₀ .+ Vx)./2.0
-    iceflow_model.Vy .= (Vy₀ .+ Vy)./2.0
+    inn1(iceflow_model.Vx) .= (Vx₀ .+ Vx)./2.0
+    inn1(iceflow_model.Vy) .= (Vy₀ .+ Vy)./2.0
     iceflow_model.V  .= (iceflow_model.Vx.^2 .+ iceflow_model.Vy.^2).^(1/2) 
 end
 

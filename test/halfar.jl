@@ -21,6 +21,7 @@ function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol
 
     # Get parameters for a simulation 
     parameters = Parameters(simulation=SimulationParameters(tspan=(t₀, t₁),
+                                                            multiprocessing=false,
                                                             use_MB=false,
                                                             use_iceflow=true,
                                                             working_dir=Huginn.root_dir),
