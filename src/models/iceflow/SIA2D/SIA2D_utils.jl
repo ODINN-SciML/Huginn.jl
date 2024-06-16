@@ -106,10 +106,7 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
     n = SIA2D_model.n
     ρ = params.physical.ρ
     g = params.physical.g
-    _SIA2D(glacier, SIA2D_model, H, B, Δx, Δy, A, n, ρ, g)
-end
 
-function _SIA2D(glacier, SIA2D_model, H, B, Δx, Δy, A, n, ρ, g)
     @views H = ifelse.(H.<0.0, 0.0, H) # prevent values from going negative
 
     # First, enforce values to be positive
@@ -144,13 +141,9 @@ function _SIA2D(glacier, SIA2D_model, H, B, Δx, Δy, A, n, ρ, g)
     Fy = .-avg_x(D) .* dSdy_edges 
 
     #  Flux divergence
-    pad(i,lower,upper) = ifelse(i<lower,lower,ifelse(i>upper, upper, i))
-    dH = similar(H)
-    for i in 1:size(H,1), j in 1:size(H,2)
-        dH[i,j] = -(diff_x(Fx)[pad(i-1,1,1),pad(j-1,1,1)] / Δx + diff_y(Fy)[pad(i-1,1,1),pad(j-1,1,1)] / Δy)
-    end
-    dH
-    #@tullio threads=false avx=false tensor=false dH[i,j] := -(diff_x(Fx)[pad(i-1,1,1),pad(j-1,1,1)] / Δx + diff_y(Fy)[pad(i-1,1,1),pad(j-1,1,1)] / Δy) 
+    @tullio dH[i,j] := -(diff_x(Fx)[pad(i-1,1,1),pad(j-1,1,1)] / Δx + diff_y(Fy)[pad(i-1,1,1),pad(j-1,1,1)] / Δy) 
+
+    return dH
 end
 
 """
