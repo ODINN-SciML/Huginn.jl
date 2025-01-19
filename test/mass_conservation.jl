@@ -23,10 +23,13 @@ Arguments
 """
 function unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=false)
 
+    rgi_paths = get_rgi_paths()
+
     # Get parameters for a simulation 
     parameters = Parameters(simulation=SimulationParameters(tspan=(0.0, t_sim),
                                                             use_MB=false,
-                                                            use_iceflow=true),
+                                                            use_iceflow=true,
+                                                            rgi_paths=rgi_paths),
                             physical=PhysicalParameters(),
                             solver=SolverParameters(reltol=1e-12))
 

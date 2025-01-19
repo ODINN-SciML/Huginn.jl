@@ -19,12 +19,15 @@ Arguments
 """
 function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol=0.02, atol=1.0, distance_to_border=3, save_plot=false, inplace=true)
 
-    # Get parameters for a simulation 
+    rgi_paths = get_rgi_paths()
+
+    # Get parameters for a simulation
     parameters = Parameters(simulation=SimulationParameters(tspan=(t₀, t₁),
                                                             multiprocessing=false,
                                                             use_MB=false,
                                                             use_iceflow=true,
-                                                            working_dir=Huginn.root_dir),
+                                                            working_dir=Huginn.root_dir,
+                                                            rgi_paths=rgi_paths),
                             physical=PhysicalParameters(),
                             solver=SolverParameters(reltol=1e-12))
 

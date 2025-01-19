@@ -38,30 +38,28 @@ function SolverParameters(;
     return solver_parameters
 end
 
-Base.:(==)(a::SolverParameters, b::SolverParameters) = a.solver == b.solver && a.reltol == b.reltol && a.step == b.step && 
+Base.:(==)(a::SolverParameters, b::SolverParameters) = a.solver == b.solver && a.reltol == b.reltol && a.step == b.step &&
                                       a.tstops == b.tstops && a.save_everystep == b.save_everystep && a.progress == b.progress &&
                                       a.progress_steps == b.progress_steps
 
 """
 Parameters(;
-        simulation::SimulationParameters = SimulationParameters()
-        physical::PhysicalParameters = PhysicalParameters()
-        OGGM::OGGMparameters = OGGMparameters(),
+        physical::PhysicalParameters = PhysicalParameters(),
+        simulation::SimulationParameters = SimulationParameters(),
         solver::SolverParameters = SolverParameters()
         )
 Initialize Huginn parameters
 
 Keyword arguments
 =================
-    
+
 """
 
 function Parameters(;
     physical::PhysicalParameters = PhysicalParameters(),
     simulation::SimulationParameters = SimulationParameters(),
-    OGGM::OGGMparameters = OGGMparameters(),
     solver::SolverParameters = SolverParameters()
-    ) 
+    )
 
     # Build the parameters based on all the subtypes of parameters
     parameters = Sleipnir.Parameters(physical, simulation, OGGM,
