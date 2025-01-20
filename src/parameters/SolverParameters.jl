@@ -62,14 +62,12 @@ function Parameters(;
     )
 
     # Build the parameters based on all the subtypes of parameters
-    parameters = Sleipnir.Parameters(physical, simulation, OGGM,
+    parameters = Sleipnir.Parameters(physical, simulation,
                                      nothing, solver, nothing, nothing)
 
     if parameters.simulation.multiprocessing
         enable_multiprocessing(parameters)
     end
-    
-    oggm_config(OGGM.working_dir; oggm_processes=OGGM.workers)
 
     return parameters
 end

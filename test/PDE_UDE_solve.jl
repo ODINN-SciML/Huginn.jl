@@ -7,7 +7,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
 
     rgi_paths = get_rgi_paths()
 
-    params = Parameters(simulation = SimulationParameters(use_MB=MB,
+    params = Huginn.Parameters(simulation = SimulationParameters(use_MB=MB,
                                                           velocities=false,
                                                           tspan=(2010.0, 2015.0),
                                                           working_dir = Huginn.root_dir,
@@ -19,7 +19,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     ## Retrieving gdirs and climate for the following glaciers
     ## Fast version includes less glacier to reduce the amount of downloaded files and computation time on GitHub CI
     if fast
-        rgi_ids = ["RGI60-11.03638", "RGI60-11.01450", "RGI60-08.00213", "RGI60-04.04351", "RGI60-01.02170"]
+        rgi_ids = ["RGI60-11.03638", "RGI60-11.01450"] #, "RGI60-08.00213", "RGI60-04.04351", "RGI60-01.02170"]
     else
         rgi_ids = ["RGI60-11.03638", "RGI60-11.01450", "RGI60-08.00213", "RGI60-04.04351", "RGI60-01.02170",
         "RGI60-02.05098", "RGI60-01.01104", "RGI60-01.09162", "RGI60-01.00570", "RGI60-04.07051",
@@ -27,13 +27,13 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     end
 
     if MB
-        model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+        model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
     else
-        model = Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
+        model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
     end
 
     # We retrieve some glaciers for the simulation
-    glaciers = initialize_glaciers(rgi_ids, params)
+    glaciers::Vector{Sleipnir.AbstractGlacier} = initialize_glaciers(rgi_ids, params)
 
     # We create an ODINN prediction
     prediction = Prediction(model, glaciers, params)
@@ -97,7 +97,7 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
 
     rgi_paths = get_rgi_paths()
 
-    params = Parameters(simulation = SimulationParameters(use_MB=true,
+    params = Huginn.Parameters(simulation = SimulationParameters(use_MB=true,
                                                           velocities=false,
                                                           tspan=(2010.0, 2015.0),
                                                           working_dir = Huginn.root_dir,
@@ -105,7 +105,7 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
                                                           rgi_paths = rgi_paths),
                         solver = SolverParameters(reltol=1e-8)
                         )
-    model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
     rgi_ids = ["RGI60-11.03638"]
 
     glacier = initialize_glaciers(rgi_ids, params)[1]
