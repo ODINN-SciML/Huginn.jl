@@ -7,7 +7,7 @@ function plot_analysis_flow_parameters_test()
 
     rgi_paths = get_rgi_paths()
 
-    params::Sleipnir.Parameters = Huginn.Parameters(simulation = SimulationParameters(use_MB=true,
+    params = Huginn.Parameters(simulation = SimulationParameters(use_MB=true,
                                                           tspan=(2010.0, 2015.0),
                                                           working_dir = working_dir,
                                                           test_mode = true,
@@ -16,9 +16,9 @@ function plot_analysis_flow_parameters_test()
                                                           rgi_paths=rgi_paths),
                         solver = SolverParameters(reltol=1e-8)
                         )
-    model::Sleipnir.Model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
     rgi_ids = ["RGI60-11.01450"]
-    glaciers::Vector{Sleipnir.AbstractGlacier} = initialize_glaciers(rgi_ids, params)
+    glaciers = initialize_glaciers(rgi_ids, params)
 
     # Test for valid input
     prediction = Prediction(model, glaciers, params)
