@@ -19,19 +19,22 @@ Arguments
 """
 function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol=0.02, atol=1.0, distance_to_border=3, save_plot=false, inplace=true)
 
-    # Get parameters for a simulation 
-    parameters = Parameters(simulation=SimulationParameters(tspan=(t₀, t₁),
+    rgi_paths = get_rgi_paths()
+
+    # Get parameters for a simulation
+    parameters = Huginn.Parameters(simulation=SimulationParameters(tspan=(t₀, t₁),
                                                             multiprocessing=false,
                                                             use_MB=false,
                                                             use_iceflow=true,
-                                                            working_dir=Huginn.root_dir),
+                                                            working_dir=Huginn.root_dir,
+                                                            rgi_paths=rgi_paths),
                             physical=PhysicalParameters(),
                             solver=SolverParameters(reltol=1e-12))
 
     # Bed (it has to be flat for the Halfar solution)
     B = zeros((nx,ny))
 
-    model = Model(iceflow = SIA2Dmodel(parameters), mass_balance = nothing) 
+    model = Huginn.Model(iceflow = SIA2Dmodel(parameters), mass_balance = nothing)
 
     # Initial condition of the glacier
     R₀ = [sqrt((Δx * (i - nx/2))^2 + (Δy * (j - ny/2))^2) for i in 1:nx, j in 1:ny]
