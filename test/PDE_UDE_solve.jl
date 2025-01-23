@@ -33,7 +33,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     end
 
     # We retrieve some glaciers for the simulation
-    glaciers::Vector{Sleipnir.AbstractGlacier} = initialize_glaciers(rgi_ids, params)
+    glaciers = initialize_glaciers(rgi_ids, params)
 
     # We create an ODINN prediction
     prediction = Prediction(model, glaciers, params)
