@@ -5,17 +5,6 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     println("PDE solving with MB = $MB")
     working_dir = joinpath(homedir(), "OGGM/Huginn_tests")
 
-    rgi_paths = get_rgi_paths()
-
-    params = Huginn.Parameters(simulation = SimulationParameters(use_MB=MB,
-                                                          velocities=false,
-                                                          tspan=(2010.0, 2015.0),
-                                                          working_dir = Huginn.root_dir,
-                                                          test_mode = true,
-                                                          rgi_paths = rgi_paths),
-                        solver = SolverParameters(reltol=1e-12)
-                        )
-
     ## Retrieving gdirs and climate for the following glaciers
     ## Fast version includes less glacier to reduce the amount of downloaded files and computation time on GitHub CI
     if fast
@@ -25,6 +14,19 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         "RGI60-02.05098", "RGI60-01.01104", "RGI60-01.09162", "RGI60-01.00570", "RGI60-04.07051",
         "RGI60-07.00274", "RGI60-07.01323",  "RGI60-01.17316"]
     end
+
+    rgi_paths = get_rgi_paths()
+    # Filter out glaciers that are not used to avoid having references that depend on all the glaciers processed in Gungnir
+    rgi_paths = Dict(k => rgi_paths[k] for k in rgi_ids)
+
+    params = Huginn.Parameters(simulation = SimulationParameters(use_MB=MB,
+                                                          velocities=false,
+                                                          tspan=(2010.0, 2015.0),
+                                                          working_dir = Huginn.root_dir,
+                                                          test_mode = true,
+                                                          rgi_paths = rgi_paths),
+                        solver = SolverParameters(reltol=1e-12)
+                        )
 
     if MB
         model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
@@ -95,7 +97,11 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
 
     working_dir = joinpath(homedir(), "OGGM/Huginn_tests")
 
+    rgi_ids = ["RGI60-11.03638"]
+
     rgi_paths = get_rgi_paths()
+    # Filter out glaciers that are not used to avoid having references that depend on all the glaciers processed in Gungnir
+    rgi_paths = Dict(k => rgi_paths[k] for k in rgi_ids)
 
     params = Huginn.Parameters(simulation = SimulationParameters(use_MB=true,
                                                           velocities=false,
@@ -106,7 +112,6 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
                         solver = SolverParameters(reltol=1e-8)
                         )
     model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
-    rgi_ids = ["RGI60-11.03638"]
 
     glacier = initialize_glaciers(rgi_ids, params)[1]
     initialize_iceflow_model!(model.iceflow, 1, glacier, params)
