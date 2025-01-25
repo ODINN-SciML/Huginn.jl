@@ -23,13 +23,10 @@ Arguments
 """
 function unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=false)
 
-    rgi_paths = get_rgi_paths()
-
-    # Get parameters for a simulation 
+    # Get parameters for a simulation
     parameters = Huginn.Parameters(simulation=SimulationParameters(tspan=(0.0, t_sim),
                                                             use_MB=false,
-                                                            use_iceflow=true,
-                                                            rgi_paths=rgi_paths),
+                                                            use_iceflow=true),
                             physical=PhysicalParameters(),
                             solver=SolverParameters(reltol=1e-12))
 
@@ -45,7 +42,7 @@ function unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=f
     glaciers = Vector{Sleipnir.AbstractGlacier}([glacier])
 
     prediction = Prediction(model, glaciers, parameters)
-    run!(prediction) 
+    run!(prediction)
 
     # Final solution
     H₁_pred = prediction.results[1].H[end]
