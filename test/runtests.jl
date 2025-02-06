@@ -36,4 +36,6 @@ ENV["GKSwstype"]="nul"
 
 @testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
 
+@testset "Conservation of Mass - Non Flat Bed" unit_mass_nonflatbed_test(; rtol=1.0e-7)
+
 @testset "Glacier Plotting" plot_analysis_flow_parameters_test()
