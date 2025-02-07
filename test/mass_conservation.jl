@@ -5,7 +5,7 @@ using Test
 using Huginn
 
 """
-    unit_mass_test(; H₀, B, A, t_sim, Δx, Δy, rtol=0.02, atol=1.0, distance_to_border=3, save_plot=false)
+    unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=false)
 
 Test one single run of the forward model with customized physical parameters and 
 initial condition. It checks that the total mass of ice is conserved during the solver 
@@ -16,6 +16,7 @@ Arguments
     - `H₀`: Initial ice thickness profile
     - `B`: Bed topography
     - `A`: Glen coefficient 
+    - `n`: Glee exponent
     - `t_sim`: Total time for the simulation
     - `Δx`, `Δy`: Spacial width
     - `rtol`: Relative tolerance
@@ -76,7 +77,7 @@ end
 
 
 """
-    unit_mass_flatbed_test(; rtol, atol)
+    unit_mass_flatbed_test(; rtol)
 
 Tests different initial conditions with a flat topography.
 
@@ -105,7 +106,7 @@ end
 
 
 """
-    unit_mass_nonflatbed_test(; rtol, atol)
+    unit_mass_nonflatbed_test(; rtol)
 
 Tests a combination of bed topographies and initial conditions. 
 As known in the literature, non conservation of mass is a regular problem in numerical 
