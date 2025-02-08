@@ -5,7 +5,7 @@ using Test
 using Huginn
 
 """
-    unit_mass_test(; H₀, B, A, t_sim, Δx, Δy, rtol=0.02, atol=1.0, distance_to_border=3, save_plot=false)
+    unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=false)
 
 Test one single run of the forward model with customized physical parameters and 
 initial condition. It checks that the total mass of ice is conserved during the solver 
@@ -16,6 +16,7 @@ Arguments
     - `H₀`: Initial ice thickness profile
     - `B`: Bed topography
     - `A`: Glen coefficient 
+    - `n`: Glee exponent
     - `t_sim`: Total time for the simulation
     - `Δx`, `Δy`: Spacial width
     - `rtol`: Relative tolerance
@@ -70,15 +71,15 @@ function unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=f
     # @show Δmass, Δmass / mass₀
 
     # No mass in the borders of the domain
-    @test maximum(maximum([H₁_pred[2,:], H₁_pred[:,2]])) < 1.0e-7
     @test Δmass / mass₀ < rtol
+    @test maximum(maximum([H₁_pred[2,:], H₁_pred[:,2]])) < 1.0e-7
 end
 
 
 """
-    unit_mass_flatbed_test(; rtol, atol)
+    unit_mass_flatbed_test(; rtol)
 
-Tests a combination of bed topographies and initial conditions 
+Tests different initial conditions with a flat topography.
 
 Arguments 
 =================
@@ -96,6 +97,39 @@ function unit_mass_flatbed_test(; rtol)
                 elseif shape == "square"
                     H₀ = zeros((nx,ny))
                     @views H₀[floor(Int,nx/3):floor(Int,2nx/3), floor(Int,ny/3):floor(Int,2ny/3)] .= 400
+                end
+                unit_mass_test(; H₀=H₀, B=B, A=A, n=3.0, t_sim=10.0, Δx=50.0, Δy=50.0, rtol=rtol, save_plot=false)
+            end
+        end
+    end
+end
+
+
+"""
+    unit_mass_nonflatbed_test(; rtol)
+
+Tests a combination of bed topographies and initial conditions. 
+As known in the literature, non conservation of mass is a regular problem in numerical 
+ice flow models for non-flat beds (see "https://tc.copernicus.org/articles/7/229/2013/"). 
+
+Arguments 
+=================
+    - `rtol`: Relative tolerance
+"""
+function unit_mass_nonflatbed_test(; rtol)
+    for nx in 80:20:140
+        ny = nx
+        for shape in ["sinusoidal", "parabolic"]
+            for A in [4e-17, 8e-17]
+                # Parabolic ice thickness 
+                H₀ = [ 0.5 * ( (nx/4)^2 - (i - nx/2)^2 - (j - ny/2)^2 ) for i in 1:nx, j in 1:ny]
+                H₀[H₀ .< 0.0] .= 0.0
+                if shape == "sinusoidal"
+                    λ = 1 / 5
+                    B₀ = 0.5 * maximum(H₀)
+                    B = [B₀ * sin(λ * i) * sin(λ * j) for i in 1:nx, j in 1:ny]
+                elseif shape == "parabolic"
+                    B = - 0.5 * H₀
                 end
                 unit_mass_test(; H₀=H₀, B=B, A=A, n=3.0, t_sim=10.0, Δx=50.0, Δy=50.0, rtol=rtol, save_plot=false)
             end
