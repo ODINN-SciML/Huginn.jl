@@ -128,8 +128,8 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
     @views dSdx_edges = diff_x(S[:,2:end - 1]) ./ Δx
     @views dSdy_edges = diff_y(S[2:end - 1,:]) ./ Δy
 
-    # Cap surface elevaton differences with the upstream ice thickness to 
-    # imporse boundary condition of the SIA equation
+    # Cap surface elevaton differences with the upstream ice thickness to
+    # impose boundary condition of the SIA equation
     # We need to do this with Tullio or something else that allow us to set indices.
     η₀ = 1.0
     dSdx_edges = @views @. min(dSdx_edges,  η₀ * H[2:end, 2:end-1]/Δx)
@@ -147,28 +147,28 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
 end
 
 """
-    avg_surface_V(simulation::SIM)
+    avg_surface_V!(simulation::SIM) where {SIM <: Simulation}
 
 Computes the average ice surface velocity for a given glacier evolution period
-based on the initial and final ice thickness states. 
+based on the initial and final ice thickness states.
 """
 function avg_surface_V!(simulation::SIM) where {SIM <: Simulation}
     # TODO: Add more datapoints to better interpolate this
     iceflow_model = simulation.model.iceflow
-     
+
     Vx₀, Vy₀ = surface_V!(iceflow_model.H₀, simulation)
     Vx,  Vy  = surface_V!(iceflow_model.H,  simulation)
 
     inn1(iceflow_model.Vx) .= (Vx₀ .+ Vx)./2.0
     inn1(iceflow_model.Vy) .= (Vy₀ .+ Vy)./2.0
-    iceflow_model.V  .= (iceflow_model.Vx.^2 .+ iceflow_model.Vy.^2).^(1/2) 
+    iceflow_model.V .= (iceflow_model.Vx.^2 .+ iceflow_model.Vy.^2).^(1/2)
 end
 
 """
-    avg_surface_V(context, H, temp, sim, θ=[], UA_f=[])
+    avg_surface_V(simulation::SIM; batch_id::Union{Nothing, I} = nothing) where {I <: Integer, SIM <: Simulation}
 
 Computes the average ice surface velocity for a given glacier evolution period
-based on the initial and final ice thickness states. 
+based on the initial and final ice thickness states.
 """
 function avg_surface_V(simulation::SIM; batch_id::Union{Nothing, I} = nothing) where {I <: Integer, SIM <: Simulation}
     # Simulations using Reverse Diff require an iceflow model for each glacier
@@ -184,11 +184,9 @@ function avg_surface_V(simulation::SIM; batch_id::Union{Nothing, I} = nothing) w
 
     V̄x = (Vx₀ .+ Vx)./2.0
     V̄y = (Vy₀ .+ Vy)./2.0
-    V =  (V̄x.^2 .+ V̄y.^2).^(1/2)
+    V  = (V̄x.^2 .+ V̄y.^2).^(1/2)
 
-    iceflow_model.Vx = V̄x
-    iceflow_model.Vy = V̄y
-    iceflow_model.V = V 
+    return V̄x, V̄y, V
 end
 
 """
@@ -237,7 +235,7 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation
     Vx = .-D .* ∇Sx
     Vy = .-D .* ∇Sy 
 
-    return Vx, Vy    
+    return Vx, Vy
 end
 
 """
@@ -279,7 +277,7 @@ function surface_V(H::Matrix{R}, simulation::SIM; batch_id::Union{Nothing, I} = 
     Vx = - D .* avg_y(dSdx)
     Vy = - D .* avg_x(dSdy)
 
-    return Vx, Vy    
+    return Vx, Vy
 end
 
 function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
