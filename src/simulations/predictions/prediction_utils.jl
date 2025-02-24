@@ -93,7 +93,7 @@ function simulate_iceflow_PDE!(
     model.iceflow.S .= glacier.B .+ model.iceflow.H
 
     # Update simulation results
-    results = Sleipnir.create_results(simulation, glacier_idx[], iceflow_sol; light=!params.simulation.complete_report)
+    results = Sleipnir.create_results(simulation, glacier_idx[], iceflow_sol; light=!params.solver.save_everystep)
 
     return results
 end
@@ -200,7 +200,7 @@ function simulate_iceflow_PDE(
     model.iceflow.S = glacier.B .+ model.iceflow.H
 
     # Update simulation results
-    results = Sleipnir.create_results(simulationCopy, glacier_idx[], iceflow_sol; light=!params.simulation.complete_report)
+    results = Sleipnir.create_results(simulationCopy, glacier_idx[], iceflow_sol; light=!params.solver.save_everystep)
 
     return results
 end

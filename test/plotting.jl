@@ -56,9 +56,8 @@ function make_thickness_video_test()
             workers = 1,
             rgi_paths = rgi_paths,
             ice_thickness_source = "Farinotti19",
-            complete_report = true,
         ),
-        solver = SolverParameters(reltol = 1e-8)
+        solver = SolverParameters(reltol = 1e-8, save_everystep = true)
     )
 
     model = Model(
