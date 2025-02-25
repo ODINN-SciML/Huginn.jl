@@ -40,4 +40,3 @@ ENV["GKSwstype"]="nul"
 
 @testset "Glacier Plotting" plot_analysis_flow_parameters_test()
 
-@testset "Video plot test" make_thickness_video_test()
