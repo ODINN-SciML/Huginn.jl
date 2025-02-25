@@ -184,23 +184,22 @@ function simulate_iceflow_PDE(
     model.iceflow.H .= iceflow_sol.u[end]
     map!(x -> ifelse(x>0.0,x,0.0), model.iceflow.H, model.iceflow.H)
 
-    simulationCopy = deepcopy(simulation)
     # Average surface velocity
-    avg_surface_V!(simulationCopy)
+    Vx, Vy, V = avg_surface_V(simulation)
 
     # Since we are doing out-of-place, we need to add this to the result
-    # model.iceflow.Vx = Vx
-    # model.iceflow.Vy = Vy
-    # model.iceflow.V  = V
+    model.iceflow.Vx = Vx
+    model.iceflow.Vy = Vy
+    model.iceflow.V  = V
 
-    glacier_idx = simulationCopy.model.iceflow.glacier_idx
-    glacier::Sleipnir.Glacier2D = simulationCopy.glaciers[glacier_idx[]]
+    glacier_idx = simulation.model.iceflow.glacier_idx
+    glacier::Sleipnir.Glacier2D = simulation.glaciers[glacier_idx[]]
 
     # Surface topography
     model.iceflow.S = glacier.B .+ model.iceflow.H
 
     # Update simulation results
-    results = Sleipnir.create_results(simulationCopy, glacier_idx[], iceflow_sol; light=!params.solver.save_everystep)
+    results = Sleipnir.create_results(simulation, glacier_idx[], iceflow_sol; light=!params.solver.save_everystep)
 
     return results
 end
