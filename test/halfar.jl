@@ -66,16 +66,16 @@ function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol
         fig = Figure(resolution = (800, 800))
 
         Axis(fig[1, 1], title = "Initial Condition")
-        heatmap!(H₀, colormap=:viridis, colorrange=(0, maximum(H₀)))
+        CairoMakie.heatmap!(H₀, colormap=:viridis, colorrange=(0, maximum(H₀))) # Specify CairoMakie to remove ambiguity with Plots.heatmap!
 
         Axis(fig[1, 2], title = "Final State")
-        heatmap!(H₁, colormap=:viridis, colorrange=(0, maximum(H₀)))
+        CairoMakie.heatmap!(H₁, colormap=:viridis, colorrange=(0, maximum(H₀)))
 
         Axis(fig[2,1], title="Prediction")
-        heatmap!(H₁_pred, colormap=:viridis, colorrange=(0, maximum(H₀)))
+        CairoMakie.heatmap!(H₁_pred, colormap=:viridis, colorrange=(0, maximum(H₀)))
 
         Axis(fig[2,2], title="Difference")
-        heatmap!(H_diff, colormap=Reverse(:balance), colorrange=(-10, 10))
+        CairoMakie.heatmap!(H_diff, colormap=Reverse(:balance), colorrange=(-10, 10))
 
         save("test/halfar_test.png", fig)
     end
