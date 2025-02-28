@@ -10,7 +10,6 @@ function SIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R) where {R <:R
     SIA2D_model::SIA2Dmodel = simulation.model.iceflow
     glacier::Sleipnir.Glacier2D = simulation.glaciers[simulation.model.iceflow.glacier_idx[]]
     params::Sleipnir.Parameters = simulation.parameters
-    int_type = simulation.parameters.simulation.int_type
     H̄ = SIA2D_model.H̄
     A = SIA2D_model.A
     n = SIA2D_model.n
@@ -282,9 +281,9 @@ end
 
 function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
     params::Sleipnir.Parameters = simulation.parameters
-    
+
     iceflow_model = simulation.model.iceflow
-    glacier::Sleipnir.Glacier2D = simulation.glaciers[iceflow_model.glacier_idx[]]
+    glacier = simulation.glaciers[iceflow_model.glacier_idx[]]
     B = glacier.B
     Δx = glacier.Δx
     Δy = glacier.Δy

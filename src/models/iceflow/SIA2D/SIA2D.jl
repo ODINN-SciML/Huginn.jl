@@ -105,9 +105,9 @@ function SIA2Dmodel(params::Sleipnir.Parameters;
                     MB_mask::Union{BitMatrix, Nothing} = nothing,
                     MB_total::Union{Matrix{R}, Nothing} = nothing,
                     glacier_idx::Union{I, Nothing} = nothing) where {I <: Integer, R <: Real}
-    
-    ft = params.simulation.float_type
-    it = params.simulation.int_type
+
+    ft = Sleipnir.Float
+    it = Sleipnir.Int
     if !isnothing(A)
         A = Ref{ft}(A)
     end
@@ -146,13 +146,13 @@ Keyword arguments
     - `glacier`: `Glacier` to provide basic initial state of the ice flow model.
     - `parameters`: `Parameters` to configure some physical variables.
 """
-function initialize_iceflow_model!(iceflow_model::IF,  
+function initialize_iceflow_model!(iceflow_model::IF,
                                    glacier_idx::I,
                                    glacier::G,
                                    params::Sleipnir.Parameters
                                    ) where {IF <: IceflowModel, I <: Integer, G <: Sleipnir.AbstractGlacier}
     nx, ny = glacier.nx, glacier.ny
-    F = params.simulation.float_type
+    F = Sleipnir.Float
     iceflow_model.A = isnothing(iceflow_model.A) ? Ref{F}(glacier.A) : iceflow_model.A
     iceflow_model.n = isnothing(iceflow_model.n) ? Ref{F}(glacier.n) : iceflow_model.n
     iceflow_model.C = isnothing(iceflow_model.C) ? Ref{F}(glacier.C) : iceflow_model.C
@@ -181,7 +181,7 @@ function initialize_iceflow_model!(iceflow_model::IF,
     iceflow_model.MB = zeros(F,nx,ny)
     iceflow_model.MB_mask= zeros(F,nx,ny)
     iceflow_model.MB_total = zeros(F,nx,ny)
-    iceflow_model.glacier_idx = Ref{I}(glacier_idx)
+    iceflow_model.glacier_idx = Ref{Sleipnir.Int}(glacier_idx)
 end
 
 """
@@ -205,14 +205,17 @@ function initialize_iceflow_model(iceflow_model::IF,
                                    glacier::Sleipnir.AbstractGlacier,
                                    params::Sleipnir.Parameters
                                    ) where {IF <: IceflowModel, I <: Integer}
-    # nx, ny = glacier.nx, glacier.ny
-    F = params.simulation.float_type
+    F = Sleipnir.Float
     nx, ny = glacier.nx, glacier.ny
     iceflow_model.A = Ref{F}(glacier.A)
     iceflow_model.n = Ref{F}(glacier.n)
     iceflow_model.glacier_idx = Ref{I}(glacier_idx)
     iceflow_model.H₀ = deepcopy(glacier.H₀)
     iceflow_model.H  = deepcopy(glacier.H₀)
+    iceflow_model.S = deepcopy(glacier.S)
+    iceflow_model.V = zeros(F,nx,ny)
+    iceflow_model.Vx = zeros(F,nx,ny)
+    iceflow_model.Vy = zeros(F,nx,ny)
     # Initialize MB matrices for in-place MB operations
     iceflow_model.MB = zeros(F,nx,ny)
     iceflow_model.MB_mask = zeros(I,nx,ny)
