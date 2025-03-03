@@ -26,7 +26,7 @@ function clean()
             @everywhere using Reexport
             @everywhere @reexport using Huginn
             end # @eval
-        elseif nprocs() != procs && procs == 1 && !params.simulation_test_mode
+        elseif nprocs() != procs && procs == 1 && !params.simulation.test_mode
             @eval begin
             rmprocs(workers(), waitfor=0)
             println("Number of cores: ", nprocs())
