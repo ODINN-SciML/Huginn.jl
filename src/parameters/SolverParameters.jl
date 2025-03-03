@@ -45,9 +45,14 @@ function SolverParameters(;
             progress_steps::I = 10
             ) where {F <: AbstractFloat, I <: Integer}
     # Build the solver parameters based on input values
-    solver_parameters = SolverParameters(solver, reltol, 
-                                         step, tstops,
-                                         save_everystep, progress, progress_steps)
+    if !isnothing(tstops)
+        tstops = Sleipnir.Float.(tstops)
+    end
+    solver_parameters = SolverParameters(
+        solver, Sleipnir.Float(reltol),
+        Sleipnir.Float(step), tstops,
+        save_everystep, progress, Sleipnir.Int(progress_steps)
+    )
 
     return solver_parameters
 end
@@ -88,11 +93,11 @@ end
 
 
 """
-    define_callback_steps(tspan::Tuple{Float64, Float64}, step::Float64)
+    define_callback_steps(tspan::Tuple{F, F}, step::F) where {F <: AbstractFloat}
 
 Defines the times to stop for the DiscreteCallback given a step
 """
-function define_callback_steps(tspan::Tuple{Float64, Float64}, step::Float64)
+function define_callback_steps(tspan::Tuple{F, F}, step::F) where {F <: AbstractFloat}
     tmin_int = Int(tspan[1])
     tmax_int = Int(tspan[2])+1
     tstops = range(tmin_int+step, tmax_int, step=step) |> collect

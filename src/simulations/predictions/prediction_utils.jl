@@ -193,7 +193,7 @@ function simulate_iceflow_PDE(
     model.iceflow.V  = V
 
     glacier_idx = simulation.model.iceflow.glacier_idx
-    glacier::Sleipnir.Glacier2D = simulation.glaciers[glacier_idx[]]
+    glacier = simulation.glaciers[glacier_idx[]]
 
     # Surface topography
     model.iceflow.S = glacier.B .+ model.iceflow.H
