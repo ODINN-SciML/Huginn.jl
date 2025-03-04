@@ -20,6 +20,8 @@ include("plotting.jl")
 # Activate to avoid GKS backend Plot issues in the JupyterHub
 ENV["GKSwstype"]="nul"
 
+@testset "Running all tests" begin
+
 @testset "PDE solving integration tests w/o MB" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=false, fast=true)
 
 @testset "PDE solving integration tests w/ MB" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true)
@@ -39,3 +41,5 @@ ENV["GKSwstype"]="nul"
 @testset "Conservation of Mass - Non Flat Bed" unit_mass_nonflatbed_test(; rtol=1.0e-7)
 
 @testset "Glacier Plotting" plot_analysis_flow_parameters_test()
+
+end

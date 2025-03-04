@@ -47,12 +47,12 @@ function plot_analysis_flow_parameters(simulation::SIM, A_values, n_values) wher
     h_diff = [result[i,j].H[end]-result[i,j].H[1] for i in 1:rows, j in 1:cols]
     
     
-    Δx = hasproperty(result[1,1], :Δx) ? result[1,1].Δx : 0
-    
-    #Extract longitude and latitude 
-    lon = hasproperty(result[1,1], :lon) ? result[1,1].lon : "none"
-    lat = hasproperty(result[1,1], :lat) ? result[1,1].lat : "none"
-    
+    Δx = result[1,1].Δx
+
+    #Extract longitude and latitude
+    lon = result[1,1].lon
+    lat = result[1,1].lat
+
 
     ny, nx = size(h_diff[1,1])
     h_diff = [reverse(h_diff[i,j]', dims=2) for i in 1:rows, j in 1:cols]
