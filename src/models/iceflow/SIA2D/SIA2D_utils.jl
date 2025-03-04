@@ -1,9 +1,22 @@
 
-
 """
-SIA2D!(dH, H, SIA2Dmodel)
+    SIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R) where {R <:Real, SIM <: Simulation}
 
-Compute an in-place step of the Shallow Ice Approximation PDE in a forward model
+Simulates the evolution of ice thickness in a 2D shallow ice approximation (SIA) model. Works in-place.
+
+# Arguments
+- `dH::Matrix{R}`: Matrix to store the rate of change of ice thickness.
+- `H::Matrix{R}`: Matrix representing the ice thickness.
+- `simulation::SIM`: Simulation object containing model parameters and state.
+- `t::R`: Current simulation time.
+
+# Details
+This function updates the ice thickness `H` and computes the rate of change `dH` using the shallow ice approximation in 2D. It retrieves necessary parameters from the `simulation` object, enforces positive ice thickness values, updates glacier surface altimetry, computes surface gradients, flux components, and flux divergence.
+
+# Notes
+- The function operates on a staggered grid for computing gradients and fluxes.
+- Surface elevation differences are capped using upstream ice thickness to impose boundary conditions.
+- The function modifies the input matrices `dH` and `H` in place.
 """
 function SIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R) where {R <:Real, SIM <: Simulation}
     # Retrieve parameters
@@ -81,10 +94,35 @@ function noSIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R) where {R <
    
 end
 
-"""
-    SIA(H, SIA2Dmodel)
 
-Compute a step of the Shallow Ice Approximation UDE in a forward model. Allocates memory.
+"""
+    SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} = nothing) where {R <: Real, I <: Integer, SIM <: Simulation}
+
+Compute the change in ice thickness (`dH`) for a 2D Shallow Ice Approximation (SIA) model. Works out-of-place.
+
+# Arguments
+- `H::Matrix{R}`: Ice thickness matrix.
+- `simulation::SIM`: Simulation object containing model parameters and glacier data.
+- `t::R`: Current time step.
+- `batch_id::Union{Nothing, I}`: Optional batch ID to select a specific glacier model. Defaults to `nothing`.
+
+# Returns
+- `dH::Matrix{R}`: Matrix representing the change in ice thickness.
+
+# Details
+This function performs the following steps:
+1. Retrieves the appropriate iceflow model and glacier data based on `batch_id`.
+2. Retrieves physical parameters from the simulation object.
+3. Ensures that ice thickness values are non-negative.
+4. Updates the glacier surface altimetry.
+5. Computes surface gradients on the edges of the grid.
+6. Calculates the diffusivity `D` based on the surface gradients and ice thickness.
+7. Computes the flux components `Fx` and `Fy`.
+8. Calculates the flux divergence to determine the change in ice thickness `dH`.
+
+# Notes
+- The function uses `@views` to avoid unnecessary array allocations.
+- The `@tullio` macro is used for efficient tensor operations.
 """
 function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} = nothing) where {R <: Real, I <: Integer, SIM <: Simulation}
     # Retrieve parameters
