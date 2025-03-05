@@ -186,8 +186,18 @@ end
 """
     avg_surface_V!(simulation::SIM) where {SIM <: Simulation}
 
-Computes the average ice surface velocity for a given glacier evolution period
-based on the initial and final ice thickness states.
+Calculate the average surface velocity for a given simulation.
+
+# Arguments
+- `simulation::SIM`: A simulation object of type `SIM` which is a subtype of `Simulation`.
+
+# Description
+This function computes the average surface velocity components (`Vx` and `Vy`) and the resultant velocity (`V`) 
+for the ice flow model within the given simulation. It first calculates the surface velocities at the initial 
+and current states, then averages these velocities and updates the ice flow model's velocity fields.
+
+# Notes
+- The function currently uses a simple averaging method and may need more datapoints for better interpolation.
 """
 function avg_surface_V!(simulation::SIM) where {SIM <: Simulation}
     # TODO: Add more datapoints to better interpolate this
@@ -204,8 +214,19 @@ end
 """
     avg_surface_V(simulation::SIM; batch_id::Union{Nothing, I} = nothing) where {I <: Integer, SIM <: Simulation}
 
-Computes the average ice surface velocity for a given glacier evolution period
-based on the initial and final ice thickness states.
+Compute the average surface velocity for a given simulation.
+
+# Arguments
+- `simulation::SIM`: The simulation object containing the model and other relevant data.
+- `batch_id::Union{Nothing, I}`: An optional batch identifier. If provided, it specifies which batch of the iceflow model to use. Defaults to `nothing`.
+
+# Returns
+- `V̄x`: The average surface velocity in the x-direction.
+- `V̄y`: The average surface velocity in the y-direction.
+- `V`: The magnitude of the average surface velocity.
+
+# Details
+This function computes the initial and final surface velocities and averages them to obtain the average surface velocity. It handles simulations that use reverse differentiation by selecting the appropriate iceflow model for each glacier.
 """
 function avg_surface_V(simulation::SIM; batch_id::Union{Nothing, I} = nothing) where {I <: Integer, SIM <: Simulation}
     # Simulations using Reverse Diff require an iceflow model for each glacier
@@ -227,9 +248,38 @@ function avg_surface_V(simulation::SIM; batch_id::Union{Nothing, I} = nothing) w
 end
 
 """
-    surface_V!(H, B, Δx, Δy, temp, sim, A_noise, θ=[], UA_f=[])
+    surface_V!(H::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
 
-Computes the ice surface velocity for a given glacier state
+Compute the surface velocities of a glacier using the Shallow Ice Approximation (SIA) in 2D.
+
+# Arguments
+- `H::Matrix{<:Real}`: The ice thickness matrix.
+- `simulation::SIM`: The simulation object containing parameters and model information.
+
+# Returns
+- `Vx`: The x-component of the surface velocity.
+- `Vy`: The y-component of the surface velocity.
+
+# Description
+This function updates the glacier surface altimetry and computes the surface gradients on edges using a staggered grid. It then calculates the surface velocities based on the Shallow Ice Approximation (SIA) model.
+
+# Details
+- `params`: The simulation parameters.
+- `iceflow_model`: The ice flow model from the simulation.
+- `glacier`: The glacier object from the simulation.
+- `B`: The bedrock elevation matrix.
+- `H̄`: The average ice thickness matrix.
+- `dSdx`, `dSdy`: The surface gradient matrices in x and y directions.
+- `∇S`, `∇Sx`, `∇Sy`: The gradient magnitude and its components.
+- `Γꜛ`: The surface stress.
+- `D`: The diffusivity matrix.
+- `A`: The flow rate factor.
+- `n`: The flow law exponent.
+- `Δx`, `Δy`: The grid spacing in x and y directions.
+- `ρ`: The ice density.
+- `g`: The gravitational acceleration.
+
+The function computes the surface gradients, averages the ice thickness, and calculates the surface stress and diffusivity. Finally, it computes the surface velocities `Vx` and `Vy` based on the gradients and diffusivity.
 """
 function surface_V!(H::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
     params::Sleipnir.Parameters = simulation.parameters
@@ -276,9 +326,25 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation
 end
 
 """
-    surface_V(H, B, Δx, Δy, temp, sim, A_noise, θ=[], UA_f=[])
+    surface_V(H::Matrix{R}, simulation::SIM; batch_id::Union{Nothing, I} = nothing) where {I <: Integer, R <: Real, SIM <: Simulation}
 
-Computes the ice surface velocity for a given glacier state
+Compute the surface velocities of a glacier using the Shallow Ice Approximation (SIA) in 2D.
+
+# Arguments
+- `H::Matrix{R}`: Ice thickness matrix.
+- `simulation::SIM`: Simulation object containing parameters and model information.
+- `batch_id::Union{Nothing, I}`: Optional batch identifier for simulations using reverse differentiation. Defaults to `nothing`.
+
+# Returns
+- `Vx`: Matrix of surface velocities in the x-direction.
+- `Vy`: Matrix of surface velocities in the y-direction.
+
+# Details
+This function computes the surface velocities of a glacier by updating the glacier surface altimetry and calculating the surface gradients on the edges. It uses a staggered grid approach to compute the gradients and velocities.
+
+# Notes
+- The function assumes that the `simulation` object contains the necessary parameters and model information.
+- The `batch_id` is used to handle simulations that require an iceflow model per glacier.
 """
 function surface_V(H::Matrix{R}, simulation::SIM; batch_id::Union{Nothing, I} = nothing) where {I <: Integer, R <: Real, SIM <: Simulation}
     params::Sleipnir.Parameters = simulation.parameters
@@ -317,6 +383,28 @@ function surface_V(H::Matrix{R}, simulation::SIM; batch_id::Union{Nothing, I} = 
     return Vx, Vy
 end
 
+"""
+    H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
+
+Compute the ice thickness `H` from the velocity `V` for a given simulation.
+
+# Arguments
+- `V::Matrix{<:Real}`: A matrix representing the velocity of ice.
+- `simulation::SIM`: An instance of a simulation, which must be a subtype of `Simulation`.
+
+# Returns
+- `H::Matrix{<:Real}`: A matrix representing the computed ice thickness.
+
+# Description
+This function calculates the ice thickness `H` based on the provided velocity `V` and the parameters from the `simulation` object. It uses various physical parameters and constants defined in the `simulation` to perform the computation. The function also handles NaN and Inf values in the resulting ice thickness matrix by replacing them with 0.0.
+
+# Details
+- The function first extracts necessary parameters from the `simulation` object, including physical constants and glacier properties.
+- It updates the glacier surface altimetry and computes surface gradients on edges using staggered grid variables.
+- The surface stress `Γꜛ` is calculated based on the provided parameters.
+- The ice thickness `H` is then computed using the velocity `V` and the surface stress `Γꜛ`.
+- Finally, the function replaces any `NaN` or `Inf` values in the resulting ice thickness matrix with 0.0 and returns the matrix `H`.
+"""
 function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
     params::Sleipnir.Parameters = simulation.parameters
 
@@ -342,7 +430,6 @@ function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
     dSdy = Huginn.diff_y(S) / Δy
     ∇S = (Huginn.avg_y(dSdx).^2 .+ Huginn.avg_x(dSdy).^2).^(1/2)
    
-
     Γꜛ = (2.0 * A[] * (ρ * g)^n[]) / (n[]+1) # surface stress (not average)  # 1 / m^3 s 
     
     H = ( V + C[] ./ (Γꜛ .*(∇S .^ n[]))) .^ (1 / (n[] + 1)) 

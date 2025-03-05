@@ -99,6 +99,19 @@ function plot_analysis_flow_parameters(simulation::SIM, A_values, n_values) wher
     return fig
 end
 
+"""
+    generate_result(simulation::SIM, A, n) where {SIM <: Simulation}
+
+Generate the result of a simulation by initializing the model with the specified parameters and running the simulation.
+
+# Arguments
+- `simulation::SIM`: An instance of a type that is a subtype of `Simulation`.
+- `A`: The parameter to set for `simulation.model.iceflow.A`.
+- `n`: The parameter to set for `simulation.model.iceflow.n`.
+
+# Returns
+- `result`: The first result from the simulation's results.
+"""
 function generate_result(simulation::SIM, A, n,) where {SIM <: Simulation}
     
     # Initialize the model using the specified or default models
@@ -109,9 +122,7 @@ function generate_result(simulation::SIM, A, n,) where {SIM <: Simulation}
 
     # Extract the first result 
     result = simulation.results[1]
-    
-    
-    
+      
     return result
 end
 

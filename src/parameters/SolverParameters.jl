@@ -73,19 +73,6 @@ Base.:(==)(a::SolverParameters, b::SolverParameters) = a.solver == b.solver && a
                                       a.tstops == b.tstops && a.save_everystep == b.save_everystep && a.progress == b.progress &&
                                       a.progress_steps == b.progress_steps
 
-"""
-Parameters(;
-        physical::PhysicalParameters = PhysicalParameters(),
-        simulation::SimulationParameters = SimulationParameters(),
-        solver::SolverParameters = SolverParameters()
-        )
-Initialize Huginn parameters
-
-Keyword arguments
-=================
-
-"""
-
 function Parameters(;
     physical::PhysicalParameters = PhysicalParameters(),
     simulation::SimulationParameters = SimulationParameters(),
