@@ -95,7 +95,7 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
         SIA2D_model = simulation.model.iceflow[batch_id] # We pick the right iceflow model for this glacier
         glacier = simulation.glaciers[batch_id]
     end
-    
+
     params = simulation.parameters
     # Retrieve parameters
     B = glacier.B
@@ -105,12 +105,14 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
     n = SIA2D_model.n
     ρ = params.physical.ρ
     g = params.physical.g
-
+    
     @views H = ifelse.(H.<0.0, 0.0, H) # prevent values from going negative
 
     # First, enforce values to be positive
-    map!(x -> ifelse(x>0.0,x,0.0), H, H)
-    
+     ## Uncomment this line!!!! Why this is neccesary if we have the previous function???
+    # map!(x -> ifelse(x>0.0,x,0.0), H, H)
+    @assert sum(H .< 0.0) == 0 "Ice thickness values are below zero."
+
     # Update glacier surface altimetry
     S = B .+ H
 
