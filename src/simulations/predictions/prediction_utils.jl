@@ -8,7 +8,7 @@ In-place run of the model.
 """
 function run!(simulation::Prediction)
 
-    println("Running forward in-place PDE ice flow model...\n")
+    @info "Running forward in-place PDE ice flow model"
     results_list = @showprogress pmap((glacier_idx) -> batch_iceflow_PDE!(glacier_idx, simulation), 1:length(simulation.glaciers))
 
     Sleipnir.save_results_file!(results_list, simulation)
@@ -29,7 +29,7 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     glacier = simulation.glaciers[glacier_idx]
 
     glacier_id = isnothing(glacier.rgi_id) ? "unnamed" : glacier.rgi_id
-    println("Processing glacier: ", glacier_id)
+    @info "Processing glacier $(glacier_id) for PDE forward simulation"
 
     # Initialize glacier ice flow model
     initialize_iceflow_model!(model.iceflow, glacier_idx, glacier, params)
@@ -109,7 +109,7 @@ Out-of-place run of the model.
 """
 function run₀(simulation::Prediction)
 
-    println("Running forward out-of-place PDE ice flow model...\n")
+    @info "Running forward out-of-place PDE ice flow model"
     results_list = @showprogress pmap((glacier_idx) -> batch_iceflow_PDE(glacier_idx, simulation), 1:length(simulation.glaciers))
 
     Sleipnir.save_results_file!(results_list, simulation)
