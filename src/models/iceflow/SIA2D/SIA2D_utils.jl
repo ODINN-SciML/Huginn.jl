@@ -141,9 +141,15 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
     Fx = .-avg_y(D) .* dSdx_edges
     Fy = .-avg_x(D) .* dSdy_edges 
 
-    #  Flux divergence
-    @tullio dH[i,j] := -(diff_x(Fx)[pad(i-1,1,1),pad(j-1,1,1)] / Δx + diff_y(Fy)[pad(i-1,1,1),pad(j-1,1,1)] / Δy) 
+    Fxx = diff_x(Fx) / Δx
+    Fyy = diff_y(Fy) / Δy
 
+    #  Flux divergence
+    # @tullio dH[i,j] := -(diff_x(Fx)[pad(i-1,1,1),pad(j-1,1,1)] / Δx + diff_y(Fy)[pad(i-1,1,1),pad(j-1,1,1)] / Δy) 
+
+    # return dH
+    dH = zero(H)
+    inn(dH) .= .-(Fxx .+ Fyy) 
     return dH
 end
 
