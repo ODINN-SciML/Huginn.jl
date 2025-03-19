@@ -167,3 +167,66 @@ Returns a view of the input array `A` excluding the last row and the last column
 - A view of the input array `A` that includes all elements except the last row and the last column.
 """
 @views inn1(A) = A[1:end-1,1:end-1]
+
+
+### Enzyme scalar implementation of util functions
+
+function avg_enzyme!(R, A)
+    @inbounds @simd for i in eachindex(R)
+        R[i] = 0
+    end
+
+    @inbounds for i in axes(R, 1)
+        @inbounds @simd for j in axes(R,2)
+            R[i,j] += 0.25 * (A[i,j] + A[i+1,j] + A[i,j+1] + A[i+1,j+1])
+        end
+    end
+end
+
+function avg_x_enzyme!(R, A)
+    @inbounds @simd for i in eachindex(R)
+        R[i] = 0
+    end
+
+    @inbounds for i in axes(R, 1)
+        @inbounds @simd for j in axes(R,2)
+            R[i,j] += 0.50 * (A[i,j] + A[i+1,j])
+        end
+    end
+end
+
+function avg_y_enzyme!(R, A)
+    @inbounds @simd for i in eachindex(R)
+        R[i] = 0
+    end
+
+    @inbounds for i in axes(R, 1)
+        @inbounds @simd for j in axes(R,2)
+            R[i,j] += 0.50 * (A[i,j] + A[i,j+1])
+        end
+    end
+end
+
+function diff_x_enzyme!(R, A)
+    @inbounds @simd for i in eachindex(R)
+        R[i] = 0
+    end
+
+    @inbounds for i in axes(R, 1)
+        @inbounds @simd for j in axes(R,2)
+            R[i,j] += A[i+1,j] - A[i,j]
+        end
+    end
+end
+
+function diff_y_enzyme!(R, A)
+    @inbounds @simd for i in eachindex(R)
+        R[i] = 0
+    end
+
+    @inbounds for i in axes(R, 1)
+        @inbounds @simd for j in axes(R,2)
+            R[i,j] += A[i,j+1] - A[i,j]
+        end
+    end
+end
