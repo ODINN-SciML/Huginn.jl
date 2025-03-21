@@ -144,8 +144,14 @@ function SIA2D_discrete_adjoint(∂dH::Matrix{R}, H::Matrix{R}, simulation::SIM,
     ∂C∂H_adj_y = ∇adj∂dSy + ∂Hlocy
     ∂C∂H_adj = ∂C∂H_adj_x + ∂C∂H_adj_y
 
-    # Sum everything
+    # Sum contributions of diffusivity and clipping
     ∂H= ∂D∂H_adj + ∂C∂H_adj
     ∂H .= ∂H.*(H.>0)
-    return ∂H
+
+    # Gradient wrt A
+    fac = 2.0 * (ρ * g)^n[] / (n[]+2)
+    ∂A = fac .* avg(H).^(n[] + 2) .* ∇S .* D_adjoint
+    ∂A = sum(∂A)
+
+    return ∂H, ∂A
 end

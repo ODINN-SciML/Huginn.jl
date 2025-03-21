@@ -153,8 +153,11 @@ function test_adjoint_SIAD2D()
 
     dH = Huginn.SIA2D(H, simulation, t)
 
-    ∂H = Huginn.SIA2D_discrete_adjoint(vecBackwardSIA2D, H, simulation, t)
     @eval Base.show(io::IO, f::Float64) = @printf(io, "%.2e", f)
+
+    ∂H, ∂A = Huginn.SIA2D_discrete_adjoint(vecBackwardSIA2D, H, simulation, t)
+
+    # Check gradient wrt H
     ratio = []
     angle = []
     relerr = []
@@ -182,6 +185,38 @@ function test_adjoint_SIAD2D()
     thres_ratio = 1e-6
     thres_angle = 1e-12
     thres_relerr = 1e-7
+    if !( (min_ratio<thres_ratio) & (min_angle<thres_angle) & (min_relerr<thres_relerr) )
+        println("eps    = ",eps)
+        println("ratio  = ",ratio)
+        println("angle  = ",angle)
+        println("relerr = ",relerr)
+    end
+    @test (min_ratio<thres_ratio) & (min_angle<thres_angle) & (min_relerr<thres_relerr)
+
+    # Check gradient wrt A
+    ratio = []
+    angle = []
+    relerr = []
+    eps = []
+    for k in range(17,21)
+        ϵ = 10.0^(-k)
+        push!(eps, ϵ)
+        # ∂H_num = zero(∂H)
+        # Hperturb = zero(H)
+        Aperturb = simulation.model.iceflow.A[]+ϵ
+        simulation.model.iceflow.A[] = Aperturb
+        lossperturb = _loss(H, simulation, t, vecBackwardSIA2D)
+        ∂A_num = (lossperturb-loss)/ϵ
+        push!(ratio, abs(∂A)/abs(∂A_num)-1)
+        push!(angle, (∂A.*∂A_num)/(abs(∂A)*abs(∂A_num))-1)
+        push!(relerr, abs(∂A-∂A_num)/abs(∂A))
+    end
+    min_ratio = minimum(abs.(ratio))
+    min_angle = minimum(abs.(angle))
+    min_relerr = minimum(abs.(relerr))
+    thres_ratio = 1e-14
+    thres_angle = 1e-14
+    thres_relerr = 1e-14
     if !( (min_ratio<thres_ratio) & (min_angle<thres_angle) & (min_relerr<thres_relerr) )
         println("eps    = ",eps)
         println("ratio  = ",ratio)
