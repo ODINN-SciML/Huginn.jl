@@ -153,7 +153,7 @@ function test_adjoint_SIAD2D()
 
     dH = Huginn.SIA2D(H, simulation, t)
 
-    ∂H = Huginn.SIA2D_adjoint(vecBackwardSIA2D, H, simulation, t)
+    ∂H = Huginn.SIA2D_discrete_adjoint(vecBackwardSIA2D, H, simulation, t)
     @eval Base.show(io::IO, f::Float64) = @printf(io, "%.2e", f)
     ratio = []
     angle = []
