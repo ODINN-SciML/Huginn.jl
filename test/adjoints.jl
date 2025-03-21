@@ -137,7 +137,7 @@ function test_adjoint_SIAD2D()
     B = abs.(randn(nx, ny))
     S = H₀ + B
     glacier = Glacier2D(rgi_id = "toy", H₀ = H₀, S = S, B = B, A = A, n=n, Δx=Δx, Δy=Δy, nx=nx, ny=ny, C = 0.0)
-    glaciers = Vector{Sleipnir.AbstractGlacier}([glacier])
+    glaciers = [glacier]
 
     simulation = Prediction(model, glaciers, params)
 
@@ -153,7 +153,7 @@ function test_adjoint_SIAD2D()
 
     dH = Huginn.SIA2D(H, simulation, t)
 
-    @eval Base.show(io::IO, f::Float64) = @printf(io, "%.2e", f)
+    scientNotationVec(v) = join([@sprintf("%.2e", e) for e in v], " ")
 
     ∂H, ∂A = Huginn.SIA2D_discrete_adjoint(vecBackwardSIA2D, H, simulation, t)
 
@@ -186,10 +186,10 @@ function test_adjoint_SIAD2D()
     thres_angle = 1e-12
     thres_relerr = 1e-7
     if !( (min_ratio<thres_ratio) & (min_angle<thres_angle) & (min_relerr<thres_relerr) )
-        println("eps    = ",eps)
-        println("ratio  = ",ratio)
-        println("angle  = ",angle)
-        println("relerr = ",relerr)
+        println("eps    = ",scientNotationVec(eps))
+        println("ratio  = ",scientNotationVec(ratio))
+        println("angle  = ",scientNotationVec(angle))
+        println("relerr = ",scientNotationVec(relerr))
     end
     @test (min_ratio<thres_ratio) & (min_angle<thres_angle) & (min_relerr<thres_relerr)
 
@@ -218,10 +218,10 @@ function test_adjoint_SIAD2D()
     thres_angle = 1e-14
     thres_relerr = 1e-14
     if !( (min_ratio<thres_ratio) & (min_angle<thres_angle) & (min_relerr<thres_relerr) )
-        println("eps    = ",eps)
-        println("ratio  = ",ratio)
-        println("angle  = ",angle)
-        println("relerr = ",relerr)
+        println("eps    = ",scientNotationVec(eps))
+        println("ratio  = ",scientNotationVec(ratio))
+        println("angle  = ",scientNotationVec(angle))
+        println("relerr = ",scientNotationVec(relerr))
     end
     @test (min_ratio<thres_ratio) & (min_angle<thres_angle) & (min_relerr<thres_relerr)
 end
