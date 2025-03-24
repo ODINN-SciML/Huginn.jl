@@ -158,6 +158,10 @@ function test_adjoint_SIAD2D()
     ∂H, ∂A = Huginn.SIA2D_discrete_adjoint(vecBackwardSIA2D, H, simulation, t)
 
     # Check gradient wrt H
+    function f_H(H, args)
+        simulation, t, vecBackwardSIA2D = args
+        return _loss(H, simulation, t, vecBackwardSIA2D)
+    end
     ratio = []
     angle = []
     relerr = []
@@ -165,19 +169,11 @@ function test_adjoint_SIAD2D()
     for k in range(2,9)
         ϵ = 10.0^(-k)
         push!(eps, ϵ)
-        ∂H_num = zero(∂H)
-        Hperturb = zero(H)
-        for i in range(1,nx)
-            for j in range(1,ny)
-                Hperturb[:,:] .= H[:,:]
-                Hperturb[i,j] += ϵ
-                lossperturb = _loss(Hperturb, simulation, t, vecBackwardSIA2D)
-                ∂H_num[i,j] = (lossperturb-loss)/ϵ
-            end
-        end
-        push!(ratio, sqrt(sum(∂H.^2))/sqrt(sum(∂H_num.^2))-1)
-        push!(angle, sum(∂H.*∂H_num)/(sqrt(sum(∂H.^2))*sqrt(sum(∂H_num.^2)))-1)
-        push!(relerr, sqrt(sum((∂H-∂H_num).^2))/sqrt(sum((∂H).^2)))
+        ∂H_num = Huginn.compute_numerical_gradient(H, (simulation, t, vecBackwardSIA2D), f_H, ϵ)
+        ratio_k, angle_k, relerr_k = Huginn.stats_err_backward(∂H, ∂H_num)
+        push!(ratio, ratio_k)
+        push!(angle, angle_k)
+        push!(relerr, relerr_k)
     end
     min_ratio = minimum(abs.(ratio))
     min_angle = minimum(abs.(angle))
@@ -194,6 +190,11 @@ function test_adjoint_SIAD2D()
     @test (min_ratio<thres_ratio) & (min_angle<thres_angle) & (min_relerr<thres_relerr)
 
     # Check gradient wrt A
+    function f_A(A, args)
+        H, simulation, t, vecBackwardSIA2D = args
+        simulation.model.iceflow.A[] = A[1]
+        lossperturb = _loss(H, simulation, t, vecBackwardSIA2D)
+    end
     ratio = []
     angle = []
     relerr = []
@@ -201,15 +202,12 @@ function test_adjoint_SIAD2D()
     for k in range(17,21)
         ϵ = 10.0^(-k)
         push!(eps, ϵ)
-        # ∂H_num = zero(∂H)
-        # Hperturb = zero(H)
-        Aperturb = simulation.model.iceflow.A[]+ϵ
-        simulation.model.iceflow.A[] = Aperturb
-        lossperturb = _loss(H, simulation, t, vecBackwardSIA2D)
-        ∂A_num = (lossperturb-loss)/ϵ
-        push!(ratio, abs(∂A)/abs(∂A_num)-1)
-        push!(angle, (∂A.*∂A_num)/(abs(∂A)*abs(∂A_num))-1)
-        push!(relerr, abs(∂A-∂A_num)/abs(∂A))
+        Avec = [simulation.model.iceflow.A[]]
+        ∂A_num = Huginn.compute_numerical_gradient(Avec, (H, simulation, t, vecBackwardSIA2D), f_A, ϵ)
+        ratio_k, angle_k, relerr_k = Huginn.stats_err_backward([∂A], ∂A_num)
+        push!(ratio, ratio_k)
+        push!(angle, angle_k)
+        push!(relerr, relerr_k)
     end
     min_ratio = minimum(abs.(ratio))
     min_angle = minimum(abs.(angle))
