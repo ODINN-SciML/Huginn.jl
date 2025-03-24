@@ -44,9 +44,9 @@ A mutable struct representing a 2D Shallow Ice Approximation (SIA) model.
 - `glacier_idx::Union{Ref{I}, Nothing}`: Index of the glacier.
 """
 mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
-    A::Union{Ref{R}, Nothing}
-    n::Union{Ref{R}, Nothing}
-    C::Union{Ref{R}, Matrix{R}, Nothing}
+    A::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
+    n::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
+    C::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
     H₀::Union{Matrix{R}, Nothing}
     H::Union{Matrix{R}, Nothing}
     H̄::Union{Matrix{R}, Nothing}
@@ -68,7 +68,7 @@ mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
     V::Union{Matrix{R}, Nothing}
     Vx::Union{Matrix{R}, Nothing}
     Vy::Union{Matrix{R}, Nothing}
-    Γ::Union{Ref{R}, Nothing}
+    Γ::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
     MB::Union{Matrix{R}, Nothing}
     MB_mask::Union{AbstractArray{Bool}, Nothing}
     MB_total::Union{Matrix{R}, Nothing}
@@ -145,9 +145,9 @@ Constructs a new `SIA2Dmodel` object with the given parameters.
 - `SIA2Dmodel`: A new `SIA2Dmodel` object.
 """
 function SIA2Dmodel(params::Sleipnir.Parameters;
-                    A::Union{R, Nothing} = nothing,
-                    n::Union{R, Nothing} = nothing,
-                    C::Union{R, Matrix{R}, Nothing} = nothing,
+                    A::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+                    n::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+                    C::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
                     H₀::Union{Matrix{R}, Nothing} = nothing,
                     H::Union{Matrix{R}, Nothing} = nothing,
                     H̄::Union{Matrix{R}, Nothing} = nothing,
@@ -169,7 +169,7 @@ function SIA2Dmodel(params::Sleipnir.Parameters;
                     V::Union{Matrix{R}, Nothing} = nothing,
                     Vx::Union{Matrix{R}, Nothing} = nothing,
                     Vy::Union{Matrix{R}, Nothing} = nothing,
-                    Γ::Union{R, Nothing} = nothing,
+                    Γ::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
                     MB::Union{Matrix{R}, Nothing} = nothing,
                     MB_mask::Union{BitMatrix, Nothing} = nothing,
                     MB_total::Union{Matrix{R}, Nothing} = nothing,
@@ -178,16 +178,16 @@ function SIA2Dmodel(params::Sleipnir.Parameters;
     ft = Sleipnir.Float
     it = Sleipnir.Int
     if !isnothing(A)
-        A = Ref{ft}(A)
+        A = [A]
     end
     if !isnothing(n)
-        n = Ref{ft}(n)
+        n = [n]
     end
     if !isnothing(C)
-        C = Ref{ft}(C)
+        C = [C]
     end
     if !isnothing(Γ)
-        Γ = Ref{ft}(Γ)
+        Γ = [Γ]
     end
     if !isnothing(glacier_idx)
         glacier_idx = Ref{I}(glacier_idx)
@@ -222,9 +222,9 @@ function initialize_iceflow_model!(iceflow_model::IF,
                                    ) where {IF <: IceflowModel, I <: Integer, G <: Sleipnir.AbstractGlacier}
     nx, ny = glacier.nx, glacier.ny
     F = Sleipnir.Float
-    iceflow_model.A = isnothing(iceflow_model.A) ? Ref{F}(glacier.A) : iceflow_model.A
-    iceflow_model.n = isnothing(iceflow_model.n) ? Ref{F}(glacier.n) : iceflow_model.n
-    iceflow_model.C = isnothing(iceflow_model.C) ? Ref{F}(glacier.C) : iceflow_model.C
+    iceflow_model.A = isnothing(iceflow_model.A) ? [glacier.A] : iceflow_model.A
+    iceflow_model.n = isnothing(iceflow_model.n) ? [glacier.n] : iceflow_model.n
+    iceflow_model.C = isnothing(iceflow_model.C) ? [glacier.C] : iceflow_model.C
     iceflow_model.H₀ = deepcopy(glacier.H₀)
     iceflow_model.H = deepcopy(glacier.H₀)
     iceflow_model.H̄ = zeros(F,nx-1,ny-1)
@@ -246,7 +246,7 @@ function initialize_iceflow_model!(iceflow_model::IF,
     iceflow_model.V = zeros(F,nx,ny)
     iceflow_model.Vx = zeros(F,nx,ny)
     iceflow_model.Vy = zeros(F,nx,ny)
-    iceflow_model.Γ = isnothing(iceflow_model.Γ) ? Ref{F}(0.0) : iceflow_model.Γ
+    iceflow_model.Γ = isnothing(iceflow_model.Γ) ? [0.0] : iceflow_model.Γ
     iceflow_model.MB = zeros(F,nx,ny)
     iceflow_model.MB_mask= zeros(F,nx,ny)
     iceflow_model.MB_total = zeros(F,nx,ny)
@@ -276,8 +276,8 @@ function initialize_iceflow_model(iceflow_model::IF,
                                    ) where {IF <: IceflowModel, I <: Integer}
     F = Sleipnir.Float
     nx, ny = glacier.nx, glacier.ny
-    iceflow_model.A = Ref{F}(glacier.A)
-    iceflow_model.n = Ref{F}(glacier.n)
+    iceflow_model.A = [glacier.A]
+    iceflow_model.n = [glacier.n]
     iceflow_model.glacier_idx = Ref{I}(glacier_idx)
     iceflow_model.H₀ = deepcopy(glacier.H₀)
     iceflow_model.H  = deepcopy(glacier.H₀)

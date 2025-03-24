@@ -18,11 +18,18 @@ This function updates the ice thickness `H` and computes the rate of change `dH`
 - Surface elevation differences are capped using upstream ice thickness to impose boundary conditions.
 - The function modifies the input matrices `dH` and `H` in place.
 """
-function SIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R) where {R <:Real, SIM <: Simulation}
-    # Retrieve parameters
-    SIA2D_model::SIA2Dmodel = simulation.model.iceflow
-    glacier::Sleipnir.Glacier2D = simulation.glaciers[simulation.model.iceflow.glacier_idx[]]
-    params::Sleipnir.Parameters = simulation.parameters
+function SIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} = nothing) where {R <:Real, I <: Integer, SIM <: Simulation}
+
+    # For simulations using Reverse Diff, an iceflow model per glacier is needed
+    if isnothing(batch_id)
+        SIA2D_model = simulation.model.iceflow
+        glacier = simulation.glaciers[SIA2D_model.glacier_idx[]]
+    else
+        SIA2D_model = simulation.model.iceflow[batch_id] # We pick the right iceflow model for this glacier
+        glacier = simulation.glaciers[batch_id]
+    end
+
+    params = simulation.parameters
     H̄ = SIA2D_model.H̄
     A = SIA2D_model.A
     n = SIA2D_model.n
@@ -59,11 +66,11 @@ function SIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R) where {R <:R
     diff_y!(dSdy, S, Δy) 
     avg_y!(∇Sx, dSdx)
     avg_x!(∇Sy, dSdy)
-    ∇S .= (∇Sx.^2 .+ ∇Sy.^2).^((n[] - 1)/2) 
+    ∇S .= @. (∇Sx^2 + ∇Sy^2)^((n - 1)/2) 
 
     avg!(H̄, H)
-    Γ[] = 2.0 * A[] * (ρ * g)^n[] / (n[]+2) # 1 / m^3 s 
-    D .= Γ[] .* H̄.^(n[] + 2) .* ∇S
+    Γ .= @. 2.0 * A * (ρ * g)^n / (n+2) # 1 / m^3 s 
+    D .= @. Γ * H̄^(n + 2) * ∇S
 
     # Compute flux components
     @views diff_x!(dSdx_edges, S[:,2:end - 1], Δx)
