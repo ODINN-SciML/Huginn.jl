@@ -16,6 +16,7 @@ using CairoMakie
 import Pkg
 using Distributed
 using ProgressMeter
+using Printf
 
 ### ODINN.jl dependencies ###
 using Reexport

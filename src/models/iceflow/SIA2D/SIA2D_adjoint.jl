@@ -61,11 +61,18 @@ SIA2D_discrete_adjoint(∂H, ∂dH, H, SIA2Dmodel, t)
 
 Compute an out-of-place adjoint step of the Shallow Ice Approximation PDE
 """
-function SIA2D_discrete_adjoint(∂dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R) where {R <:Real, SIM <: Simulation}
+function SIA2D_discrete_adjoint(∂dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} = nothing) where {R <:Real, I <: Integer, SIM <: Simulation}
+
+    if isnothing(batch_id)
+        SIA2D_model = simulation.model.iceflow
+        glacier = simulation.glaciers[SIA2D_model.glacier_idx[]]
+    else
+        SIA2D_model = simulation.model.iceflow[batch_id] # We pick the right iceflow model for this glacier
+        glacier = simulation.glaciers[batch_id]
+    end
+
     # Retrieve parameters
-    SIA2D_model::SIA2Dmodel = simulation.model.iceflow
-    glacier::Sleipnir.Glacier2D = simulation.glaciers[simulation.model.iceflow.glacier_idx[]]
-    params::Sleipnir.Parameters = simulation.parameters
+    params = simulation.parameters
     A = SIA2D_model.A
     n = SIA2D_model.n
     B = glacier.B

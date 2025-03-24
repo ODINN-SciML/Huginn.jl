@@ -8,7 +8,6 @@ using Plots
 using Infiltrator
 using OrdinaryDiffEq
 using CairoMakie
-using Printf
 using Random
 using Huginn
 

@@ -153,8 +153,6 @@ function test_adjoint_SIAD2D()
 
     dH = Huginn.SIA2D(H, simulation, t)
 
-    scientNotationVec(v) = join([@sprintf("%.2e", e) for e in v], " ")
-
     ∂H, ∂A = Huginn.SIA2D_discrete_adjoint(vecBackwardSIA2D, H, simulation, t)
 
     # Check gradient wrt H
@@ -182,10 +180,11 @@ function test_adjoint_SIAD2D()
     thres_angle = 1e-12
     thres_relerr = 1e-7
     if !( (min_ratio<thres_ratio) & (min_angle<thres_angle) & (min_relerr<thres_relerr) )
-        println("eps    = ",scientNotationVec(eps))
-        println("ratio  = ",scientNotationVec(ratio))
-        println("angle  = ",scientNotationVec(angle))
-        println("relerr = ",scientNotationVec(relerr))
+        println("Gradient wrt H")
+        println("eps    = ",printVecScientific(eps))
+        println("ratio  = ",printVecScientific(ratio))
+        println("angle  = ",printVecScientific(angle))
+        println("relerr = ",printVecScientific(relerr))
     end
     @test (min_ratio<thres_ratio) & (min_angle<thres_angle) & (min_relerr<thres_relerr)
 
@@ -193,7 +192,7 @@ function test_adjoint_SIAD2D()
     function f_A(A, args)
         H, simulation, t, vecBackwardSIA2D = args
         simulation.model.iceflow.A[] = A[1]
-        lossperturb = _loss(H, simulation, t, vecBackwardSIA2D)
+        return _loss(H, simulation, t, vecBackwardSIA2D)
     end
     ratio = []
     angle = []
@@ -216,10 +215,11 @@ function test_adjoint_SIAD2D()
     thres_angle = 1e-14
     thres_relerr = 1e-14
     if !( (min_ratio<thres_ratio) & (min_angle<thres_angle) & (min_relerr<thres_relerr) )
-        println("eps    = ",scientNotationVec(eps))
-        println("ratio  = ",scientNotationVec(ratio))
-        println("angle  = ",scientNotationVec(angle))
-        println("relerr = ",scientNotationVec(relerr))
+        println("Gradient wrt θ")
+        println("eps    = ",printVecScientific(eps))
+        println("ratio  = ",printVecScientific(ratio))
+        println("angle  = ",printVecScientific(angle))
+        println("relerr = ",printVecScientific(relerr))
     end
     @test (min_ratio<thres_ratio) & (min_angle<thres_angle) & (min_relerr<thres_relerr)
 end
