@@ -14,7 +14,7 @@ using Huginn
 include("utils_test.jl")
 include("params_construction.jl")
 include("halfar.jl")
-include("PDE_UDE_solve.jl")
+include("PDE_solve.jl")
 include("mass_conservation.jl")
 include("plotting.jl")
 include("adjoints.jl")

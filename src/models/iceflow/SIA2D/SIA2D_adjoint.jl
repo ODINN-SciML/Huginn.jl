@@ -52,11 +52,37 @@ end
 
 
 """
-SIA2D_discrete_adjoint(∂H, ∂dH, H, SIA2Dmodel, t)
+    SIA2D_discrete_adjoint(
+        ∂dH::Matrix{R},
+        H::Matrix{R},
+        simulation::SIM,
+        t::R;
+        batch_id::Union{Nothing, I} = nothing
+    )
 
-Compute an out-of-place adjoint step of the Shallow Ice Approximation PDE
+Compute an out-of-place adjoint step of the Shallow Ice Approximation PDE.
+Given an output gradient, it backpropagates the gradient to the inputs H and A.
+To some extent, this function is equivalent to VJP_λ_∂SIA∂H_continuous and
+VJP_λ_∂SIA∂θ_continuous.
+
+Arguments:
+- `∂dH::Matrix{R}`: Output gradient to backpropagate.
+- `H::Matrix{R}`: Ice thickness which corresponds to the input state of the SIA2D.
+- `simulation::SIM`: Simulation parameters.
+- `t::R`: Time value, not used as SIA2D is time independent.
+- `batch_id::Union{Nothing, I}`: Batch index.
+
+Returns:
+- `∂H::Matrix{R}`: Input gradient wrt H.
+- `∂A::F`: Input gradient wrt A.
 """
-function SIA2D_discrete_adjoint(∂dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} = nothing) where {R <:Real, I <: Integer, SIM <: Simulation}
+function SIA2D_discrete_adjoint(
+    ∂dH::Matrix{R},
+    H::Matrix{R},
+    simulation::SIM,
+    t::R;
+    batch_id::Union{Nothing, I} = nothing
+) where {R <:Real, I <: Integer, SIM <: Simulation}
 
     if isnothing(batch_id)
         SIA2D_model = simulation.model.iceflow
