@@ -1,9 +1,9 @@
 export SolverParameters, Parameters
 
 """
-    SolverParameters{F <: AbstractFloat, I <: Integer}
-
 A mutable struct that holds parameters for the solver.
+
+    SolverParameters{F <: AbstractFloat, I <: Integer}
 
 # Fields
 - `solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm`: The algorithm used for solving differential equations.
@@ -25,15 +25,27 @@ mutable struct SolverParameters{F <: AbstractFloat, I <: Integer} <: AbstractPar
 end
 
 """
-    SolverParameters(;
-        solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm = RDPK3Sp35(),
-        reltol::Float64 = 1e-7
-        )
-Initialize the parameters for the numerical solver.
-Keyword arguments
-=================
-    - `solver`: solver to use from DifferentialEquations.jl
-    - `reltol`: Relative tolerance for the solver
+Constructs a `SolverParameters` object with the specified parameters or using default values.
+
+    SolverParameters(; solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm = RDPK3Sp35(),
+                      reltol::F = 1e-12,
+                      step::F = 1.0/12.0,
+                      tstops::Union{Nothing,Vector{F}} = nothing,
+                      save_everystep = false,
+                      progress::Bool = true,
+                      progress_steps::I = 10) where {F <: AbstractFloat, I <: Integer}
+
+# Arguments
+- `solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm`: The ODE solver algorithm to use. Defaults to `RDPK3Sp35()`.
+- `reltol::F`: The relative tolerance for the solver. Defaults to `1e-12`.
+- `step::F`: The step size for the callbacks. These are mainly used to run the surface mass balance model. Defaults to `1.0/12.0` (i.e. a month).
+- `tstops::Union{Nothing, Vector{F}}`: Optional vector of time points where the solver should stop. Defaults to `nothing`.
+- `save_everystep::Bool`: Whether to save the solution at every step. Defaults to `false`.
+- `progress::Bool`: Whether to show progress during the solving process. Defaults to `true`.
+- `progress_steps::I`: The number of steps between progress updates. Defaults to `10`.
+
+# Returns
+- `solver_parameters`: A `SolverParameters` object constructed with the specified parameters.
 """
 function SolverParameters(;
             solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm = RDPK3Sp35(),
@@ -61,19 +73,6 @@ Base.:(==)(a::SolverParameters, b::SolverParameters) = a.solver == b.solver && a
                                       a.tstops == b.tstops && a.save_everystep == b.save_everystep && a.progress == b.progress &&
                                       a.progress_steps == b.progress_steps
 
-"""
-Parameters(;
-        physical::PhysicalParameters = PhysicalParameters(),
-        simulation::SimulationParameters = SimulationParameters(),
-        solver::SolverParameters = SolverParameters()
-        )
-Initialize Huginn parameters
-
-Keyword arguments
-=================
-
-"""
-
 function Parameters(;
     physical::PhysicalParameters = PhysicalParameters(),
     simulation::SimulationParameters = SimulationParameters(),
@@ -95,7 +94,15 @@ end
 """
     define_callback_steps(tspan::Tuple{F, F}, step::F) where {F <: AbstractFloat}
 
-Defines the times to stop for the DiscreteCallback given a step
+Defines the times to stop for the DiscreteCallback given a step and a timespan.
+
+# Arguments
+- `tspan::Tuple{Float64, Float64}`: A tuple representing the start and end times.
+- `step::Float64`: The step size for generating the callback steps.
+
+# Returns
+- `Vector{Float64}`: A vector of callback steps within the specified time span.
+
 """
 function define_callback_steps(tspan::Tuple{F, F}, step::F) where {F <: AbstractFloat}
     tmin_int = Int(tspan[1])
