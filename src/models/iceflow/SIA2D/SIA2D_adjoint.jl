@@ -1,19 +1,15 @@
 
 function diff_x_adjoint(I, Δx)
-    # TODO: improve implementation
     O = zeros(Sleipnir.Float, (size(I,1)+1,size(I,2)))
-    O[begin,:] = -I[begin,:]/Δx # O[0] = -I[0] /Δx
-    O[end,:] = I[end,:]/Δx # O[n-1] = I[n-2] /Δx
-    O[begin+1:end-1,:] = (I[begin:end-1,:]-I[begin+1:end,:])/Δx # O[1:n-2] = (I[0:n-3]-I[1:n-2]) /Δx
-    return O
+    O[begin+1:end,:] += I
+    O[1:end-1,:] -= I
+    return O / Δx
 end
 function diff_y_adjoint(I, Δy)
-    # TODO: improve implementation
     O = zeros(Sleipnir.Float, (size(I,1),size(I,2)+1))
-    O[:,begin] = -I[:,begin]/Δy # O[0] = -I[0] /Δy
-    O[:,end] = I[:,end]/Δy # O[n-1] = I[n-2] /Δy
-    O[:,begin+1:end-1] = (I[:,begin:end-1]-I[:,begin+1:end])/Δy # O[1:n-2] = (I[0:n-3]-I[1:n-2]) /Δy
-    return O
+    O[:,begin+1:end] += I
+    O[:,1:end - 1] -= I
+    return O / Δy
 end
 function clamp_borders_dx(dS, H, η₀, Δx)
     return max.(min.(dS,  η₀ * H[2:end, 2:end-1]/Δx), -η₀ * H[1:end-1, 2:end-1]/Δx)
@@ -34,7 +30,6 @@ function clamp_borders_dy_adjoint!(∂dS, ∂H, ∂C, η₀, Δy, H, dS)
     ∂H[2:end-1, 2:end] += (η₀ * ∂C / Δy) .* (dS .> η₀ * H[2:end-1, 2:end]/Δy)
 end
 function avg_adjoint(I)
-    # avg!(O, I) = @views @. O = (I[1:end-1,1:end-1] + I[2:end,1:end-1] + I[1:end-1,2:end] + I[2:end,2:end]) * 0.25
     O = zeros(Sleipnir.Float, (size(I,1)+1,size(I,2)+1))
     O[1:end-1,1:end-1] += I
     O[2:end,1:end-1] += I
@@ -103,25 +98,15 @@ function SIA2D_discrete_adjoint(∂dH::Matrix{R}, H::Matrix{R}, simulation::SIM,
     @views dSdx_edges = diff_x(S[:,2:end - 1]) / Δx
     @views dSdy_edges = diff_y(S[2:end - 1,:]) / Δy
 
-    # Cap surface elevaton differences with the upstream ice thickness to 
+    # Cap surface elevaton differences with the upstream ice thickness to
     # imporse boundary condition of the SIA equation
     η₀ = params.physical.η₀
     dSdx_edges_clamp = clamp_borders_dx(dSdx_edges, H, η₀, Δx)
     dSdy_edges_clamp = clamp_borders_dy(dSdy_edges, H, η₀, Δy)
 
-    # D: nx-1, ny-1
-    Dx = avg_y(D) # nx-1, ny-2
-    Dy = avg_x(D) # nx-2, ny-1
-    # Fx .= .-Dx .* dSdx_edges_clamp
-    # Fy .= .-Dy .* dSdy_edges_clamp
+    Dx = avg_y(D)
+    Dy = avg_x(D)
 
-    #  Flux divergence
-    # diff_x!(Fxx, Fx, Δx) # nx-2, ny-2
-    # diff_y!(Fyy, Fy, Δy)
-    # inn(dH) .= .-(Fxx .+ Fyy)
-
-
-    ########
     ∂dH_inn = ∂dH[2:end-1,2:end-1]
     Fx_adjoint = diff_x_adjoint(-∂dH_inn, Δx)
     Fy_adjoint = diff_y_adjoint(-∂dH_inn, Δy)
@@ -152,13 +137,13 @@ function SIA2D_discrete_adjoint(∂dH::Matrix{R}, H::Matrix{R}, simulation::SIM,
     ∂C∂H_adj = ∂C∂H_adj_x + ∂C∂H_adj_y
 
     # Sum contributions of diffusivity and clipping
-    ∂H= ∂D∂H_adj + ∂C∂H_adj
+    ∂H = ∂D∂H_adj + ∂C∂H_adj
     ∂H .= ∂H.*(H.>0)
 
     # Gradient wrt A
     fac = 2.0 * (ρ * g)^n[] / (n[]+2)
-    ∂A = fac .* avg(H).^(n[] + 2) .* ∇S .* D_adjoint
-    ∂A = sum(∂A)
+    ∂A_spatial = fac .* avg(H).^(n[] + 2) .* ∇S .* D_adjoint
+    ∂A = sum(∂A_spatial)
 
     return ∂H, ∂A
 end
