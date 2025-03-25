@@ -1,12 +1,3 @@
-function __init__()
-
-    # # Create structural folders if needed
-    # OGGM_path = joinpath(homedir(), "Python/OGGM_data")
-    # if !isdir(OGGM_path)
-    #     mkpath(OGGM_path)
-    # end
-
-end
 
 function clean()
     atexit() do
@@ -36,4 +27,3 @@ function clean()
     end
     return nworkers()
 end
-
