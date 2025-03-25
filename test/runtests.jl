@@ -8,14 +8,16 @@ using Plots
 using Infiltrator
 using OrdinaryDiffEq
 using CairoMakie
+using Random
 using Huginn
 
 include("utils_test.jl")
 include("params_construction.jl")
 include("halfar.jl")
-include("PDE_UDE_solve.jl")
+include("PDE_solve.jl")
 include("mass_conservation.jl")
 include("plotting.jl")
+include("adjoints.jl")
 
 # Activate to avoid GKS backend Plot issues in the JupyterHub
 ENV["GKSwstype"]="nul"
@@ -41,5 +43,13 @@ ENV["GKSwstype"]="nul"
 @testset "Conservation of Mass - Non Flat Bed" unit_mass_nonflatbed_test(; rtol=1.0e-7)
 
 @testset "Glacier Plotting" plot_analysis_flow_parameters_test()
+
+@testset "Adjoint of diff" test_adjoint_diff()
+
+@testset "Adjoint of clamp_borders" test_adjoint_clamp_borders()
+
+@testset "Adjoint of avg" test_adjoint_avg()
+
+@testset "Adjoint of SIA2D" test_adjoint_SIAD2D()
 
 end

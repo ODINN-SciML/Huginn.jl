@@ -16,6 +16,7 @@ using CairoMakie
 import Pkg
 using Distributed
 using ProgressMeter
+using Printf
 
 ### ODINN.jl dependencies ###
 using Reexport
@@ -33,7 +34,7 @@ const global root_plots::String = joinpath(root_dir, "plots")
 # ############ HUGINN LIBRARIES ##############
 # ##############################################
 
-# Include setup for Python in case this does not already exist
+# Include setup
 include("setup/config.jl")
 
 include("parameters/SolverParameters.jl")
@@ -41,6 +42,9 @@ include("parameters/SolverParameters.jl")
 include("models/iceflow/IceflowModel.jl")
 # Everything related to running forward simulations of ice flow
 include("simulations/predictions/Prediction.jl")
+
+# Utils related to the adjoint computation and validation
+include("models/iceflow/adjoint_utils.jl")
 
 # Everything related to plotting
 include("plotting/plotting_utils.jl")
