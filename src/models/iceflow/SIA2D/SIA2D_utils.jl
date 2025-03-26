@@ -16,7 +16,7 @@ This function updates the ice thickness `H` and computes the rate of change `dH`
 # Notes
 - The function operates on a staggered grid for computing gradients and fluxes.
 - Surface elevation differences are capped using upstream ice thickness to impose boundary conditions.
-- The function modifies the input matrices `dH` and `H` in place.
+- The function modifies the input matrices `dH` and `H` in-place.
 """
 function SIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} = nothing) where {R <:Real, I <: Integer, SIM <: Simulation}
 
