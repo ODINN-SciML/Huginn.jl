@@ -32,7 +32,7 @@ function Model(;
     mass_balance::Union{MBM, Nothing}
     ) where {IFM <: IceflowModel, MBM <: MBmodel}
 
-    model = Sleipnir.Model(iceflow, mass_balance, nothing)
+    model = Sleipnir.Model{typeof(iceflow), typeof(mass_balance), Nothing}(iceflow, mass_balance, nothing)
 
     return model
 end
