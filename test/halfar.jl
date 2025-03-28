@@ -57,10 +57,10 @@ function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol
     H_diff = H₁_pred .- H₁
 
     # Error calculation
-    absolute_error = maximum(abs.(H_diff[is_border(H₁, distance_to_border)])) 
-    percentage_error = maximum(abs.((H_diff./H₁)[is_border(H₁, distance_to_border)])) 
-    maximum_flow = maximum(abs.(((H₁ .- H₀))[is_border(H₁, distance_to_border)])) 
-    
+    absolute_error = maximum(abs.(H_diff[isis_in_glacier_border(H₁, distance_to_border)]))
+    percentage_error = maximum(abs.((H_diff./H₁)[is_in_glacier(H₁, distance_to_border)]))
+    maximum_flow = maximum(abs.(((H₁ .- H₀))[is_in_glacier(H₁, distance_to_border)]))
+
     # Optional plot
     if save_plot
         fig = Figure(resolution = (800, 800))
@@ -81,7 +81,11 @@ function unit_halfar_test(; A, n, t₀, t₁, Δx, Δy, nx, ny, h₀, r₀, rtol
     end
 
     # @show percentage_error, absolute_error, maximum_flow
-    @test all([percentage_error < rtol, absolute_error < atol])
+    cond = all([percentage_error < rtol, absolute_error < atol])
+    if !cond
+        println("percentage_error = $(percentage_error) and absolute_error = $(absolute_error) but rtol = $(rtol) and atol = $(atol)")
+    end
+    @test cond
 end
 
 """
