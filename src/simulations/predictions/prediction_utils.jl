@@ -67,15 +67,14 @@ function simulate_iceflow_PDE!(
     params = simulation.parameters
 
     # Define problem to be solved
-    iceflow_prob = ODEProblem{true,SciMLBase.FullSpecialize}(du, model.iceflow.H, params.simulation.tspan, tstops=params.solver.tstops, simulation)
+    iceflow_prob = ODEProblem{true,SciMLBase.FullSpecialize}(du, model.iceflow.H, params.simulation.tspan, simulation; tstops=params.solver.tstops)
 
-    iceflow_sol = solve(iceflow_prob, 
-                        params.solver.solver, 
-                        callback=cb, 
-                        tstops=params.solver.tstops, 
-                        reltol=params.solver.reltol, 
-                        save_everystep=params.solver.save_everystep, 
-                        progress=params.solver.progress, 
+    iceflow_sol = solve(iceflow_prob,
+                        params.solver.solver,
+                        callback=cb,
+                        reltol=params.solver.reltol,
+                        save_everystep=params.solver.save_everystep,
+                        progress=params.solver.progress,
                         progress_steps=params.solver.progress_steps)
 
     # @show iceflow_sol.destats
