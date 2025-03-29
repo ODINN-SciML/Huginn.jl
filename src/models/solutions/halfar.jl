@@ -1,22 +1,24 @@
 export halfar_solution
 
 """
-    halfar_solution(t, r, θ)
+    halfar_solution(R, t, h₀, r₀, A, n, physical_parameters::PhysicalParameters)
 
-Returns the evaluation of the Halfar solutions for the SIA equation. 
+Return the evaluation of the Halfar solution for the SIA equation.
 
 Arguments:
-    - r: radial distance. The solutions have polar symmetry around the center of origin.
-    - t: time
-    - ν = (A, H₀, R₀) 
+- `R`: Radial distance. The solution has polar symmetry around the center of origin.
+- `t`: Time.
+- `h₀` and `r₀`: Parameters of the Halfar solution.
+- `A`: Glen's law parameter.
+- `n`: Creep exponent.
+- `physical_parameters::PhysicalParameters`: Physical parameters that allow
+    retrieving the ice density and the gravity constant.
 """
-function halfar_solution(R, t, h₀, r₀, A, n)#, physical_parameters::PhysicalParameters)
+function halfar_solution(R, t, h₀, r₀, A, n, physical_parameters::PhysicalParameters)
 
     # parameters of Halfar solutions
-    # ρ = physical_parameters.ρ
-    # g = physical_parameters.g
-    ρ = 900.0
-    g = 9.81
+    ρ = physical_parameters.ρ
+    g = physical_parameters.g
 
     Γ = 2 * A * (ρ * g)^n / (n+2)
     # Characteristic time
