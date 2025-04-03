@@ -5,7 +5,8 @@ export compute_numerical_gradient, stats_err_arrays, printVecScientific
         x,
         args,
         fct::Function,
-        ϵ::F
+        ϵ::F;
+        varStr::String = ""
     ) where {T, F <: AbstractFloat}
 
 Compute the gradient of a function by using numerical differences. The function is
@@ -18,6 +19,8 @@ Arguments:
 - `args`: Extra arguments.
 - `fct::Function`: Function to differentiate.
 - `epsilon::F`: Size of perturbation to use in the numerical differences.
+- `varStr::String`: Variable to print in the progress bar. Example: "of A" will
+    print "Computing numerical gradient of A with..."
 
 Returns:
 - `grad`: Numerical gradient.
@@ -26,14 +29,15 @@ function compute_numerical_gradient(
     x,
     args,
     fct::Function,
-    ϵ::F
+    ϵ::F;
+    varStr::String = ""
 ) where {F <: AbstractFloat}
     grad = zero(x)
     grad_vec = vec(grad) # Points to the same position in memory
     x_ϵ = deepcopy(x)
     x_ϵ_vec = vec(x_ϵ)
     f0 = fct(x, args)
-    @showprogress desc="Computing numerical gradient with ϵ=$(@sprintf("%.1e", ϵ))..." for i in range(1,length(x))
+    @showprogress desc="Computing numerical gradient $(varStr) with ϵ=$(@sprintf("%.1e", ϵ))..." for i in range(1,length(x))
         x_ϵ .= x
         x_ϵ_vec[i] += ϵ
         grad_vec[i] = (fct(x_ϵ, args)-f0)/ϵ
@@ -70,3 +74,19 @@ function stats_err_arrays(a::T, b::T) where T
 end
 
 printVecScientific(v) = join([@sprintf("%9.2e", e) for e in v], " ")
+function printVecScientific(baseVarName, v, thres=nothing)
+    print(baseVarName)
+    for e in v
+        if isnothing(thres)
+            print(@sprintf("%9.2e", e))
+        else
+            if abs(e)<=thres
+                printstyled(@sprintf("%9.2e", e); color=:green)
+            else
+                printstyled(@sprintf("%9.2e", e); color=:red)
+            end
+        end
+        print(" ")
+    end
+    println("")
+end
