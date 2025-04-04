@@ -12,16 +12,16 @@ function clean()
         if nprocs() < procs
             @eval begin
             addprocs($procs - nprocs(); exeflags="--project")
-            println("Number of cores: ", nprocs())
-            println("Number of workers: ", nworkers())
+            @info "Number of cores: $(nprocs())"
+            @info "Number of workers: $(nworkers())"
             @everywhere using Reexport
             @everywhere @reexport using Huginn
             end # @eval
         elseif nprocs() != procs && procs == 1 && !params.simulation.test_mode
             @eval begin
             rmprocs(workers(), waitfor=0)
-            println("Number of cores: ", nprocs())
-            println("Number of workers: ", nworkers())
+            @info "Number of cores: $(nprocs())"
+            @info "Number of workers: $(nworkers())"
             end # @eval
         end
     end
