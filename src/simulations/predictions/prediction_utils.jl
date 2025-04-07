@@ -29,7 +29,7 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     glacier = simulation.glaciers[glacier_idx]
 
     glacier_id = isnothing(glacier.rgi_id) ? "unnamed" : glacier.rgi_id
-    @info "Processing glacier $(glacier_id) for PDE forward simulation"
+    println("Processing glacier $(glacier_id) for PDE forward simulation")
 
     # Initialize glacier ice flow model
     initialize_iceflow_model!(model.iceflow, glacier_idx, glacier, params)
