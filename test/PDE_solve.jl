@@ -3,7 +3,6 @@
 function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=false, fast::Bool=true) where {F <: AbstractFloat}
 
     println("PDE solving with MB = $MB")
-    working_dir = joinpath(homedir(), "OGGM/Huginn_tests")
 
     ## Retrieving gdirs and climate for the following glaciers
     ## Fast version includes less glacier to reduce the amount of downloaded files and computation time on GitHub CI
@@ -94,8 +93,6 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
 end
 
 function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: AbstractFloat}
-
-    working_dir = joinpath(homedir(), "OGGM/Huginn_tests")
 
     rgi_ids = ["RGI60-11.03638"]
 
