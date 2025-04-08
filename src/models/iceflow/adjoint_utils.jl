@@ -20,7 +20,7 @@ Arguments:
 - `fct::Function`: Function to differentiate.
 - `epsilon::F`: Size of perturbation to use in the numerical differences.
 - `varStr::String`: Variable to print in the progress bar. Example: "of A" will
-    print "Computing numerical gradient of A with..."
+    print "Computing gradient of A using finite differences with..."
 
 Returns:
 - `grad`: Numerical gradient.
@@ -37,7 +37,7 @@ function compute_numerical_gradient(
     x_ϵ = deepcopy(x)
     x_ϵ_vec = vec(x_ϵ)
     f0 = fct(x, args)
-    @showprogress desc="Computing numerical gradient $(varStr) with ϵ=$(@sprintf("%.1e", ϵ))..." for i in range(1,length(x))
+    @showprogress desc="Computing gradient $(varStr) using finite differences with ϵ=$(@sprintf("%.1e", ϵ))..." for i in range(1,length(x))
         x_ϵ .= x
         x_ϵ_vec[i] += ϵ
         grad_vec[i] = (fct(x_ϵ, args)-f0)/ϵ
