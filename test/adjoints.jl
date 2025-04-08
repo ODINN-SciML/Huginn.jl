@@ -1,4 +1,10 @@
+"""
+    test_adjoint_diff()
 
+Check the consistency between the forward and the adjoint of the diff functions.
+It uses the definition of the adjoint of an operator, that is
+<u,Av>=<A^*u,v> for all u,v
+"""
 function test_adjoint_diff()
     size = (10, 11)
     fac = prod(size)
@@ -29,6 +35,13 @@ function test_adjoint_diff()
     end
 end
 
+"""
+    test_adjoint_clamp_borders()
+
+Check the consistency between the forward and the adjoint of the clamp functions.
+It uses the definition of the adjoint of an operator, that is
+<u,Av>=<A^*u,v> for all u,v
+"""
 function test_adjoint_clamp_borders()
     size = (10, 11)
     fac = prod(size)
@@ -44,7 +57,6 @@ function test_adjoint_clamp_borders()
         ∂dS = zero(dS)
         ∂H = zero(H)
         Huginn.clamp_borders_dx_adjoint!(∂dS, ∂H, v, η₀, Δ, H, dS)
-        # Aadjv = Huginn.diff_x_adjoint(v, Δ)
         a=sum(c.*v)/fac
         b=sum(H.*∂H)/fac + sum(dS.*∂dS)/fac
         @test a≈b rtol=(Sleipnir.doublePrec ? 1e-12 : 1e-5)
@@ -65,6 +77,13 @@ function test_adjoint_clamp_borders()
     end
 end
 
+"""
+    test_adjoint_avg()
+
+Check the consistency between the forward and the adjoint of the average functions.
+It uses the definition of the adjoint of an operator, that is
+<u,Av>=<A^*u,v> for all u,v
+"""
 function test_adjoint_avg()
     size = (10, 11)
     fac = prod(size)
@@ -106,6 +125,13 @@ function test_adjoint_avg()
     end
 end
 
+"""
+    test_adjoint_SIAD2D()
+
+Check the consistency between the forward and the adjoint of SIA2D.
+It uses finite differences to compute the gradient and it compares the obtained
+values with the ones computed using the discrete adjoint of SIA2D.
+"""
 function test_adjoint_SIAD2D()
     Random.seed!(1234)
     function _loss(H, simulation, t, vecBackwardSIA2D)
