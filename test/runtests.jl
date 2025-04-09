@@ -3,6 +3,9 @@ Pkg.activate(dirname(Base.current_project()))
 
 if !parse(Bool, get(ENV, "CI", "false"))
     using Revise
+    const printDebug = true
+else
+    const printDebug = false
 end
 using Test
 using JLD2
