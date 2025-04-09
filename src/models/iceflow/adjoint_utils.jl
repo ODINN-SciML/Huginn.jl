@@ -37,10 +37,13 @@ function compute_numerical_gradient(
     x_ϵ = deepcopy(x)
     x_ϵ_vec = vec(x_ϵ)
     f0 = fct(x, args)
-    @showprogress desc="Computing gradient $(varStr) using finite differences with ϵ=$(@sprintf("%.1e", ϵ))..." for i in range(1,length(x))
+    show_progress = !parse(Bool, get(ENV, "CI", "false"))
+    pbar = Progress(length(x); desc="Computing gradient $(varStr) using finite differences with ϵ=$(@sprintf("%.1e", ϵ))...", enabled=show_progress)
+    for i in range(1,length(x))
         x_ϵ .= x
         x_ϵ_vec[i] += ϵ
         grad_vec[i] = (fct(x_ϵ, args)-f0)/ϵ
+        next!(pbar)
     end
     return grad
 end

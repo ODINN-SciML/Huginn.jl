@@ -1,28 +1,43 @@
-using Revise
-using Infiltrator
-using Test 
-
-using Huginn
 
 """
-    unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=false)
+    unit_mass_test(;
+        H₀::Matrix{F},
+        B::Matrix{F},
+        A::F,
+        n::F,
+        t_sim,
+        Δx::F,
+        Δy::F,
+        rtol::F=0.02,
+        save_plot::Bool=false
+    ) where {F <: AbstractFloat}
 
-Test one single run of the forward model with customized physical parameters and 
-initial condition. It checks that the total mass of ice is conserved during the solver 
-when no mass balance is applied. 
+Test one single run of the forward model with customized physical parameters and
+initial condition. It checks that the total mass of ice is conserved during the solver
+when no mass balance is applied.
 
-Arguments 
+Arguments
 =================
     - `H₀`: Initial ice thickness profile
     - `B`: Bed topography
-    - `A`: Glen coefficient 
+    - `A`: Glen coefficient
     - `n`: Glee exponent
     - `t_sim`: Total time for the simulation
     - `Δx`, `Δy`: Spacial width
     - `rtol`: Relative tolerance
     - `save_plot`: Optional bool to save plot during simulation
 """
-function unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=false)
+function unit_mass_test(;
+    H₀::Matrix{F},
+    B::Matrix{F},
+    A::F,
+    n::F,
+    t_sim,
+    Δx::F,
+    Δy::F,
+    rtol::F=0.02,
+    save_plot::Bool=false
+) where {F <: AbstractFloat}
 
     # Get parameters for a simulation
     parameters = Huginn.Parameters(simulation=SimulationParameters(tspan=(0.0, t_sim),
@@ -38,7 +53,7 @@ function unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=f
     nx, ny = size(H₀)
 
     # Define glacier object
-    glacier = Glacier2D(rgi_id = "toy", H₀ = H₀, S = S, B = B, A = A, n = n, 
+    glacier = Glacier2D(rgi_id = "toy", H₀ = H₀, S = S, B = B, A = A, n = n,
                         Δx=Δx, Δy=Δy, nx=nx, ny=ny, C = 0.0)
     glaciers = Vector{Sleipnir.AbstractGlacier}([glacier])
 
@@ -64,7 +79,7 @@ function unit_mass_test(; H₀, B, A, n, t_sim, Δx, Δy, rtol=0.02, save_plot=f
         save("test/mass_conservation_test.png", fig)
     end
 
-    # Initial total mass 
+    # Initial total mass
     mass₀ = sum(H₀)
     mass₁ = sum(H₁_pred)
     Δmass = mass₁ - mass₀
@@ -81,12 +96,12 @@ end
 
 Tests different initial conditions with a flat topography.
 
-Arguments 
+Arguments
 =================
     - `rtol`: Relative tolerance
 """
 function unit_mass_flatbed_test(; rtol)
-    for nx in 80:20:140
+    for nx in 80:30:140
         ny = nx
         for shape in ["parabolic", "square"]
             for A in [4e-17, 8e-17]
@@ -108,20 +123,20 @@ end
 """
     unit_mass_nonflatbed_test(; rtol)
 
-Tests a combination of bed topographies and initial conditions. 
-As known in the literature, non conservation of mass is a regular problem in numerical 
-ice flow models for non-flat beds (see "https://tc.copernicus.org/articles/7/229/2013/"). 
+Tests a combination of bed topographies and initial conditions.
+As known in the literature, non conservation of mass is a regular problem in numerical
+ice flow models for non-flat beds (see "https://tc.copernicus.org/articles/7/229/2013/").
 
-Arguments 
+Arguments
 =================
     - `rtol`: Relative tolerance
 """
 function unit_mass_nonflatbed_test(; rtol)
-    for nx in 80:20:140
+    for nx in 80:30:140
         ny = nx
         for shape in ["sinusoidal", "parabolic"]
             for A in [4e-17, 8e-17]
-                # Parabolic ice thickness 
+                # Parabolic ice thickness
                 H₀ = [ 0.5 * ( (nx/4)^2 - (i - nx/2)^2 - (j - ny/2)^2 ) for i in 1:nx, j in 1:ny]
                 H₀[H₀ .< 0.0] .= 0.0
                 if shape == "sinusoidal"

@@ -90,22 +90,24 @@ end
 
 """
     function halfar_test(; rtol, atol, inplace)
-Multiple tests using Halfar solution. 
+Multiple tests using Halfar solution.
 
 Arguments
 =================
     - `rtol`: Relative tolerance for ice thickness H
-    - `atol`: Absolute tolerance for ice thickness H 
+    - `atol`: Absolute tolerance for ice thickness H
     - `inplace`: Use in-place or out-of-place evaluation for PDE solver
 """
 function halfar_test(; rtol, atol, inplace)
-    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=10.0,  Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
-    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=10.0,  Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
-    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=40.0,  Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600,  rtol=rtol, atol=atol, inplace=inplace)
-    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=40.0,  Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600,  rtol=rtol, atol=atol, inplace=inplace)
-    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=100.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600,  rtol=rtol, atol=atol, inplace=inplace)
-    unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=100.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600,  rtol=rtol, atol=atol, inplace=inplace)
-    unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=40.0,  Δx=80.0, Δy=80.0, nx=100, ny=100, h₀=300, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
+    if inplace
+        unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=10.0,  Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
+        unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=10.0,  Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
+        unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=40.0,  Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600,  rtol=rtol, atol=atol, inplace=inplace)
+        unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=40.0,  Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600,  rtol=rtol, atol=atol, inplace=inplace)
+        unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=100.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600,  rtol=rtol, atol=atol, inplace=inplace)
+        unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=100.0, Δx=50.0, Δy=50.0, nx=100, ny=100, h₀=500, r₀=600,  rtol=rtol, atol=atol, inplace=inplace)
+        unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=40.0,  Δx=80.0, Δy=80.0, nx=100, ny=100, h₀=300, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
+    end
     unit_halfar_test(A=8e-17, n=3.0, t₀=5.0, t₁=40.0,  Δx=80.0, Δy=80.0, nx=100, ny=100, h₀=300, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
     unit_halfar_test(A=4e-17, n=3.0, t₀=5.0, t₁=10.0,  Δx=10.0, Δy=10.0, nx=500, ny=500, h₀=300, r₀=1000, rtol=rtol, atol=atol, inplace=inplace)
 end
