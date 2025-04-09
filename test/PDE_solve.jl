@@ -5,7 +5,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     println("PDE solving with MB = $MB")
 
     ## Retrieving gdirs and climate for the following glaciers
-    ## Fast version includes less glacier to reduce the amount of downloaded files and computation time on GitHub CI
+    ## Fast version includes less glacier to reduce computation time on GitHub CI
     if fast
         rgi_ids = ["RGI60-11.03638", "RGI60-11.01450"] #, "RGI60-08.00213", "RGI60-04.04351", "RGI60-01.02170"]
     else
@@ -61,7 +61,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     let results=prediction.results
 
     for result in results
-        let result=result, test_ref=nothing, UDE_pred=nothing
+        let result=result, test_ref=nothing
         for PDE_ref in PDE_refs
             if result.rgi_id == PDE_ref.rgi_id
                 test_ref = PDE_ref
@@ -75,7 +75,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         if !isdir(test_plot_path)
             mkdir(test_plot_path)
         end
-        MB ? vtol = 30.0*atol : vtol = 12.0*atol # a little extra tolerance for UDE surface velocities
+        MB ? vtol = 30.0*atol : vtol = 12.0*atol # a little extra tolerance for surface velocities
 
         ### PDE ###
         plot_test_error(result, test_ref, "H",  result.rgi_id, atol, MB)
