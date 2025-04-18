@@ -130,7 +130,14 @@ This function performs the following steps:
 - The function uses `@views` to avoid unnecessary array allocations.
 - The `@tullio` macro is used for efficient tensor operations.
 """
-function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} = nothing) where {R <: Real, I <: Integer, SIM <: Simulation}
+function SIA2D(
+    H::Matrix{R},
+    simulation::SIM,
+    t::R;
+    batch_id::Union{Nothing, I} = nothing,
+    # diffusivity_provided::Bool = false
+    ) where {R <: Real, I <: Integer, SIM <: Simulation}
+
     # Retrieve parameters
     # For simulations using Reverse Diff, an iceflow model per glacier is needed
     if isnothing(batch_id)
@@ -150,7 +157,7 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
     n = SIA2D_model.n
     ρ = params.physical.ρ
     g = params.physical.g
-    
+
     @views H = ifelse.(H.<0.0, 0.0, H) # prevent values from going negative
 
     # First, enforce values to be positive
@@ -161,14 +168,17 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
     # Update glacier surface altimetry
     S = B .+ H
 
-    # All grid variables computed in a staggered grid
-    # Compute surface gradients on edges
-    dSdx = diff_x(S) ./ Δx
-    dSdy = diff_y(S) ./ Δy
-    ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2).^((n[] - 1)/2) 
-
-    Γ = 2.0 * A[] * (ρ * g)^n[] / (n[]+2) # 1 / m^3 s 
-    D = Γ .* avg(H).^(n[] + 2) .* ∇S
+    if isnothing(SIA2D_model.D)
+        # All grid variables computed in a staggered grid
+        # Compute surface gradients on edges
+        dSdx = diff_x(S) ./ Δx
+        dSdy = diff_y(S) ./ Δy
+        ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2).^((n[] - 1)/2)
+        Γ = 2.0 * A[] * (ρ * g)^n[] / (n[]+2) # 1 / m^3 s
+        D = Γ .* avg(H).^(n[] + 2) .* ∇S
+    else
+        D = SIA2D_model.D
+    end
 
     # Compute flux components
     @views dSdx_edges = diff_x(S[:,2:end - 1]) ./ Δx

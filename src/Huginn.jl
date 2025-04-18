@@ -43,9 +43,6 @@ include("models/iceflow/IceflowModel.jl")
 # Everything related to running forward simulations of ice flow
 include("simulations/predictions/Prediction.jl")
 
-# Utils related to the adjoint computation and validation
-include("models/iceflow/adjoint_utils.jl")
-
 # Everything related to analytical solutions
 include("models/solutions/halfar.jl")
 

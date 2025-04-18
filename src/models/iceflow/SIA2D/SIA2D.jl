@@ -2,7 +2,6 @@
 export SIA2Dmodel, initialize_iceflow_model!, initialize_iceflow_model
 
 include("SIA2D_utils.jl")
-include("SIA2D_adjoint.jl")
 
 ###############################################
 ###### SHALLOW ICE APPROXIMATION MODELS #######
