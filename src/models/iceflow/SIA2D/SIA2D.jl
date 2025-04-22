@@ -54,6 +54,7 @@ mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
     dSdx::Union{Matrix{R}, Nothing}
     dSdy::Union{Matrix{R}, Nothing}
     D::Union{Matrix{R}, Nothing}
+    D_is_provided::Union{Bool, Nothing}
     Dx::Union{Matrix{R}, Nothing}
     Dy::Union{Matrix{R}, Nothing}
     dSdx_edges::Union{Matrix{R}, Nothing}
@@ -144,36 +145,39 @@ Constructs a new `SIA2Dmodel` object with the given parameters.
 # Returns
 - `SIA2Dmodel`: A new `SIA2Dmodel` object.
 """
-function SIA2Dmodel(params::Sleipnir.Parameters;
-                    A::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-                    n::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-                    C::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-                    H₀::Union{Matrix{R}, Nothing} = nothing,
-                    H::Union{Matrix{R}, Nothing} = nothing,
-                    H̄::Union{Matrix{R}, Nothing} = nothing,
-                    S::Union{Matrix{R}, Nothing} = nothing,
-                    dSdx::Union{Matrix{R}, Nothing} = nothing,
-                    dSdy::Union{Matrix{R}, Nothing} = nothing,
-                    D::Union{Matrix{R}, Nothing} = nothing,
-                    Dx::Union{Matrix{R}, Nothing} = nothing,
-                    Dy::Union{Matrix{R}, Nothing} = nothing,
-                    dSdx_edges::Union{Matrix{R}, Nothing} = nothing,
-                    dSdy_edges::Union{Matrix{R}, Nothing} = nothing,
-                    ∇S::Union{Matrix{R}, Nothing} = nothing,
-                    ∇Sy::Union{Matrix{R}, Nothing} = nothing,
-                    ∇Sx::Union{Matrix{R}, Nothing} = nothing,
-                    Fx::Union{Matrix{R}, Nothing} = nothing,
-                    Fy::Union{Matrix{R}, Nothing} = nothing,
-                    Fxx::Union{Matrix{R}, Nothing} = nothing,
-                    Fyy::Union{Matrix{R}, Nothing} = nothing,
-                    V::Union{Matrix{R}, Nothing} = nothing,
-                    Vx::Union{Matrix{R}, Nothing} = nothing,
-                    Vy::Union{Matrix{R}, Nothing} = nothing,
-                    Γ::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-                    MB::Union{Matrix{R}, Nothing} = nothing,
-                    MB_mask::Union{BitMatrix, Nothing} = nothing,
-                    MB_total::Union{Matrix{R}, Nothing} = nothing,
-                    glacier_idx::Union{I, Nothing} = nothing) where {I <: Integer, R <: Real}
+function SIA2Dmodel(
+    params::Sleipnir.Parameters;
+    A::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+    n::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+    C::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+    H₀::Union{Matrix{R}, Nothing} = nothing,
+    H::Union{Matrix{R}, Nothing} = nothing,
+    H̄::Union{Matrix{R}, Nothing} = nothing,
+    S::Union{Matrix{R}, Nothing} = nothing,
+    dSdx::Union{Matrix{R}, Nothing} = nothing,
+    dSdy::Union{Matrix{R}, Nothing} = nothing,
+    D::Union{Matrix{R}, Nothing} = nothing,
+    D_is_provided::Union{Bool, Nothing} = nothing,
+    Dx::Union{Matrix{R}, Nothing} = nothing,
+    Dy::Union{Matrix{R}, Nothing} = nothing,
+    dSdx_edges::Union{Matrix{R}, Nothing} = nothing,
+    dSdy_edges::Union{Matrix{R}, Nothing} = nothing,
+    ∇S::Union{Matrix{R}, Nothing} = nothing,
+    ∇Sy::Union{Matrix{R}, Nothing} = nothing,
+    ∇Sx::Union{Matrix{R}, Nothing} = nothing,
+    Fx::Union{Matrix{R}, Nothing} = nothing,
+    Fy::Union{Matrix{R}, Nothing} = nothing,
+    Fxx::Union{Matrix{R}, Nothing} = nothing,
+    Fyy::Union{Matrix{R}, Nothing} = nothing,
+    V::Union{Matrix{R}, Nothing} = nothing,
+    Vx::Union{Matrix{R}, Nothing} = nothing,
+    Vy::Union{Matrix{R}, Nothing} = nothing,
+    Γ::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+    MB::Union{Matrix{R}, Nothing} = nothing,
+    MB_mask::Union{BitMatrix, Nothing} = nothing,
+    MB_total::Union{Matrix{R}, Nothing} = nothing,
+    glacier_idx::Union{I, Nothing} = nothing
+) where {I<:Integer, R<:Real}
 
     ft = Sleipnir.Float
     it = Sleipnir.Int
@@ -193,8 +197,10 @@ function SIA2Dmodel(params::Sleipnir.Parameters;
         glacier_idx = Ref{I}(glacier_idx)
     end
 
-    SIA2D_model = SIA2Dmodel{ft, it}(A, n, C, H₀, H, H̄, S, dSdx, dSdy, D, Dx, Dy, dSdx_edges, dSdy_edges,
-                            ∇S, ∇Sx, ∇Sy, Fx, Fy, Fxx, Fyy, V, Vx, Vy, Γ, MB, MB_mask, MB_total, glacier_idx)
+    SIA2D_model = SIA2Dmodel{ft, it}(
+        A, n, C, H₀, H, H̄, S, dSdx, dSdy, D, D_is_provided, Dx, Dy, dSdx_edges, dSdy_edges,
+        ∇S, ∇Sx, ∇Sy, Fx, Fy, Fxx, Fyy, V, Vx, Vy, Γ, MB, MB_mask, MB_total, glacier_idx
+    )
 
     return SIA2D_model
 end
@@ -232,6 +238,7 @@ function initialize_iceflow_model!(iceflow_model::IF,
     iceflow_model.dSdx = zeros(F,nx-1,ny)
     iceflow_model.dSdy= zeros(F,nx,ny-1)
     iceflow_model.D = zeros(F,nx-1,ny-1)
+    iceflow_model.D_is_provided = false
     iceflow_model.Dx = zeros(F,nx-1,ny-2)
     iceflow_model.Dy = zeros(F,nx-2,ny-1)
     iceflow_model.dSdx_edges = zeros(F,nx-1,ny-2)
@@ -278,6 +285,7 @@ function initialize_iceflow_model(iceflow_model::IF,
     nx, ny = glacier.nx, glacier.ny
     iceflow_model.A = [glacier.A]
     iceflow_model.n = [glacier.n]
+    iceflow_model.D_is_provided = false
     iceflow_model.glacier_idx = Ref{I}(glacier_idx)
     iceflow_model.H₀ = deepcopy(glacier.H₀)
     iceflow_model.H  = deepcopy(glacier.H₀)
