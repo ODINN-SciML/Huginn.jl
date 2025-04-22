@@ -63,7 +63,7 @@ function SIA2D!(
     g = simulation.parameters.physical.g
 
     # First, enforce values to be positive
-    map!(x -> ifelse(x>0.0,x,0.0), H, H)
+    map!(x -> ifelse(x > 0.0, x, 0.0), H, H)
     # Update glacier surface altimetry
     S .= B .+ H
 
@@ -75,9 +75,9 @@ function SIA2D!(
         diff_y!(dSdy, S, Δy)
         avg_y!(∇Sx, dSdx)
         avg_x!(∇Sy, dSdy)
-        ∇S .= @. (∇Sx^2 + ∇Sy^2)^((n - 1)/2)
+        ∇S .= @. (∇Sx^2 + ∇Sy^2)^((n - 1) / 2)
         avg!(H̄, H)
-        Γ .= @. 2.0 * A * (ρ * g)^n / (n+2) # 1 / m^3 s
+        Γ .= @. 2.0 * A * (ρ * g)^n / (n + 2) # 1 / m^3 s
         D .= @. Γ * H̄^(n + 2) * ∇S
     end
 
@@ -88,10 +88,10 @@ function SIA2D!(
     # Cap surface elevaton differences with the upstream ice thickness to
     # imporse boundary condition of the SIA equation
     η₀ = params.physical.η₀
-    dSdx_edges .= @views @. min(dSdx_edges,  η₀ * H[2:end, 2:end-1]/Δx)
-    dSdx_edges .= @views @. max(dSdx_edges, -η₀ * H[1:end-1, 2:end-1]/Δx)
-    dSdy_edges .= @views @. min(dSdy_edges,  η₀ * H[2:end-1, 2:end]/Δy)
-    dSdy_edges .= @views @. max(dSdy_edges, -η₀ * H[2:end-1, 1:end-1]/Δy)
+    dSdx_edges .= @views @. min(dSdx_edges,  η₀ * H[2:end, 2:end-1] / Δx)
+    dSdx_edges .= @views @. max(dSdx_edges, -η₀ * H[1:end-1, 2:end-1] / Δx)
+    dSdy_edges .= @views @. min(dSdy_edges,  η₀ * H[2:end-1, 2:end] / Δy)
+    dSdy_edges .= @views @. max(dSdy_edges, -η₀ * H[2:end-1, 1:end-1] / Δy)
 
     avg_y!(Dx, D)
     avg_x!(Dy, D)
@@ -177,7 +177,7 @@ function SIA2D(
     # Update glacier surface altimetry
     S = B .+ H
 
-    # if isnothing(SIA2D_model.D)
+    # Compute D in case is not provided in the simulation
     if SIA2D_model.D_is_provided
         D = SIA2D_model.D
     else
@@ -185,8 +185,8 @@ function SIA2D(
         # Compute surface gradients on edges
         dSdx = diff_x(S) ./ Δx
         dSdy = diff_y(S) ./ Δy
-        ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2).^((n[] - 1)/2)
-        Γ = 2.0 * A[] * (ρ * g)^n[] / (n[]+2) # 1 / m^3 s
+        ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2).^((n[] - 1) / 2)
+        Γ = 2.0 * A[] * (ρ * g)^n[] / (n[] + 2) # 1 / m^3 s
         D = Γ .* avg(H).^(n[] + 2) .* ∇S
     end
 
@@ -198,13 +198,13 @@ function SIA2D(
     # impose boundary condition of the SIA equation
     # We need to do this with Tullio or something else that allow us to set indices.
     η₀ = 1.0
-    dSdx_edges = @views @. min(dSdx_edges,  η₀ * H[2:end, 2:end-1]/Δx)
-    dSdx_edges = @views @. max(dSdx_edges, -η₀ * H[1:end-1, 2:end-1]/Δx)
-    dSdy_edges = @views @. min(dSdy_edges,  η₀ * H[2:end-1, 2:end]/Δy)
-    dSdy_edges = @views @. max(dSdy_edges, -η₀ * H[2:end-1, 1:end-1]/Δy)
+    dSdx_edges = @views @. min(dSdx_edges,  η₀ * H[2:end, 2:end-1] / Δx)
+    dSdx_edges = @views @. max(dSdx_edges, -η₀ * H[1:end-1, 2:end-1] / Δx)
+    dSdy_edges = @views @. min(dSdy_edges,  η₀ * H[2:end-1, 2:end] / Δy)
+    dSdy_edges = @views @. max(dSdy_edges, -η₀ * H[2:end-1, 1:end-1] / Δy)
 
     Fx = .-avg_y(D) .* dSdx_edges
-    Fy = .-avg_x(D) .* dSdy_edges 
+    Fy = .-avg_x(D) .* dSdy_edges
 
     Fxx = diff_x(Fx) / Δx
     Fyy = diff_y(Fy) / Δy
@@ -214,7 +214,7 @@ function SIA2D(
 
     # return dH
     dH = zero(H)
-    inn(dH) .= .-(Fxx .+ Fyy) 
+    inn(dH) .= .-(Fxx .+ Fyy)
     return dH
 end
 
@@ -355,7 +355,7 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation
 
     # Compute averaged surface velocities
     Vx = .-D .* ∇Sx
-    Vy = .-D .* ∇Sy 
+    Vy = .-D .* ∇Sy
 
     return Vx, Vy
 end
