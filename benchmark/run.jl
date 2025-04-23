@@ -55,7 +55,3 @@ trial = @benchmark Huginn.SIA2D($H, $simulation, $t)
 display(trial)
 println("")
 
-println("## Benchmark of VJP_λ_∂SIA_discrete")
-trial = @benchmark VJP_λ_∂SIA_discrete($vecBackwardSIA2D, $H, $simulation, $t)
-display(trial)
-println("")
