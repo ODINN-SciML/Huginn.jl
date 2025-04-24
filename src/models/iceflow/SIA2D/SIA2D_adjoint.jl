@@ -125,7 +125,7 @@ function SIA2D_discrete_adjoint(
     @views dSdy_edges = diff_y(S[2:end - 1,:]) / Δy
 
     # Cap surface elevaton differences with the upstream ice thickness to
-    # impose boundary condition of the SIA equation
+    # imporse boundary condition of the SIA equation
     η₀ = params.physical.η₀
     dSdx_edges_clamp = clamp_borders_dx(dSdx_edges, H, η₀, Δx)
     dSdy_edges_clamp = clamp_borders_dy(dSdy_edges, H, η₀, Δy)
