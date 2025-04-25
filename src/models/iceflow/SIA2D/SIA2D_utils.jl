@@ -18,7 +18,13 @@ This function updates the ice thickness `H` and computes the rate of change `dH`
 - Surface elevation differences are capped using upstream ice thickness to impose boundary conditions.
 - The function modifies the input matrices `dH` and `H` in-place.
 """
-function SIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} = nothing) where {R <:Real, I <: Integer, SIM <: Simulation}
+function SIA2D!(
+    dH::Matrix{R},
+    H::Matrix{R},
+    simulation::SIM,
+    t::R;
+    batch_id::Union{Nothing, I} = nothing
+) where {R <:Real, I <: Integer, SIM <: Simulation}
 
     # For simulations using Reverse Diff, an iceflow model per glacier is needed
     if isnothing(batch_id)
@@ -38,6 +44,7 @@ function SIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R; batch_id::Un
     dSdx = SIA2D_model.dSdx
     dSdy = SIA2D_model.dSdy
     D = SIA2D_model.D
+    D_is_provided = SIA2D_model.D_is_provided
     Dx = SIA2D_model.Dx
     Dy = SIA2D_model.Dy
     dSdx_edges = SIA2D_model.dSdx_edges
@@ -56,48 +63,50 @@ function SIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R; batch_id::Un
     g = simulation.parameters.physical.g
 
     # First, enforce values to be positive
-    map!(x -> ifelse(x>0.0,x,0.0), H, H)
+    map!(x -> ifelse(x > 0.0, x, 0.0), H, H)
     # Update glacier surface altimetry
     S .= B .+ H
 
-    # All grid variables computed in a staggered grid
-    # Compute surface gradients on edges
-    diff_x!(dSdx, S, Δx)  
-    diff_y!(dSdy, S, Δy) 
-    avg_y!(∇Sx, dSdx)
-    avg_x!(∇Sy, dSdy)
-    ∇S .= @. (∇Sx^2 + ∇Sy^2)^((n - 1)/2) 
-
-    avg!(H̄, H)
-    Γ .= @. 2.0 * A * (ρ * g)^n / (n+2) # 1 / m^3 s 
-    D .= @. Γ * H̄^(n + 2) * ∇S
+    # Compute D in case is not provided in the simulation
+    if !D_is_provided
+        # All grid variables computed in a staggered grid
+        # Compute surface gradients on edges
+        diff_x!(dSdx, S, Δx)
+        diff_y!(dSdy, S, Δy)
+        avg_y!(∇Sx, dSdx)
+        avg_x!(∇Sy, dSdy)
+        ∇S .= @. (∇Sx^2 + ∇Sy^2)^((n - 1) / 2)
+        avg!(H̄, H)
+        Γ .= @. 2.0 * A * (ρ * g)^n / (n + 2) # 1 / m^3 s
+        D .= @. Γ * H̄^(n + 2) * ∇S
+    end
 
     # Compute flux components
     @views diff_x!(dSdx_edges, S[:,2:end - 1], Δx)
     @views diff_y!(dSdy_edges, S[2:end - 1,:], Δy)
 
-    # Cap surface elevaton differences with the upstream ice thickness to 
+    # Cap surface elevaton differences with the upstream ice thickness to
     # imporse boundary condition of the SIA equation
     η₀ = params.physical.η₀
-    dSdx_edges .= @views @. min(dSdx_edges,  η₀ * H[2:end, 2:end-1]/Δx)
-    dSdx_edges .= @views @. max(dSdx_edges, -η₀ * H[1:end-1, 2:end-1]/Δx)
-    dSdy_edges .= @views @. min(dSdy_edges,  η₀ * H[2:end-1, 2:end]/Δy)
-    dSdy_edges .= @views @. max(dSdy_edges, -η₀ * H[2:end-1, 1:end-1]/Δy)
+    dSdx_edges .= @views @. min(dSdx_edges,  η₀ * H[2:end, 2:end-1] / Δx)
+    dSdx_edges .= @views @. max(dSdx_edges, -η₀ * H[1:end-1, 2:end-1] / Δx)
+    dSdy_edges .= @views @. min(dSdy_edges,  η₀ * H[2:end-1, 2:end] / Δy)
+    dSdy_edges .= @views @. max(dSdy_edges, -η₀ * H[2:end-1, 1:end-1] / Δy)
 
     avg_y!(Dx, D)
     avg_x!(Dy, D)
     Fx .= .-Dx .* dSdx_edges
-    Fy .= .-Dy .* dSdy_edges 
+    Fy .= .-Dy .* dSdy_edges
 
     #  Flux divergence
     diff_x!(Fxx, Fx, Δx)
     diff_y!(Fyy, Fy, Δy)
-    inn(dH) .= .-(Fxx .+ Fyy) 
+    inn(dH) .= .-(Fxx .+ Fyy)
 end
 
 # Dummy function to bypass ice flow
 function noSIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R) where {R <: Real,SIM <: Simulation}
-   
+    return nothing
 end
 
 
@@ -130,7 +139,14 @@ This function performs the following steps:
 - The function uses `@views` to avoid unnecessary array allocations.
 - The `@tullio` macro is used for efficient tensor operations.
 """
-function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} = nothing) where {R <: Real, I <: Integer, SIM <: Simulation}
+function SIA2D(
+    H::Matrix{R},
+    simulation::SIM,
+    t::R;
+    batch_id::Union{Nothing, I} = nothing,
+    # diffusivity_provided::Bool = false
+    ) where {R <: Real, I <: Integer, SIM <: Simulation}
+
     # Retrieve parameters
     # For simulations using Reverse Diff, an iceflow model per glacier is needed
     if isnothing(batch_id)
@@ -150,8 +166,8 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
     n = SIA2D_model.n
     ρ = params.physical.ρ
     g = params.physical.g
-    
-    @views H = ifelse.(H.<0.0, 0.0, H) # prevent values from going negative
+
+    @views H = ifelse.(H .< 0.0, 0.0, H) # prevent values from going negative
 
     # First, enforce values to be positive
      ## Uncomment this line!!!! Why this is neccesary if we have the previous function???
@@ -161,14 +177,18 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
     # Update glacier surface altimetry
     S = B .+ H
 
-    # All grid variables computed in a staggered grid
-    # Compute surface gradients on edges
-    dSdx = diff_x(S) ./ Δx
-    dSdy = diff_y(S) ./ Δy
-    ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2).^((n[] - 1)/2) 
-
-    Γ = 2.0 * A[] * (ρ * g)^n[] / (n[]+2) # 1 / m^3 s 
-    D = Γ .* avg(H).^(n[] + 2) .* ∇S
+    # Compute D in case is not provided in the simulation
+    if SIA2D_model.D_is_provided
+        D = SIA2D_model.D
+    else
+        # All grid variables computed in a staggered grid
+        # Compute surface gradients on edges
+        dSdx = diff_x(S) ./ Δx
+        dSdy = diff_y(S) ./ Δy
+        ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2).^((n[] - 1) / 2)
+        Γ = 2.0 * A[] * (ρ * g)^n[] / (n[] + 2) # 1 / m^3 s
+        D = Γ .* avg(H).^(n[] + 2) .* ∇S
+    end
 
     # Compute flux components
     @views dSdx_edges = diff_x(S[:,2:end - 1]) ./ Δx
@@ -178,13 +198,13 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
     # impose boundary condition of the SIA equation
     # We need to do this with Tullio or something else that allow us to set indices.
     η₀ = 1.0
-    dSdx_edges = @views @. min(dSdx_edges,  η₀ * H[2:end, 2:end-1]/Δx)
-    dSdx_edges = @views @. max(dSdx_edges, -η₀ * H[1:end-1, 2:end-1]/Δx)
-    dSdy_edges = @views @. min(dSdy_edges,  η₀ * H[2:end-1, 2:end]/Δy)
-    dSdy_edges = @views @. max(dSdy_edges, -η₀ * H[2:end-1, 1:end-1]/Δy)
+    dSdx_edges = @views @. min(dSdx_edges,  η₀ * H[2:end, 2:end-1] / Δx)
+    dSdx_edges = @views @. max(dSdx_edges, -η₀ * H[1:end-1, 2:end-1] / Δx)
+    dSdy_edges = @views @. min(dSdy_edges,  η₀ * H[2:end-1, 2:end] / Δy)
+    dSdy_edges = @views @. max(dSdy_edges, -η₀ * H[2:end-1, 1:end-1] / Δy)
 
     Fx = .-avg_y(D) .* dSdx_edges
-    Fy = .-avg_x(D) .* dSdy_edges 
+    Fy = .-avg_x(D) .* dSdy_edges
 
     Fxx = diff_x(Fx) / Δx
     Fyy = diff_y(Fy) / Δy
@@ -194,7 +214,7 @@ function SIA2D(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} 
 
     # return dH
     dH = zero(H)
-    inn(dH) .= .-(Fxx .+ Fyy) 
+    inn(dH) .= .-(Fxx .+ Fyy)
     return dH
 end
 
@@ -207,8 +227,8 @@ Calculate the average surface velocity for a given simulation.
 - `simulation::SIM`: A simulation object of type `SIM` which is a subtype of `Simulation`.
 
 # Description
-This function computes the average surface velocity components (`Vx` and `Vy`) and the resultant velocity (`V`) 
-for the ice flow model within the given simulation. It first calculates the surface velocities at the initial 
+This function computes the average surface velocity components (`Vx` and `Vy`) and the resultant velocity (`V`)
+for the ice flow model within the given simulation. It first calculates the surface velocities at the initial
 and current states, then averages these velocities and updates the ice flow model's velocity fields.
 
 # Notes
@@ -317,25 +337,25 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation
     Δy = glacier.Δy
     ρ = params.physical.ρ
     g = params.physical.g
-    
+
     # Update glacier surface altimetry
     S = B .+ H
 
     # All grid variables computed in a staggered grid
     # Compute surface gradients on edges
-    diff_x!(dSdx, S, Δx)  
-    diff_y!(dSdy, S, Δy) 
+    diff_x!(dSdx, S, Δx)
+    diff_y!(dSdy, S, Δy)
     avg_y!(∇Sx, dSdx)
     avg_x!(∇Sy, dSdy)
-    ∇S .= (∇Sx.^2 .+ ∇Sy.^2).^((n[] - 1)/2) 
+    ∇S .= (∇Sx.^2 .+ ∇Sy.^2).^((n[] - 1)/2)
 
     avg!(H̄, H)
-    Γꜛ[] = 2.0 * A[] * (ρ * g)^n[] / (n[]+1) # surface stress (not average)  # 1 / m^3 s 
+    Γꜛ[] = 2.0 * A[] * (ρ * g)^n[] / (n[]+1) # surface stress (not average)  # 1 / m^3 s
     D = Γꜛ[] .* H̄.^(n[] + 1) .* ∇S
-    
+
     # Compute averaged surface velocities
     Vx = .-D .* ∇Sx
-    Vy = .-D .* ∇Sy 
+    Vy = .-D .* ∇Sy
 
     return Vx, Vy
 end
@@ -378,7 +398,7 @@ function surface_V(H::Matrix{R}, simulation::SIM; batch_id::Union{Nothing, I} = 
     n = iceflow_model.n
     ρ = params.physical.ρ
     g = params.physical.g
-    
+
     # Update glacier surface altimetry
     S = B .+ H
 
@@ -386,11 +406,11 @@ function surface_V(H::Matrix{R}, simulation::SIM; batch_id::Union{Nothing, I} = 
     # Compute surface gradients on edges
     dSdx = diff_x(S) / Δx
     dSdy = diff_y(S) / Δy
-    ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2).^((n[] - 1)/2) 
-    
-    Γꜛ = 2.0 * A[] * (ρ * g)^n[] / (n[]+1) # surface stress (not average)  # 1 / m^3 s 
+    ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2).^((n[] - 1)/2)
+
+    Γꜛ = 2.0 * A[] * (ρ * g)^n[] / (n[]+1) # surface stress (not average)  # 1 / m^3 s
     D = Γꜛ .* avg(H).^(n[] + 1) .* ∇S
-    
+
     # Compute averaged surface velocities
     Vx = - D .* avg_y(dSdx)
     Vy = - D .* avg_x(dSdy)
@@ -436,22 +456,22 @@ function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
     H₀ = glacier.H₀
 
     # Update glacier surface altimetry
-    S = iceflow_model.S  
+    S = iceflow_model.S
     V = Huginn.avg(V)
-    
+
     # All grid variables computed in a staggered grid
     # Compute surface gradients on edges
     dSdx = Huginn.diff_x(S) / Δx
     dSdy = Huginn.diff_y(S) / Δy
     ∇S = (Huginn.avg_y(dSdx).^2 .+ Huginn.avg_x(dSdy).^2).^(1/2)
-   
-    Γꜛ = (2.0 * A[] * (ρ * g)^n[]) / (n[]+1) # surface stress (not average)  # 1 / m^3 s 
-    
-    H = ( V + C[] ./ (Γꜛ .*(∇S .^ n[]))) .^ (1 / (n[] + 1)) 
-    
+
+    Γꜛ = (2.0 * A[] * (ρ * g)^n[]) / (n[]+1) # surface stress (not average)  # 1 / m^3 s
+
+    H = ( V + C[] ./ (Γꜛ .*(∇S .^ n[]))) .^ (1 / (n[] + 1))
+
     replace!(H, NaN=>0.0)
     replace!(H, Inf=>0.0)
-    return H   
+    return H
 end
 
 """

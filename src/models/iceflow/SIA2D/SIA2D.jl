@@ -2,7 +2,6 @@
 export SIA2Dmodel, initialize_iceflow_model!, initialize_iceflow_model
 
 include("SIA2D_utils.jl")
-include("SIA2D_adjoint.jl")
 
 ###############################################
 ###### SHALLOW ICE APPROXIMATION MODELS #######
@@ -24,6 +23,7 @@ A mutable struct representing a 2D Shallow Ice Approximation (SIA) model.
 - `dSdx::Union{Matrix{R}, Nothing}`: Surface slope in the x-direction.
 - `dSdy::Union{Matrix{R}, Nothing}`: Surface slope in the y-direction.
 - `D::Union{Matrix{R}, Nothing}`: Diffusivity.
+- `D_is_provided::Union{Bool, Nothing}`: Specifies if D is provided by user or computed.
 - `Dx::Union{Matrix{R}, Nothing}`: Diffusivity in the x-direction.
 - `Dy::Union{Matrix{R}, Nothing}`: Diffusivity in the y-direction.
 - `dSdx_edges::Union{Matrix{R}, Nothing}`: Surface slope at edges in the x-direction.
@@ -55,6 +55,7 @@ mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
     dSdx::Union{Matrix{R}, Nothing}
     dSdy::Union{Matrix{R}, Nothing}
     D::Union{Matrix{R}, Nothing}
+    D_is_provided::Union{Bool, Nothing}
     Dx::Union{Matrix{R}, Nothing}
     Dy::Union{Matrix{R}, Nothing}
     dSdx_edges::Union{Matrix{R}, Nothing}
@@ -77,36 +78,39 @@ mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
 end
 
 """
-    SIA2Dmodel(params::Sleipnir.Parameters; 
-               A::Union{R, Nothing} = nothing,
-               n::Union{R, Nothing} = nothing,
-               C::Union{R, Matrix{R}, Nothing} = nothing,
-               H₀::Union{Matrix{R}, Nothing} = nothing,
-               H::Union{Matrix{R}, Nothing} = nothing,
-               H̄::Union{Matrix{R}, Nothing} = nothing,
-               S::Union{Matrix{R}, Nothing} = nothing,
-               dSdx::Union{Matrix{R}, Nothing} = nothing,
-               dSdy::Union{Matrix{R}, Nothing} = nothing,
-               D::Union{Matrix{R}, Nothing} = nothing,
-               Dx::Union{Matrix{R}, Nothing} = nothing,
-               Dy::Union{Matrix{R}, Nothing} = nothing,
-               dSdx_edges::Union{Matrix{R}, Nothing} = nothing,
-               dSdy_edges::Union{Matrix{R}, Nothing} = nothing,
-               ∇S::Union{Matrix{R}, Nothing} = nothing,
-               ∇Sy::Union{Matrix{R}, Nothing} = nothing,
-               ∇Sx::Union{Matrix{R}, Nothing} = nothing,
-               Fx::Union{Matrix{R}, Nothing} = nothing,
-               Fy::Union{Matrix{R}, Nothing} = nothing,
-               Fxx::Union{Matrix{R}, Nothing} = nothing,
-               Fyy::Union{Matrix{R}, Nothing} = nothing,
-               V::Union{Matrix{R}, Nothing} = nothing,
-               Vx::Union{Matrix{R}, Nothing} = nothing,
-               Vy::Union{Matrix{R}, Nothing} = nothing,
-               Γ::Union{R, Nothing} = nothing,
-               MB::Union{Matrix{R}, Nothing} = nothing,
-               MB_mask::Union{BitMatrix, Nothing} = nothing,
-               MB_total::Union{Matrix{R}, Nothing} = nothing,
-               glacier_idx::Union{I, Nothing} = nothing) where {I <: Integer, R <: Real}
+    SIA2Dmodel(
+        params::Sleipnir.Parameters;
+        A::Union{R, Nothing} = nothing,
+        n::Union{R, Nothing} = nothing,
+        C::Union{R, Matrix{R}, Nothing} = nothing,
+        H₀::Union{Matrix{R}, Nothing} = nothing,
+        H::Union{Matrix{R}, Nothing} = nothing,
+        H̄::Union{Matrix{R}, Nothing} = nothing,
+        S::Union{Matrix{R}, Nothing} = nothing,
+        dSdx::Union{Matrix{R}, Nothing} = nothing,
+        dSdy::Union{Matrix{R}, Nothing} = nothing,
+        D::Union{Matrix{R}, Nothing} = nothing,
+        D_is_provided::Union{Bool, Nothing} = nothing,
+        Dx::Union{Matrix{R}, Nothing} = nothing,
+        Dy::Union{Matrix{R}, Nothing} = nothing,
+        dSdx_edges::Union{Matrix{R}, Nothing} = nothing,
+        dSdy_edges::Union{Matrix{R}, Nothing} = nothing,
+        ∇S::Union{Matrix{R}, Nothing} = nothing,
+        ∇Sy::Union{Matrix{R}, Nothing} = nothing,
+        ∇Sx::Union{Matrix{R}, Nothing} = nothing,
+        Fx::Union{Matrix{R}, Nothing} = nothing,
+        Fy::Union{Matrix{R}, Nothing} = nothing,
+        Fxx::Union{Matrix{R}, Nothing} = nothing,
+        Fyy::Union{Matrix{R}, Nothing} = nothing,
+        V::Union{Matrix{R}, Nothing} = nothing,
+        Vx::Union{Matrix{R}, Nothing} = nothing,
+        Vy::Union{Matrix{R}, Nothing} = nothing,
+        Γ::Union{R, Nothing} = nothing,
+        MB::Union{Matrix{R}, Nothing} = nothing,
+        MB_mask::Union{BitMatrix, Nothing} = nothing,
+        MB_total::Union{Matrix{R}, Nothing} = nothing,
+        glacier_idx::Union{I, Nothing} = nothing
+    ) where {I <: Integer, R <: Real}
 
 Constructs a new `SIA2Dmodel` object with the given parameters.
 
@@ -122,6 +126,7 @@ Constructs a new `SIA2Dmodel` object with the given parameters.
 - `dSdx::Union{Matrix{R}, Nothing}`: Surface slope in x-direction (default: `nothing`).
 - `dSdy::Union{Matrix{R}, Nothing}`: Surface slope in y-direction (default: `nothing`).
 - `D::Union{Matrix{R}, Nothing}`: Diffusivity (default: `nothing`).
+- `D_is_provided::Union{Bool, Nothing}`: Specifies if D is provided by user or computed (default: `false`).
 - `Dx::Union{Matrix{R}, Nothing}`: Diffusivity in x-direction (default: `nothing`).
 - `Dy::Union{Matrix{R}, Nothing}`: Diffusivity in y-direction (default: `nothing`).
 - `dSdx_edges::Union{Matrix{R}, Nothing}`: Surface slope at edges in x-direction (default: `nothing`).
@@ -145,36 +150,39 @@ Constructs a new `SIA2Dmodel` object with the given parameters.
 # Returns
 - `SIA2Dmodel`: A new `SIA2Dmodel` object.
 """
-function SIA2Dmodel(params::Sleipnir.Parameters;
-                    A::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-                    n::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-                    C::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-                    H₀::Union{Matrix{R}, Nothing} = nothing,
-                    H::Union{Matrix{R}, Nothing} = nothing,
-                    H̄::Union{Matrix{R}, Nothing} = nothing,
-                    S::Union{Matrix{R}, Nothing} = nothing,
-                    dSdx::Union{Matrix{R}, Nothing} = nothing,
-                    dSdy::Union{Matrix{R}, Nothing} = nothing,
-                    D::Union{Matrix{R}, Nothing} = nothing,
-                    Dx::Union{Matrix{R}, Nothing} = nothing,
-                    Dy::Union{Matrix{R}, Nothing} = nothing,
-                    dSdx_edges::Union{Matrix{R}, Nothing} = nothing,
-                    dSdy_edges::Union{Matrix{R}, Nothing} = nothing,
-                    ∇S::Union{Matrix{R}, Nothing} = nothing,
-                    ∇Sy::Union{Matrix{R}, Nothing} = nothing,
-                    ∇Sx::Union{Matrix{R}, Nothing} = nothing,
-                    Fx::Union{Matrix{R}, Nothing} = nothing,
-                    Fy::Union{Matrix{R}, Nothing} = nothing,
-                    Fxx::Union{Matrix{R}, Nothing} = nothing,
-                    Fyy::Union{Matrix{R}, Nothing} = nothing,
-                    V::Union{Matrix{R}, Nothing} = nothing,
-                    Vx::Union{Matrix{R}, Nothing} = nothing,
-                    Vy::Union{Matrix{R}, Nothing} = nothing,
-                    Γ::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-                    MB::Union{Matrix{R}, Nothing} = nothing,
-                    MB_mask::Union{BitMatrix, Nothing} = nothing,
-                    MB_total::Union{Matrix{R}, Nothing} = nothing,
-                    glacier_idx::Union{I, Nothing} = nothing) where {I <: Integer, R <: Real}
+function SIA2Dmodel(
+    params::Sleipnir.Parameters;
+    A::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+    n::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+    C::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+    H₀::Union{Matrix{R}, Nothing} = nothing,
+    H::Union{Matrix{R}, Nothing} = nothing,
+    H̄::Union{Matrix{R}, Nothing} = nothing,
+    S::Union{Matrix{R}, Nothing} = nothing,
+    dSdx::Union{Matrix{R}, Nothing} = nothing,
+    dSdy::Union{Matrix{R}, Nothing} = nothing,
+    D::Union{Matrix{R}, Nothing} = nothing,
+    D_is_provided::Union{Bool, Nothing} = nothing,
+    Dx::Union{Matrix{R}, Nothing} = nothing,
+    Dy::Union{Matrix{R}, Nothing} = nothing,
+    dSdx_edges::Union{Matrix{R}, Nothing} = nothing,
+    dSdy_edges::Union{Matrix{R}, Nothing} = nothing,
+    ∇S::Union{Matrix{R}, Nothing} = nothing,
+    ∇Sy::Union{Matrix{R}, Nothing} = nothing,
+    ∇Sx::Union{Matrix{R}, Nothing} = nothing,
+    Fx::Union{Matrix{R}, Nothing} = nothing,
+    Fy::Union{Matrix{R}, Nothing} = nothing,
+    Fxx::Union{Matrix{R}, Nothing} = nothing,
+    Fyy::Union{Matrix{R}, Nothing} = nothing,
+    V::Union{Matrix{R}, Nothing} = nothing,
+    Vx::Union{Matrix{R}, Nothing} = nothing,
+    Vy::Union{Matrix{R}, Nothing} = nothing,
+    Γ::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+    MB::Union{Matrix{R}, Nothing} = nothing,
+    MB_mask::Union{BitMatrix, Nothing} = nothing,
+    MB_total::Union{Matrix{R}, Nothing} = nothing,
+    glacier_idx::Union{I, Nothing} = nothing
+) where {I<:Integer, R<:Real}
 
     ft = Sleipnir.Float
     it = Sleipnir.Int
@@ -194,33 +202,38 @@ function SIA2Dmodel(params::Sleipnir.Parameters;
         glacier_idx = Ref{I}(glacier_idx)
     end
 
-    SIA2D_model = SIA2Dmodel{ft, it}(A, n, C, H₀, H, H̄, S, dSdx, dSdy, D, Dx, Dy, dSdx_edges, dSdy_edges,
-                            ∇S, ∇Sx, ∇Sy, Fx, Fy, Fxx, Fyy, V, Vx, Vy, Γ, MB, MB_mask, MB_total, glacier_idx)
+    SIA2D_model = SIA2Dmodel{ft, it}(
+        A, n, C, H₀, H, H̄, S, dSdx, dSdy, D, D_is_provided, Dx, Dy, dSdx_edges, dSdy_edges,
+        ∇S, ∇Sx, ∇Sy, Fx, Fy, Fxx, Fyy, V, Vx, Vy, Γ, MB, MB_mask, MB_total, glacier_idx
+    )
 
     return SIA2D_model
 end
 
 """
-function initialize_iceflow_model!(iceflow_model::IF,  
+function initialize_iceflow_model!(
+    iceflow_model::IF,
     glacier_idx::I,
     glacier::AbstractGlacier,
     params::Sleipnir.Parameters
-    ) where {IF <: IceflowModel, I <: Integer}
+) where {IF <: IceflowModel, I <: Integer}
 
 Initialize iceflow model data structures to enable in-place mutation.
 
 Keyword arguments
 =================
-    - `iceflow_model`: Iceflow model used for simulation. 
+    - `iceflow_model`: Iceflow model used for simulation.
     - `glacier_idx`: Index of glacier.
     - `glacier`: `Glacier` to provide basic initial state of the ice flow model.
     - `parameters`: `Parameters` to configure some physical variables.
 """
-function initialize_iceflow_model!(iceflow_model::IF,
-                                   glacier_idx::I,
-                                   glacier::G,
-                                   params::Sleipnir.Parameters
-                                   ) where {IF <: IceflowModel, I <: Integer, G <: Sleipnir.AbstractGlacier}
+function initialize_iceflow_model!(
+    iceflow_model::IF,
+    glacier_idx::I,
+    glacier::G,
+    params::Sleipnir.Parameters
+) where {IF <: IceflowModel, I <: Integer, G <: Sleipnir.AbstractGlacier}
+
     nx, ny = glacier.nx, glacier.ny
     F = Sleipnir.Float
     iceflow_model.A = isnothing(iceflow_model.A) ? [glacier.A] : iceflow_model.A
@@ -233,6 +246,7 @@ function initialize_iceflow_model!(iceflow_model::IF,
     iceflow_model.dSdx = zeros(F,nx-1,ny)
     iceflow_model.dSdy= zeros(F,nx,ny-1)
     iceflow_model.D = zeros(F,nx-1,ny-1)
+    iceflow_model.D_is_provided = false
     iceflow_model.Dx = zeros(F,nx-1,ny-2)
     iceflow_model.Dy = zeros(F,nx-2,ny-1)
     iceflow_model.dSdx_edges = zeros(F,nx-1,ny-2)
@@ -255,30 +269,34 @@ function initialize_iceflow_model!(iceflow_model::IF,
 end
 
 """
-function initialize_iceflow_model(iceflow_model::IF,  
+function initialize_iceflow_model(
+    iceflow_model::IF,
     glacier_idx::I,
     glacier::AbstractGlacier,
     params::Sleipnir.Parameters
-    ) where {IF <: IceflowModel, I <: Integer}
+) where {IF <: IceflowModel, I <: Integer}
 
 Initialize iceflow model data structures to enable out-of-place mutation.
 
 Keyword arguments
 =================
-    - `iceflow_model`: Iceflow model used for simulation. 
+    - `iceflow_model`: Iceflow model used for simulation.
     - `glacier_idx`: Index of glacier.
     - `glacier`: `Glacier` to provide basic initial state of the ice flow model.
     - `parameters`: `Parameters` to configure some physical variables.
 """
-function initialize_iceflow_model(iceflow_model::IF,  
-                                   glacier_idx::I,
-                                   glacier::Sleipnir.AbstractGlacier,
-                                   params::Sleipnir.Parameters
-                                   ) where {IF <: IceflowModel, I <: Integer}
+function initialize_iceflow_model(
+    iceflow_model::IF,
+    glacier_idx::I,
+    glacier::Sleipnir.AbstractGlacier,
+    params::Sleipnir.Parameters
+) where {IF <: IceflowModel, I <: Integer}
+
     F = Sleipnir.Float
     nx, ny = glacier.nx, glacier.ny
     iceflow_model.A = [glacier.A]
     iceflow_model.n = [glacier.n]
+    iceflow_model.D_is_provided = false
     iceflow_model.glacier_idx = Ref{I}(glacier_idx)
     iceflow_model.H₀ = deepcopy(glacier.H₀)
     iceflow_model.H  = deepcopy(glacier.H₀)

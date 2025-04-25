@@ -55,7 +55,3 @@ trial = @benchmark Huginn.SIA2D($H, $simulation, $t)
 display(trial)
 println("")
 
-println("## Benchmark of SIA2D_discrete_adjoint")
-trial = @benchmark Huginn.SIA2D_discrete_adjoint($vecBackwardSIA2D, $H, $simulation, $t)
-display(trial)
-println("")
