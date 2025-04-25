@@ -454,3 +454,35 @@ function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
     return H   
 end
 
+"""
+    V_from_H(
+        simulation::SIM,
+        H::Matrix{F};
+        batch_id::Union{Nothing, I}=nothing
+    ) where {I <: Integer, F <: AbstractFloat, SIM <: Simulation}
+
+Compute surface velocity from ice thickness using the SIA model.
+It relies on `surface_V` to compute `Vx` and `Vy` and it additionally computes the
+magnitude of the velocity `V`.
+
+Arguments:
+- `simulation::SIM`: The simulation structure used to retrieve the physical
+    parameters.
+- `H::Matrix{F}`: The ice thickness matrix.
+- `batch_id::Union{Nothing, I}=nothing`: The batch ID that is used to retrieve the
+    iceflow model in `surface_V`.
+
+Returns:
+- `Vx`: x axis component of the surface velocity.
+- `Vy`: y axis component of the surface velocity.
+- `V`: Magnitude velocity.
+"""
+function V_from_H(
+    simulation::SIM,
+    H::Matrix{F};
+    batch_id::Union{Nothing, I}=nothing
+) where {I <: Integer, F <: AbstractFloat, SIM <: Simulation}
+    Vx, Vy = surface_V(H, simulation; batch_id=batch_id)
+    V = (Vx.^2 .+ Vy.^2).^(1/2)
+    return Vx, Vy, V
+end

@@ -1,7 +1,7 @@
 name = "Huginn"
 uuid = "9cb796e9-d0ea-421b-b37d-eb97bc1add55"
 authors = ["Jordi Bolibar <jordi.bolibar@gmail.com>", "Facundo Sapienza <sapienza@stanford.edu>"]
-version = "0.9.2"
+version = "0.9.3"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
@@ -27,7 +27,7 @@ Tullio = "bc48ee85-29a4-5162-ae0b-a64e1601d4bc"
 BenchmarkTools = "1"
 CairoMakie = "0.11, 0.12"
 Infiltrator = "1.8"
-JLD2 = "0.4"
+JLD2 = "0.4, 0.5"
 Muninn = "0.6"
 OrdinaryDiffEq = "6"
 PlotThemes = "3"
@@ -35,7 +35,7 @@ Plots = "1"
 ProgressMeter = "1"
 Reexport = "1"
 Revise = "3"
-Sleipnir = "0.9.2"
+Sleipnir = "0.9.3"
 Tullio = "0.3"
 julia = "1.10"
 
