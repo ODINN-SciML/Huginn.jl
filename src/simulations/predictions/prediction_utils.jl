@@ -33,20 +33,31 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
 
     # Initialize glacier ice flow model
     initialize_iceflow_model!(model.iceflow, glacier_idx, glacier, params)
-    params.solver.tstops = define_callback_steps(params.simulation.tspan, params.solver.step)
-    stop_condition(u,t,integrator) = Sleipnir.stop_condition_tstops(u,t,integrator, params.solver.tstops) #closure
-    function action!(integrator)
+    
+    # Create mass balance callback
+    mb_tstops = define_callback_steps(params.simulation.tspan, params.solver.step)
+    mb_stop_condition(u,t,integrator) = Sleipnir.stop_condition_tstops(u,t,integrator, mb_tstops) #closure
+    params.solver.tstops = mb_tstops
+
+    function mb_action!(integrator)
         if params.simulation.use_MB
             # Compute mass balance
             MB_timestep!(model, glacier, params.solver.step, integrator.t)
             apply_MB_mask!(integrator.u, glacier, model.iceflow)
         end
     end
-    cb_MB = DiscreteCallback(stop_condition, action!)
+    cb_MB = DiscreteCallback(mb_stop_condition, mb_action!)
+
+    # Create iceflow law callback
+    # for now we only implements laws with no parameters
+    cb_IF = build_callback(model.iceflow, simulation, glacier_idx, nothing)
+
+
+    cb = CallbackSet(cb_MB, cb_IF)
 
     # Run iceflow PDE for this glacier
     du = params.simulation.use_iceflow ? SIA2D! : noSIA2D!
-    results = simulate_iceflow_PDE!(simulation, cb_MB; du = du)
+    results = simulate_iceflow_PDE!(simulation, cb; du = du)
 
     return results
 end
@@ -61,7 +72,7 @@ Make forward simulation of the iceflow PDE determined in `du`.
 """
 function simulate_iceflow_PDE!(
     simulation::SIM,
-    cb::DiscreteCallback;
+    cb::SciMLBase.DECallback;
     du = SIA2D!) where {SIM <: Simulation}
     model = simulation.model
     params = simulation.parameters
@@ -163,7 +174,7 @@ Make forward simulation of the iceflow PDE determined in `du`.
 """
 function simulate_iceflow_PDE(
     simulation::SIM,
-    cb::DiscreteCallback;
+    cb::SciMLBase.DECallback;
     du = SIA2D) where {SIM <: Simulation}
     model = simulation.model
     params = simulation.parameters

@@ -37,7 +37,7 @@ function SIA2D!(
 
     params = simulation.parameters
     H̄ = SIA2D_model.H̄
-    A = SIA2D_model.A
+    A = SIA2D_model.A_cache
     n = SIA2D_model.n
     C = SIA2D_model.C
     B = glacier.B
@@ -164,7 +164,7 @@ function SIA2D(
     B = glacier.B
     Δx = glacier.Δx
     Δy = glacier.Δy
-    A = SIA2D_model.A
+    A = SIA2D_model.A_cache
     n = SIA2D_model.n
     C = SIA2D_model.C
     ρ = params.physical.ρ
@@ -337,7 +337,7 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation
     D = iceflow_model.D
     # Dx = iceflow_model.Dx
     # Dy = iceflow_model.Dy
-    A = iceflow_model.A
+    A = iceflow_model.A_cache
     n = iceflow_model.n
     C = iceflow_model.C
     Δx = glacier.Δx
@@ -402,7 +402,7 @@ function surface_V(H::Matrix{R}, simulation::SIM; batch_id::Union{Nothing, I} = 
     B = glacier.B
     Δx = glacier.Δx
     Δy = glacier.Δy
-    A = iceflow_model.A
+    A = iceflow_model.A_cache
     n = iceflow_model.n
     C = iceflow_model.C
     ρ = params.physical.ρ
@@ -429,6 +429,65 @@ function surface_V(H::Matrix{R}, simulation::SIM; batch_id::Union{Nothing, I} = 
 end
 
 """
+<<<<<<< HEAD
+=======
+    H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
+
+Compute the ice thickness `H` from the velocity `V` for a given simulation.
+
+# Arguments
+- `V::Matrix{<:Real}`: A matrix representing the velocity of ice.
+- `simulation::SIM`: An instance of a simulation, which must be a subtype of `Simulation`.
+
+# Returns
+- `H::Matrix{<:Real}`: A matrix representing the computed ice thickness.
+
+# Description
+This function calculates the ice thickness `H` based on the provided velocity `V` and the parameters from the `simulation` object. It uses various physical parameters and constants defined in the `simulation` to perform the computation. The function also handles NaN and Inf values in the resulting ice thickness matrix by replacing them with 0.0.
+
+# Details
+- The function first extracts necessary parameters from the `simulation` object, including physical constants and glacier properties.
+- It updates the glacier surface altimetry and computes surface gradients on edges using staggered grid variables.
+- The surface stress `Γꜛ` is calculated based on the provided parameters.
+- The ice thickness `H` is then computed using the velocity `V` and the surface stress `Γꜛ`.
+- Finally, the function replaces any `NaN` or `Inf` values in the resulting ice thickness matrix with 0.0 and returns the matrix `H`.
+"""
+function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
+    params::Sleipnir.Parameters = simulation.parameters
+
+    iceflow_model = simulation.model.iceflow
+    glacier = simulation.glaciers[iceflow_model.glacier_idx[]]
+    B = glacier.B
+    Δx = glacier.Δx
+    Δy = glacier.Δy
+    A = iceflow_model.A_cache
+    n = iceflow_model.n
+    C = iceflow_model.C_cache
+    ρ = params.physical.ρ
+    g = params.physical.g
+    H₀ = glacier.H₀
+
+    # Update glacier surface altimetry
+    S = iceflow_model.S
+    V = Huginn.avg(V)
+
+    # All grid variables computed in a staggered grid
+    # Compute surface gradients on edges
+    dSdx = Huginn.diff_x(S) / Δx
+    dSdy = Huginn.diff_y(S) / Δy
+    ∇S = (Huginn.avg_y(dSdx).^2 .+ Huginn.avg_x(dSdy).^2).^(1/2)
+
+    Γꜛ = (2.0 * A[] * (ρ * g)^n[]) / (n[]+1) # surface stress (not average)  # 1 / m^3 s
+
+    H = ( V + C[] ./ (Γꜛ .*(∇S .^ n[]))) .^ (1 / (n[] + 1))
+
+    replace!(H, NaN=>0.0)
+    replace!(H, Inf=>0.0)
+    return H
+end
+
+"""
+>>>>>>> a22c5f5 (add Law api to SIA2D)
     V_from_H(
         simulation::SIM,
         H::Matrix{F};
