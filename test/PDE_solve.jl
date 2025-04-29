@@ -18,29 +18,48 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     # Filter out glaciers that are not used to avoid having references that depend on all the glaciers processed in Gungnir
     rgi_paths = Dict(k => rgi_paths[k] for k in rgi_ids)
 
-    params = Huginn.Parameters(simulation = SimulationParameters(use_MB=MB,
-                                                          velocities=false,
-                                                          tspan=(2010.0, 2015.0),
-                                                          working_dir = Huginn.root_dir,
-                                                          test_mode = true,
-                                                          rgi_paths = rgi_paths),
-                        solver = SolverParameters(reltol=1e-12)
-                        )
+    params = Huginn.Parameters(
+        simulation = SimulationParameters(
+            use_MB = MB,
+            velocities = false,
+            tspan = (2010.0, 2015.0),
+            working_dir = Huginn.root_dir,
+            test_mode = true,
+            rgi_paths = rgi_paths
+        ),
+        solver = SolverParameters(reltol=1e-12)
+    )
+    @inferred Huginn.Parameters(
+        simulation = SimulationParameters(
+            use_MB = MB,
+            velocities = false,
+            tspan = (2010.0, 2015.0),
+            working_dir = Huginn.root_dir,
+            test_mode = true,
+            rgi_paths = rgi_paths
+        ),
+        solver = SolverParameters(reltol=1e-12)
+    )
 
     if MB
         model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+        @inferred Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
     else
         model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
+        @inferred Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
     end
 
     # We retrieve some glaciers for the simulation
     glaciers = initialize_glaciers(rgi_ids, params)
+    @inferred initialize_glaciers(rgi_ids, params)
 
     # We create an ODINN prediction
     prediction = Prediction(model, glaciers, params)
+    @inferred Prediction(model, glaciers, params)
 
     # We run the simulation
     @time run!(prediction)
+    @inferred run!(prediction)
 
     # /!\ Saves current run as reference values
     if save_refs
@@ -100,22 +119,30 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     # Filter out glaciers that are not used to avoid having references that depend on all the glaciers processed in Gungnir
     rgi_paths = Dict(k => rgi_paths[k] for k in rgi_ids)
 
-    params = Huginn.Parameters(simulation = SimulationParameters(use_MB=true,
-                                                          velocities=false,
-                                                          tspan=(2010.0, 2015.0),
-                                                          working_dir = Huginn.root_dir,
-                                                          test_mode = true,
-                                                          rgi_paths = rgi_paths),
-                        solver = SolverParameters(reltol=1e-8)
-                        )
+    params = Huginn.Parameters(
+        simulation = SimulationParameters(
+            use_MB = true,
+            velocities = false,
+            tspan = (2010.0, 2015.0),
+            working_dir = Huginn.root_dir,
+            test_mode = true,
+            rgi_paths = rgi_paths
+        ),
+        solver = SolverParameters(reltol=1e-8)
+    )
     model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    @inferred Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
 
     glacier = initialize_glaciers(rgi_ids, params)[1]
+    @inferred initialize_glaciers(rgi_ids, params)[1]
     initialize_iceflow_model!(model.iceflow, 1, glacier, params)
+    @inferred initialize_iceflow_model!(model.iceflow, 1, glacier, params)
     t = 2015.0
 
     MB_timestep!(model, glacier, params.solver.step, t)
+    @inferred MB_timestep!(model, glacier, params.solver.step, t)
     apply_MB_mask!(model.iceflow.H, glacier, model.iceflow)
+    @inferred apply_MB_mask!(model.iceflow.H, glacier, model.iceflow)
 
     # /!\ Saves current run as reference values
     if save_refs
