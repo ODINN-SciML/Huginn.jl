@@ -37,7 +37,7 @@ function SIA2D!(
 
     params = simulation.parameters
     H̄ = SIA2D_model.H̄
-    A = SIA2D_model.A
+    A = SIA2D_model.A_cache
     n = SIA2D_model.n
     B = glacier.B
     S = SIA2D_model.S
@@ -162,7 +162,7 @@ function SIA2D(
     B = glacier.B
     Δx = glacier.Δx
     Δy = glacier.Δy
-    A = SIA2D_model.A
+    A = SIA2D_model.A_cache
     n = SIA2D_model.n
     ρ = params.physical.ρ
     g = params.physical.g
@@ -331,7 +331,7 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation
     D = iceflow_model.D
     # Dx = iceflow_model.Dx
     # Dy = iceflow_model.Dy
-    A = iceflow_model.A
+    A = iceflow_model.A_cache
     n = iceflow_model.n
     Δx = glacier.Δx
     Δy = glacier.Δy
@@ -394,7 +394,7 @@ function surface_V(H::Matrix{R}, simulation::SIM; batch_id::Union{Nothing, I} = 
     B = glacier.B
     Δx = glacier.Δx
     Δy = glacier.Δy
-    A = iceflow_model.A
+    A = iceflow_model.A_cache
     n = iceflow_model.n
     ρ = params.physical.ρ
     g = params.physical.g
@@ -448,9 +448,9 @@ function H_from_V(V::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation}
     B = glacier.B
     Δx = glacier.Δx
     Δy = glacier.Δy
-    A = iceflow_model.A
+    A = iceflow_model.A_cache
     n = iceflow_model.n
-    C = iceflow_model.C
+    C = iceflow_model.C_cache
     ρ = params.physical.ρ
     g = params.physical.g
     H₀ = glacier.H₀
