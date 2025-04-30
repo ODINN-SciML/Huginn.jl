@@ -328,8 +328,8 @@ function build_callback(model::SIA2Dmodel, simulation, glacier_idx, θ)
         PeriodicCallback(A_affect!, model.A.callback_freq)
     end
 
-    function B_affect!(integrator)
-        model.B_cache .= apply_law(model.B, simulation, glacier_idx, integrator.t, θ)
+    function C_affect!(integrator)
+        model.C_cache .= apply_law(model.C, simulation, glacier_idx, integrator.t, θ)
     end
 
     C_cb = if isnothing(model.C) || isnothing(model.C.callback_freq)
