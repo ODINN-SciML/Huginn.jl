@@ -7,8 +7,6 @@ include("SIA2D_utils.jl")
 ###### SHALLOW ICE APPROXIMATION MODELS #######
 ###############################################
 
-const MaybeLaw = Union{Nothing, Law}
-
 """
     mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
 
@@ -46,7 +44,7 @@ A mutable struct representing a 2D Shallow Ice Approximation (SIA) model.
 - `MB_total::Union{Matrix{R}, Nothing}`: Total mass balance.
 - `glacier_idx::Union{Ref{I}, Nothing}`: Index of the glacier.
 """
-mutable struct SIA2Dmodel{R <: Real, I <: Integer, ALAW <: MaybeLaw, CLAW <: MaybeLaw} <: SIAmodel
+mutable struct SIA2Dmodel{R <: Real, I <: Integer, ALAW <: Union{Nothing, Law}, CLAW <: Union{Nothing, Law}} <: SIAmodel
     A::ALAW
     C::CLAW
     A_cache::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
