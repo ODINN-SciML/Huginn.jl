@@ -74,7 +74,7 @@ mutable struct SIA2Dmodel{R <: Real, I <: Integer, ALAW <: Union{Nothing, Law}, 
     Vy::Union{Matrix{R}, Nothing}
     Γ::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
     MB::Union{Matrix{R}, Nothing}
-    MB_mask::Union{AbstractArray{Bool}, Nothing}
+    MB_mask::Union{Matrix{Bool}, Nothing}
     MB_total::Union{Matrix{R}, Nothing}
     glacier_idx::Union{Ref{I}, Nothing}
 end
