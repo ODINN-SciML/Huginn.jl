@@ -41,9 +41,8 @@ function plot_analysis_flow_parameters(simulation::SIM, A_values, n_values) wher
     Huginn.initialize_iceflow_model!(simulation.model.iceflow, 1, simulation.glaciers[1], simulation.parameters)
 
     result = [
-        generate_result(
-            simulation, A_values[j], n_values[i]) for i in 1:rows, j in 1:cols
-            ]
+        generate_result(simulation, A_values[j], n_values[i]) for i in 1:rows, j in 1:cols
+    ]
     h_diff = [result[i,j].H[end]-result[i,j].H[1] for i in 1:rows, j in 1:cols]
     
     
@@ -115,7 +114,7 @@ Generate the result of a simulation by initializing the model with the specified
 function generate_result(simulation::SIM, A, n,) where {SIM <: Simulation}
     
     # Initialize the model using the specified or default models
-    simulation.model.iceflow.A[]=A
+    simulation.model.iceflow.A_cache[]=A
     simulation.model.iceflow.n[]=n
 
     run!(simulation)
