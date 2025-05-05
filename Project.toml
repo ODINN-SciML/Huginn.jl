@@ -3,12 +3,12 @@ uuid = "9cb796e9-d0ea-421b-b37d-eb97bc1add55"
 authors = ["Jordi Bolibar <jordi.bolibar@gmail.com>", "Facundo Sapienza <sapienza@stanford.edu>"]
 version = "0.9.4"
 
-
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 Infiltrator = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Muninn = "4b816528-16ba-4e32-9a2e-3c1bc2049d3a"
 OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"

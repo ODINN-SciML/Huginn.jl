@@ -10,7 +10,7 @@ function params_constructor_specified(save_refs::Bool = false)
         progress = true,
         progress_steps = 10
     )
-    @inferred SolverParameters(
+    JET.@test_opt SolverParameters(
         solver = Ralston(),
         reltol = 1e-8,
         step= 1.0/12.0,
@@ -33,7 +33,7 @@ end
 function params_constructor_default(save_refs::Bool = false)
 
     solver_params = SolverParameters()
-    @inferred SolverParameters()
+    JET.@test_opt SolverParameters()
 
     if save_refs
         jldsave(joinpath(Huginn.root_dir, "test/data/params/solver_params_default.jld2"); solver_params)

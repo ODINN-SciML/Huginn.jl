@@ -16,10 +16,10 @@ A mutable struct representing a 2D Shallow Ice Approximation (SIA) model.
 - `A::Union{Ref{R}, Nothing}`: Flow rate factor.
 - `n::Union{Ref{R}, Nothing}`: Flow law exponent.
 - `C::Union{Ref{R}, Matrix{R}, Nothing}`: Sliding coefficient.
-- `H₀::Union{Matrix{R}, Nothing}`: Initial ice thickness.
+- `H₀::Matrix{R}`: Initial ice thickness.
 - `H::Union{Matrix{R}, Nothing}`: Ice thickness.
 - `H̄::Union{Matrix{R}, Nothing}`: Averaged ice thickness.
-- `S::Union{Matrix{R}, Nothing}`: Surface elevation.
+- `S::Matrix{R}`: Surface elevation.
 - `dSdx::Union{Matrix{R}, Nothing}`: Surface slope in the x-direction.
 - `dSdy::Union{Matrix{R}, Nothing}`: Surface slope in the y-direction.
 - `D::Union{Matrix{R}, Nothing}`: Diffusivity.
@@ -48,10 +48,10 @@ mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
     A::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
     n::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
     C::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
-    H₀::Union{Matrix{R}, Nothing}
+    H₀::Matrix{R}
     H::Union{Matrix{R}, Nothing}
     H̄::Union{Matrix{R}, Nothing}
-    S::Union{Matrix{R}, Nothing}
+    S::Matrix{R}
     dSdx::Union{Matrix{R}, Nothing}
     dSdy::Union{Matrix{R}, Nothing}
     D::Union{Matrix{R}, Nothing}
@@ -83,10 +83,10 @@ end
         A::Union{R, Nothing} = nothing,
         n::Union{R, Nothing} = nothing,
         C::Union{R, Matrix{R}, Nothing} = nothing,
-        H₀::Union{Matrix{R}, Nothing} = nothing,
+        H₀::Matrix{R} = Matrix{Sleipnir.Float}([;;]),
         H::Union{Matrix{R}, Nothing} = nothing,
         H̄::Union{Matrix{R}, Nothing} = nothing,
-        S::Union{Matrix{R}, Nothing} = nothing,
+        S::Matrix{R} = Matrix{Sleipnir.Float}([;;]),
         dSdx::Union{Matrix{R}, Nothing} = nothing,
         dSdy::Union{Matrix{R}, Nothing} = nothing,
         D::Union{Matrix{R}, Nothing} = nothing,
@@ -119,10 +119,10 @@ Constructs a new `SIA2Dmodel` object with the given parameters.
 - `A::Union{R, Nothing}`: Flow law parameter (default: `nothing`).
 - `n::Union{R, Nothing}`: Flow law exponent (default: `nothing`).
 - `C::Union{R, Matrix{R}, Nothing}`: Basal sliding parameter (default: `nothing`).
-- `H₀::Union{Matrix{R}, Nothing}`: Initial ice thickness (default: `nothing`).
+- `H₀::Matrix{R}`: Initial ice thickness (default: empty matrix).
 - `H::Union{Matrix{R}, Nothing}`: Ice thickness (default: `nothing`).
 - `H̄::Union{Matrix{R}, Nothing}`: Averaged ice thickness (default: `nothing`).
-- `S::Union{Matrix{R}, Nothing}`: Surface elevation (default: `nothing`).
+- `S::Matrix{R}`: Surface elevation (default: empty matrix).
 - `dSdx::Union{Matrix{R}, Nothing}`: Surface slope in x-direction (default: `nothing`).
 - `dSdy::Union{Matrix{R}, Nothing}`: Surface slope in y-direction (default: `nothing`).
 - `D::Union{Matrix{R}, Nothing}`: Diffusivity (default: `nothing`).
@@ -155,10 +155,10 @@ function SIA2Dmodel(
     A::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
     n::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
     C::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-    H₀::Union{Matrix{R}, Nothing} = nothing,
+    H₀::Matrix{R} = Matrix{Sleipnir.Float}([;;]),
     H::Union{Matrix{R}, Nothing} = nothing,
     H̄::Union{Matrix{R}, Nothing} = nothing,
-    S::Union{Matrix{R}, Nothing} = nothing,
+    S::Matrix{R} = Matrix{Sleipnir.Float}([;;]),
     dSdx::Union{Matrix{R}, Nothing} = nothing,
     dSdy::Union{Matrix{R}, Nothing} = nothing,
     D::Union{Matrix{R}, Nothing} = nothing,

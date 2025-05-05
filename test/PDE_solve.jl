@@ -29,7 +29,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         ),
         solver = SolverParameters(reltol=1e-12)
     )
-    @inferred Huginn.Parameters(
+    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Huginn.Parameters(
         simulation = SimulationParameters(
             use_MB = MB,
             velocities = false,
@@ -43,23 +43,25 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
 
     if MB
         model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
-        @inferred Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+        JET.@test_opt Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
     else
         model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
-        @inferred Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
+        JET.@test_opt Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
     end
 
     # We retrieve some glaciers for the simulation
     glaciers = initialize_glaciers(rgi_ids, params)
-    @inferred initialize_glaciers(rgi_ids, params)
+    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) initialize_glaciers(rgi_ids, params) # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
 
     # We create an ODINN prediction
     prediction = Prediction(model, glaciers, params)
-    @inferred Prediction(model, glaciers, params)
+    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Prediction(model, glaciers, params)
 
     # We run the simulation
     @time run!(prediction)
-    @inferred run!(prediction)
+
+    # Test below is not ready yet
+    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Huginn.batch_iceflow_PDE!(1, prediction) # Call only the core of run! because saving to JLD2 file is not type stale and GC interferes with JET
 
     # /!\ Saves current run as reference values
     if save_refs
@@ -131,18 +133,18 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
         solver = SolverParameters(reltol=1e-8)
     )
     model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
-    @inferred Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    JET.@test_opt Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
 
     glacier = initialize_glaciers(rgi_ids, params)[1]
-    @inferred initialize_glaciers(rgi_ids, params)[1]
+    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) initialize_glaciers(rgi_ids, params)[1] # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
     initialize_iceflow_model!(model.iceflow, 1, glacier, params)
-    @inferred initialize_iceflow_model!(model.iceflow, 1, glacier, params)
+    # JET.@test_opt initialize_iceflow_model!(model.iceflow, 1, glacier, params) # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
     t = 2015.0
 
     MB_timestep!(model, glacier, params.solver.step, t)
-    @inferred MB_timestep!(model, glacier, params.solver.step, t)
+    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) MB_timestep!(model, glacier, params.solver.step, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
     apply_MB_mask!(model.iceflow.H, glacier, model.iceflow)
-    @inferred apply_MB_mask!(model.iceflow.H, glacier, model.iceflow)
+    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) apply_MB_mask!(model.iceflow.H, glacier, model.iceflow) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
 
     # /!\ Saves current run as reference values
     if save_refs

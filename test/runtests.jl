@@ -14,6 +14,7 @@ using Infiltrator
 using OrdinaryDiffEq
 using CairoMakie
 using Random
+using JET
 using Huginn
 
 include("utils_test.jl")
