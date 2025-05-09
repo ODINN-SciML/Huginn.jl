@@ -206,7 +206,8 @@ end
 function apply_MB_mask!(H, glacier::G, ifm::IceflowModel) where {G <: Sleipnir.AbstractGlacier}
     # Appy MB only over ice, and avoid applying it to the borders in the accummulation area to avoid overflow
     MB, MB_mask, MB_total = ifm.MB, ifm.MB_mask, ifm.MB_total
-    MB_mask .= ((H .> 0.0) .&& (MB .< 0.0)) .|| ((H .> 10.0) .&& (MB .>= 0.0)) 
+    MB_mask .= ((H .> 0.0) .&& (MB .< 0.0)) .|| ((H .> 10.0) .&& (MB .>= 0.0))
     H[MB_mask] .+= MB[MB_mask]
     MB_total[MB_mask] .+= MB[MB_mask]
+    return nothing # For type stability
 end
