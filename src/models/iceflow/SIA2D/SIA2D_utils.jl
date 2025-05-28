@@ -502,7 +502,11 @@ function V_from_H(
     H::Matrix{F};
     batch_id::Union{Nothing, I}=nothing
 ) where {I <: Integer, F <: AbstractFloat, SIM <: Simulation}
-    Vx, Vy = surface_V(H, simulation; batch_id=batch_id)
+    Vx_in, Vy_in = surface_V(H, simulation; batch_id=batch_id)
+    Vx = zero(H)
+    Vy = zero(H)
+    inn1(Vx) .= Vx_in
+    inn1(Vy) .= Vy_in
     V = (Vx.^2 .+ Vy.^2).^(1/2)
     return Vx, Vy, V
 end
