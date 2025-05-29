@@ -105,9 +105,9 @@ Defines the times to stop for the DiscreteCallback given a step and a timespan.
 
 """
 function define_callback_steps(tspan::Tuple{F, F}, step::F) where {F <: AbstractFloat}
-    tmin_int = Int(tspan[1])
-    tmax_int = Int(tspan[2])+1
-    tstops = range(tmin_int+step, tmax_int, step=step) |> collect
-    tstops = filter(x->( (Int(tspan[1])<x) & (x<=Int(tspan[2])) ), tstops)
+    tstops = range(tspan[1], tspan[2], step = step)
+    if tstops[end] !== tspan[2]
+        push!(tstops, tspan[2])
+    end
     return tstops
 end
