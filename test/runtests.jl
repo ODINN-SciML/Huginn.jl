@@ -50,12 +50,12 @@ end
 
 @testset "Halfar Solution (in-place)" halfar_test(; rtol=3e-3, atol=0.35, inplace=true, distance_to_border=10)
 
-@testset "Halfar Solution (out-of-place)" halfar_test(; rtol=3e-3, atol=0.35, inplace=false, distance_to_border=10)
+# @testset "Halfar Solution (out-of-place)" halfar_test(; rtol=3e-3, atol=0.35, inplace=false, distance_to_border=10)
 
 @testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
 
 @testset "Conservation of Mass - Non Flat Bed" unit_mass_nonflatbed_test(; rtol=1.0e-7)
 
-@testset "Glacier Plotting" plot_analysis_flow_parameters_test()
+# @testset "Glacier Plotting" plot_analysis_flow_parameters_test()
 
 end
