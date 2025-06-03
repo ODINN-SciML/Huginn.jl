@@ -180,7 +180,7 @@ function unit_halfar_test(;
 
     # Define glacier object
     glacier = Glacier2D(
-        rgi_id = "toy",
+        rgi_id = "Halfar",
         H₀ = H₀,
         S = B + H₀,
         B = B,
