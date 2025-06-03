@@ -1,8 +1,8 @@
+using Sleipnir: init_cache
 
+function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=false, fast::Bool=true, laws = nothing, callback_laws = false) where {F <: AbstractFloat}
 
-function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=false, fast::Bool=true) where {F <: AbstractFloat}
-
-    println("PDE solving with MB = $MB")
+    println("PDE solving with MB = $MB, laws = $laws, callback_laws = $callback_laws")
 
     ## Retrieving gdirs and climate for the following glaciers
     ## Fast version includes less glacier to reduce computation time on GitHub CI
@@ -27,11 +27,38 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
                         solver = SolverParameters(reltol=1e-12)
                         )
 
-    if MB
-        model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+
+    mass_balance = isnothing(MB) ? nothing : TImodel1(params)
+
+    A_law = if isnothing(laws)
+        nothing
+    elseif laws == :scalar
+        # dumb law that gives the default value of A as a 0-dimensional array
+        Law{Array{Sleipnir.Float, 0}}(;
+            f! = (A, sim, glacier_idx, t, θ) -> A .= sim.glaciers[glacier_idx].A,
+            init_cache = (sim, glacier_idx, θ) -> zeros(),
+            callback_freq = callback_laws ? 1/12 : nothing
+        )
+    elseif laws == :matrix
+        # dumb law that gives the default value of A as a constant matrix
+        Law{Matrix{Sleipnir.Float}}(;
+            f! = (A, sim, glacier_idx, t, θ) -> A .= sim.glaciers[glacier_idx].A,
+            init_cache = function (sim, glacier_idx, θ)
+                (;nx, ny) = sim.glaciers[glacier_idx]
+                return zeros(nx - 1, ny - 1)
+            end,
+            callback_freq = callback_laws ? 1/12 : nothing
+        )
     else
-        model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
+        throw("laws keyword should be either nothing, :scalar, or :matrix")
     end
+
+    # for now C is not used in SIA2D
+    C_law = nothing
+
+    iceflow = SIA2Dmodel(params; A = A_law, C = C_law)
+
+    model = Huginn.Model(;iceflow, mass_balance)
 
     # We retrieve some glaciers for the simulation
     glaciers = initialize_glaciers(rgi_ids, params)
@@ -110,23 +137,31 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
                         )
     model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
 
-    glacier = initialize_glaciers(rgi_ids, params)[1]
-    initialize_iceflow_model!(model.iceflow, 1, glacier, params)
+    glacier_idx = 1
+    glaciers = initialize_glaciers(rgi_ids, params)
+    glacier = glaciers[glacier_idx]
+
+    # fake simulation
+    simulation = (;model, glaciers)
+
+    cache = init_cache(model, simulation, glacier_idx, params)
+
+    #initialize_iceflow_model!(model.iceflow, 1, glacier, params)
     t = 2015.0
 
-    MB_timestep!(model, glacier, params.solver.step, t)
-    apply_MB_mask!(model.iceflow.H, glacier, model.iceflow)
+    MB_timestep!(cache, model, glacier, params.solver.step, t)
+    apply_MB_mask!(cache.iceflow.H, glacier, cache.iceflow)
 
     # /!\ Saves current run as reference values
     if save_refs
-        jldsave(joinpath(Huginn.root_dir, "test/data/PDE/MB_ref.jld2"); model.iceflow.MB)
-        jldsave(joinpath(Huginn.root_dir, "test/data/PDE/H_w_MB_ref.jld2"); model.iceflow.H)
+        jldsave(joinpath(Huginn.root_dir, "test/data/PDE/MB_ref.jld2"); cache.iceflow.MB)
+        jldsave(joinpath(Huginn.root_dir, "test/data/PDE/H_w_MB_ref.jld2"); cache.iceflow.H)
     end
 
     MB_ref = load(joinpath(Huginn.root_dir, "test/data/PDE/MB_ref.jld2"))["MB"]
     H_w_MB_ref = load(joinpath(Huginn.root_dir, "test/data/PDE/H_w_MB_ref.jld2"))["H"]
 
-    @test all(isapprox.(MB_ref, model.iceflow.MB, rtol=rtol, atol=atol))
-    @test all(isapprox.(H_w_MB_ref, model.iceflow.H, rtol=rtol, atol=atol))
+    @test all(isapprox.(MB_ref, cache.iceflow.MB, rtol=rtol, atol=atol))
+    @test all(isapprox.(H_w_MB_ref, cache.iceflow.H, rtol=rtol, atol=atol))
 
 end
