@@ -1,3 +1,4 @@
+import Sleipnir: init_cache
 export Model, IceflowModel
 
 # Abstract type as a parent type for ice flow models

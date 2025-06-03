@@ -161,33 +161,27 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
     JET.@test_opt Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
 
-<<<<<<< HEAD
-    glacier = initialize_glaciers(rgi_ids, params)[1]
-    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) initialize_glaciers(rgi_ids, params)[1] # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
-    initialize_iceflow_model!(model.iceflow, 1, glacier, params)
-    # JET.@test_opt initialize_iceflow_model!(model.iceflow, 1, glacier, params) # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
-    t = 2015.0
-
-    MB_timestep!(model, glacier, params.solver.step, t)
-    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) MB_timestep!(model, glacier, params.solver.step, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
-    apply_MB_mask!(model.iceflow.H, glacier, model.iceflow)
-    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) apply_MB_mask!(model.iceflow.H, glacier, model.iceflow) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
-=======
     glacier_idx = 1
+
     glaciers = initialize_glaciers(rgi_ids, params)
+    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) initialize_glaciers(rgi_ids, params)[1] # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
+
     glacier = glaciers[glacier_idx]
 
     # fake simulation
     simulation = (;model, glaciers)
 
     cache = init_cache(model, simulation, glacier_idx, params)
+    # JET.@test_opt init_cache(model, simulation, glacier_idx, params) # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
 
     #initialize_iceflow_model!(model.iceflow, 1, glacier, params)
     t = 2015.0
 
     MB_timestep!(cache, model, glacier, params.solver.step, t)
+    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) MB_timestep!(cache, model, glacier, params.solver.step, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
+
     apply_MB_mask!(cache.iceflow.H, glacier, cache.iceflow)
->>>>>>> 8ed0d7a (add tests for laws)
+    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) apply_MB_mask!(cache.iceflow.H, glacier, cache.iceflow) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
 
     # /!\ Saves current run as reference values
     if save_refs
