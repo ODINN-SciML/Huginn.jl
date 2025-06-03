@@ -61,9 +61,14 @@ function SolverParameters(;
         tstops = Sleipnir.Float.(tstops)
     end
     solver_parameters = SolverParameters(
-        solver, Sleipnir.Float(reltol),
-        Sleipnir.Float(step), tstops,
-        save_everystep, progress, Sleipnir.Int(progress_steps)
+        solver,
+        Sleipnir.Float(reltol),
+        Sleipnir.Float(step),
+        tstops,
+        save_everystep,
+        progress,
+        Sleipnir.Int(progress_steps
+        )
     )
 
     return solver_parameters
