@@ -13,9 +13,9 @@ include("SIA2D_utils.jl")
 A mutable struct representing a 2D Shallow Ice Approximation (SIA) model.
 
 # Fields
-- `A::Union{Ref{R}, Nothing}`: Flow rate factor.
-- `n::Union{Ref{R}, Nothing}`: Flow law exponent.
-- `C::Union{Ref{R}, Matrix{R}, Nothing}`: Sliding coefficient.
+- `A::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}`: Flow rate factor.
+- `n::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}`: Flow law exponent.
+- `C::Union{Ref{R}, Vector{R}, Matrix{R}}`: Sliding coefficient.
 - `H₀::Matrix{R}`: Initial ice thickness.
 - `H::Union{Matrix{R}, Nothing}`: Ice thickness.
 - `H̄::Union{Matrix{R}, Nothing}`: Averaged ice thickness.
@@ -38,7 +38,7 @@ A mutable struct representing a 2D Shallow Ice Approximation (SIA) model.
 - `V::Union{Matrix{R}, Nothing}`: Velocity.
 - `Vx::Union{Matrix{R}, Nothing}`: Velocity in the x-direction.
 - `Vy::Union{Matrix{R}, Nothing}`: Velocity in the y-direction.
-- `Γ::Union{Ref{R}, Nothing}`: Basal shear stress.
+- `Γ::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}`: Basal shear stress.
 - `MB::Union{Matrix{R}, Nothing}`: Mass balance.
 - `MB_mask::Union{AbstractArray{Bool}, Nothing}`: Mask for mass balance.
 - `MB_total::Union{Matrix{R}, Nothing}`: Total mass balance.
@@ -47,7 +47,7 @@ A mutable struct representing a 2D Shallow Ice Approximation (SIA) model.
 mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
     A::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
     n::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
-    C::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
+    C::Union{Ref{R}, Vector{R}, Matrix{R}}
     H₀::Matrix{R}
     H::Union{Matrix{R}, Nothing}
     H̄::Union{Matrix{R}, Nothing}
@@ -116,9 +116,9 @@ Constructs a new `SIA2Dmodel` object with the given parameters.
 
 # Arguments
 - `params::Sleipnir.Parameters`: Simulation parameters.
-- `A::Union{R, Nothing}`: Flow law parameter (default: `nothing`).
-- `n::Union{R, Nothing}`: Flow law exponent (default: `nothing`).
-- `C::Union{R, Matrix{R}, Nothing}`: Basal sliding parameter (default: `nothing`).
+- `A::Union{R, Vector{R}, Matrix{R}, Nothing}`: Flow law parameter (default: `nothing`).
+- `n::Union{R, Vector{R}, Matrix{R}, Nothing}`: Flow law exponent (default: `nothing`).
+- `C::Union{R, Vector{R}, Matrix{R}}`: Basal sliding parameter (default: 0.0).
 - `H₀::Matrix{R}`: Initial ice thickness (default: empty matrix).
 - `H::Union{Matrix{R}, Nothing}`: Ice thickness (default: `nothing`).
 - `H̄::Union{Matrix{R}, Nothing}`: Averaged ice thickness (default: `nothing`).
@@ -141,7 +141,7 @@ Constructs a new `SIA2Dmodel` object with the given parameters.
 - `V::Union{Matrix{R}, Nothing}`: Velocity (default: `nothing`).
 - `Vx::Union{Matrix{R}, Nothing}`: Velocity in x-direction (default: `nothing`).
 - `Vy::Union{Matrix{R}, Nothing}`: Velocity in y-direction (default: `nothing`).
-- `Γ::Union{R, Nothing}`: Auxiliary matrix (default: `nothing`).
+- `Γ::Union{R, Vector{R}, Matrix{R}, Nothing}`: Auxiliary matrix (default: `nothing`).
 - `MB::Union{Matrix{R}, Nothing}`: Mass balance (default: `nothing`).
 - `MB_mask::Union{BitMatrix, Nothing}`: Mask for mass balance (default: `nothing`).
 - `MB_total::Union{Matrix{R}, Nothing}`: Total mass balance (default: `nothing`).
@@ -154,7 +154,7 @@ function SIA2Dmodel(
     params::Sleipnir.Parameters;
     A::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
     n::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-    C::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+    C::Union{R, Vector{R}, Matrix{R}} = 0.0,
     H₀::Matrix{R} = Matrix{Sleipnir.Float}([;;]),
     H::Union{Matrix{R}, Nothing} = nothing,
     H̄::Union{Matrix{R}, Nothing} = nothing,
@@ -296,6 +296,7 @@ function initialize_iceflow_model(
     nx, ny = glacier.nx, glacier.ny
     iceflow_model.A = [glacier.A]
     iceflow_model.n = [glacier.n]
+    iceflow_model.C = [glacier.C]
     iceflow_model.D_is_provided = false
     iceflow_model.glacier_idx = Ref{I}(glacier_idx)
     iceflow_model.H₀ = deepcopy(glacier.H₀)
