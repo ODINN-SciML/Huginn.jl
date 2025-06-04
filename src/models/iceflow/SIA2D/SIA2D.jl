@@ -15,7 +15,7 @@ A mutable struct representing a 2D Shallow Ice Approximation (SIA) model.
 # Fields
 - `A::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}`: Flow rate factor.
 - `n::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}`: Flow law exponent.
-- `C::Union{Ref{R}, Vector{R}, Matrix{R}}`: Sliding coefficient.
+- `C::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}`: Sliding coefficient.
 - `H₀::Matrix{R}`: Initial ice thickness.
 - `H::Union{Matrix{R}, Nothing}`: Ice thickness.
 - `H̄::Union{Matrix{R}, Nothing}`: Averaged ice thickness.
@@ -47,7 +47,7 @@ A mutable struct representing a 2D Shallow Ice Approximation (SIA) model.
 mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
     A::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
     n::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
-    C::Union{Ref{R}, Vector{R}, Matrix{R}}
+    C::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
     H₀::Matrix{R}
     H::Union{Matrix{R}, Nothing}
     H̄::Union{Matrix{R}, Nothing}
@@ -80,9 +80,9 @@ end
 """
     SIA2Dmodel(
         params::Sleipnir.Parameters;
-        A::Union{R, Nothing} = nothing,
-        n::Union{R, Nothing} = nothing,
-        C::Union{R, Matrix{R}, Nothing} = nothing,
+        A::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+        n::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
+        C::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
         H₀::Matrix{R} = Matrix{Sleipnir.Float}([;;]),
         H::Union{Matrix{R}, Nothing} = nothing,
         H̄::Union{Matrix{R}, Nothing} = nothing,
@@ -105,7 +105,7 @@ end
         V::Union{Matrix{R}, Nothing} = nothing,
         Vx::Union{Matrix{R}, Nothing} = nothing,
         Vy::Union{Matrix{R}, Nothing} = nothing,
-        Γ::Union{R, Nothing} = nothing,
+        Γ::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
         MB::Union{Matrix{R}, Nothing} = nothing,
         MB_mask::Union{BitMatrix, Nothing} = nothing,
         MB_total::Union{Matrix{R}, Nothing} = nothing,
@@ -118,7 +118,7 @@ Constructs a new `SIA2Dmodel` object with the given parameters.
 - `params::Sleipnir.Parameters`: Simulation parameters.
 - `A::Union{R, Vector{R}, Matrix{R}, Nothing}`: Flow law parameter (default: `nothing`).
 - `n::Union{R, Vector{R}, Matrix{R}, Nothing}`: Flow law exponent (default: `nothing`).
-- `C::Union{R, Vector{R}, Matrix{R}}`: Basal sliding parameter (default: 0.0).
+- `C::Union{R, Vector{R}, Matrix{R}, Nothing}`: Basal sliding parameter (default: `nothing`).
 - `H₀::Matrix{R}`: Initial ice thickness (default: empty matrix).
 - `H::Union{Matrix{R}, Nothing}`: Ice thickness (default: `nothing`).
 - `H̄::Union{Matrix{R}, Nothing}`: Averaged ice thickness (default: `nothing`).
@@ -154,7 +154,7 @@ function SIA2Dmodel(
     params::Sleipnir.Parameters;
     A::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
     n::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-    C::Union{R, Vector{R}, Matrix{R}} = 0.0,
+    C::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
     H₀::Matrix{R} = Matrix{Sleipnir.Float}([;;]),
     H::Union{Matrix{R}, Nothing} = nothing,
     H̄::Union{Matrix{R}, Nothing} = nothing,
@@ -182,7 +182,7 @@ function SIA2Dmodel(
     MB_mask::Union{BitMatrix, Nothing} = nothing,
     MB_total::Union{Matrix{R}, Nothing} = nothing,
     glacier_idx::Union{I, Nothing} = nothing
-) where {I<:Integer, R<:Real}
+) where {I <: Integer, R <: Real}
 
     ft = Sleipnir.Float
     it = Sleipnir.Int
