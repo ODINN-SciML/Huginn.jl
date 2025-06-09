@@ -64,6 +64,10 @@ function SIA2D!(
         apply_law!(SIA2D_model.C, C, simulation, glacier_idx, t, θ)
     end
 
+    if !is_callback_law(SIA2D_model.n)
+        apply_law!(SIA2D_model.n, n, simulation, glacier_idx, t, θ)
+    end
+
     # First, enforce values to be positive
     map!(x -> ifelse(x > 0.0, x, 0.0), H, H)
     # Update glacier surface altimetry

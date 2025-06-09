@@ -11,15 +11,17 @@ include("SIA2D_utils.jl")
 ###### SHALLOW ICE APPROXIMATION MODELS #######
 ###############################################
 
-@kwdef struct SIA2Dmodel{ALAW <: AbstractLaw, CLAW <: AbstractLaw} <: SIAmodel
+@kwdef struct SIA2Dmodel{ALAW <: AbstractLaw, CLAW <: AbstractLaw, nLAW <: AbstractLaw} <: SIAmodel
     A::ALAW
     C::CLAW
+    n::nLAW
 
-    function SIA2Dmodel(A, C)
+    function SIA2Dmodel(A, C, n)
         A = something(A, _default_A_law)
         C = something(C, _default_C_law)
-
-        new{typeof(A), typeof(C)}(A, C)
+        n = something(n, _default_n_law)
+        
+        new{typeof(A), typeof(C), typeof(n)}(A, C, n)
     end
 end
 
@@ -33,8 +35,13 @@ const _default_C_law = Law{Array{Sleipnir.Float, 0}}(;
     init_cache = (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].C)
 )
 
-SIA2Dmodel(; A = nothing, C = nothing) = SIA2Dmodel(A, C)
-SIA2Dmodel(params::Sleipnir.Parameters; A = nothing, C = nothing) = SIA2Dmodel(A, C)
+const _default_n_law = Law{Array{Sleipnir.Float, 0}}(;
+    f! = (cache, simulation, glacier_idx, t, θ) -> nothing,
+    init_cache = (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].n)
+)
+
+SIA2Dmodel(; A = nothing, C = nothing, n = nothing) = SIA2Dmodel(A, C, n)
+SIA2Dmodel(params::Sleipnir.Parameters; A = nothing, C = nothing, n = nothing) = SIA2Dmodel(A, C, n)
 
 """
     mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
@@ -73,10 +80,10 @@ A struct storing all variables needed to compute 2D Shallow Ice Approximation (S
 - `MB_total::Union{Matrix{R}, Nothing}`: Total mass balance.
 - `glacier_idx::Union{Ref{I}, Nothing}`: Index of the glacier.
 """
-@kwdef struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE} <: SIAmodel
+@kwdef struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE} <: SIAmodel
     A::A_CACHE
     #n::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
-    n::Vector{R}
+    n::n_CACHE
     C::C_CACHE
     H₀::Matrix{R}
     H::Matrix{R}
@@ -113,6 +120,7 @@ cache_type(sia2d_model::SIA2Dmodel) = SIA2DCache{
     Sleipnir.Int,
     cache_type(sia2d_model.A),
     cache_type(sia2d_model.C),
+    cache_type(sia2d_model.n),
 }
 
 """
@@ -140,17 +148,19 @@ function init_cache(model::SIA2Dmodel, simulation, glacier_idx, θ)
 
     A = init_cache(model.A, simulation, glacier_idx, θ)
     C = init_cache(model.C, simulation, glacier_idx, θ)
+    n = init_cache(model.n, simulation, glacier_idx, θ)
 
     Γ = similar(A)
 
     return SIA2DCache(;
         A,
         C,
-        Γ, 
+        Γ,
+        n, 
         #A = isnothing(iceflow_model.A) ? [glacier.A] : iceflow_model.A,
         #n = isnothing(iceflow_model.n) ? [glacier.n] : iceflow_model.n,
-        n = [glacier.n],
         #C = isnothing(iceflow_model.C) ? [glacier.C] : iceflow_model.C,
+        #Γ = isnothing(iceflow_model.Γ) ? [0.0] : iceflow_model.Γ,
         H₀ = deepcopy(glacier.H₀),
         H = deepcopy(glacier.H₀),
         H̄ = zeros(F,nx-1,ny-1),
@@ -173,7 +183,6 @@ function init_cache(model::SIA2Dmodel, simulation, glacier_idx, θ)
         V = zeros(F,nx,ny),
         Vx = zeros(F,nx,ny),
         Vy = zeros(F,nx,ny),
-        #Γ = isnothing(iceflow_model.Γ) ? [0.0] : iceflow_model.Γ,
         MB = zeros(F,nx,ny),
         MB_mask = falses(nx,ny),
         MB_total = zeros(F,nx,ny),
@@ -215,5 +224,14 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         CallbackSet()
     end
 
-    return CallbackSet(A_cb, C_cb)
+    n_cb = if is_callback_law(model.n)
+        n_affect! = build_affect(model.n, cache.n, glacier_idx, θ)
+        freq = callback_freq(model.n)
+
+        PeriodicCallback(n_affect!, freq; initial_affect = true)
+    else
+        CallbackSet()
+    end
+
+    return CallbackSet(A_cb, C_cb, n_cb)
 end
