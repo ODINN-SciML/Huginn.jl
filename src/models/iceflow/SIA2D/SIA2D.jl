@@ -25,19 +25,16 @@ include("SIA2D_utils.jl")
     end
 end
 
-const _default_A_law = Law{Array{Sleipnir.Float, 0}}(;
-    f! = (cache, simulation, glacier_idx, t, θ) -> nothing,
-    init_cache = (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].A)
+const _default_A_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
+    (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].A)
 )
 
-const _default_C_law = Law{Array{Sleipnir.Float, 0}}(;
-    f! = (cache, simulation, glacier_idx, t, θ) -> nothing,
-    init_cache = (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].C)
+const _default_C_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
+    (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].C)
 )
 
-const _default_n_law = Law{Array{Sleipnir.Float, 0}}(;
-    f! = (cache, simulation, glacier_idx, t, θ) -> nothing,
-    init_cache = (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].n)
+const _default_n_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
+    (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].n)
 )
 
 SIA2Dmodel(; A = nothing, C = nothing, n = nothing) = SIA2Dmodel(A, C, n)
