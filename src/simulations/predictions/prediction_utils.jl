@@ -61,7 +61,7 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     cb = CallbackSet(cb_MB, cb_iceflow)
 
     # Run iceflow PDE for this glacier
-    du = params.simulation.use_iceflow ? SIA2D! : noSIA2D!
+    du = params.simulation.use_iceflow ? SIA2D_with_laws! : noSIA2D!
     results = simulate_iceflow_PDE!(simulation, cb; du = du)
 
     return results

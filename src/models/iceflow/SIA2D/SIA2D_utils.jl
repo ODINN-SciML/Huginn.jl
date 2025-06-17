@@ -25,10 +25,8 @@ function SIA2D!(
     t::R;
     batch_id::Union{Nothing, I} = nothing
 ) where {R <:Real, I <: Integer, SIM <: Simulation}
-
     # For simulations using Reverse Diff, an iceflow model per glacier is needed
     if isnothing(batch_id)
-        SIA2D_model = simulation.model.iceflow
         SIA2D_cache = simulation.cache.iceflow
         glacier = simulation.glaciers[SIA2D_cache.glacier_idx[]]
     else
@@ -36,7 +34,6 @@ function SIA2D!(
         glacier = simulation.glaciers[batch_id]
     end
 
-    glacier_idx = SIA2D_cache.glacier_idx[]
     params = simulation.parameters
     
     (;
@@ -51,23 +48,6 @@ function SIA2D!(
 
     (;ρ, g) = simulation.parameters.physical
     
-    # for now θ is ignored
-    # in the future it should looks like `θ = simulation.params.θ.iceflow`
-    θ = nothing 
-
-    # Compute A and C if needed
-    if !is_callback_law(SIA2D_model.A)
-        apply_law!(SIA2D_model.A, A, simulation, glacier_idx, t, θ)
-    end
-
-    if !is_callback_law(SIA2D_model.C)
-        apply_law!(SIA2D_model.C, C, simulation, glacier_idx, t, θ)
-    end
-
-    if !is_callback_law(SIA2D_model.n)
-        apply_law!(SIA2D_model.n, n, simulation, glacier_idx, t, θ)
-    end
-
     # First, enforce values to be positive
     map!(x -> ifelse(x > 0.0, x, 0.0), H, H)
     # Update glacier surface altimetry
@@ -111,6 +91,54 @@ function SIA2D!(
     diff_x!(Fxx, Fx, Δx)
     diff_y!(Fyy, Fy, Δy)
     inn(dH) .= .-(Fxx .+ Fyy)
+end
+
+"""
+    SIA2D_with_laws!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} = nothing)
+
+Compute the in-place 2D shallow ice approximation update while applying laws (`A`, `C`, `n`) 
+that are not handled via callbacks.
+
+This function ensures that time-dependent laws are applied before calling the core `SIA2D!` function.
+
+# Arguments
+- `dH`: Matrix where the change in ice thickness is stored.
+- `H`: Current ice thickness.
+- `simulation`: Simulation object containing model state and parameters.
+- `t`: Current simulation time.
+- `batch_id`: Optional glacier index for batch simulations. Defaults to `nothing`.
+
+See also [`SIA2D`](@ref), [`SIA2D!`](@ref), [`SIA2D_with_laws`](@ref)
+"""
+function SIA2D_with_laws!(
+    dH::Matrix{R},
+    H::Matrix{R},
+    simulation::SIM,
+    t::R;
+    batch_id::Union{Nothing, I} = nothing
+) where {R <:Real, I <: Integer, SIM <: Simulation}
+    SIA2D_model = simulation.model.iceflow
+    SIA2D_cache = simulation.cache.iceflow
+
+    glacier_idx = SIA2D_cache.glacier_idx[]
+
+    # for now θ is ignored
+    # in the future it should looks like `θ = simulation.params.θ.iceflow`
+    θ = nothing 
+
+    if !is_callback_law(SIA2D_model.A)
+        apply_law!(SIA2D_model.A, SIA2D_cache.A, simulation, glacier_idx, t, θ)
+    end
+
+    if !is_callback_law(SIA2D_model.C)
+        apply_law!(SIA2D_model.C, SIA2D_cache.C, simulation, glacier_idx, t, θ)
+    end
+
+    if !is_callback_law(SIA2D_model.n)
+        apply_law!(SIA2D_model.n, SIA2D_cache.n, simulation, glacier_idx, t, θ)
+    end
+
+    SIA2D!(dH, H, simulation, t; batch_id)
 end
 
 # Dummy function to bypass ice flow
