@@ -29,9 +29,9 @@ This struct stores the laws used to compute these three parameters during a simu
 - `n`: Law for the flow law exponent. Defaults similarly.
 """
 @kwdef struct SIA2Dmodel{ALAW <: AbstractLaw, CLAW <: AbstractLaw, nLAW <: AbstractLaw} <: SIAmodel
-    A::ALAW
-    C::CLAW
-    n::nLAW
+    A::ALAW = nothing
+    C::CLAW = nothing
+    n::nLAW = nothing
 
     function SIA2Dmodel(A, C, n)
         A = something(A, _default_A_law)
@@ -54,7 +54,6 @@ const _default_n_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
     (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].n)
 )
 
-SIA2Dmodel(; A = nothing, C = nothing, n = nothing) = SIA2Dmodel(A, C, n)
 SIA2Dmodel(params::Sleipnir.Parameters; A = nothing, C = nothing, n = nothing) = SIA2Dmodel(A, C, n)
 
 """
