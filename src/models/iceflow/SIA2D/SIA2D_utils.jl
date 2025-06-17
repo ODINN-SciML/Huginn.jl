@@ -78,8 +78,9 @@ function SIA2D!(
         avg_x!(∇Sy, dSdy)
         ∇S .= @. (∇Sx^2 + ∇Sy^2)^((n - 1) / 2)
         avg!(H̄, H)
-        Γ .= @. 2.0 * A * (ρ * g)^n / (n + 2) # 1 / m^3 s
-        D .= @. (C * (ρ * g)^n + Γ * H̄) * H̄^(n + 1) * ∇S
+        gravity_term = (ρ * g)^n
+        Γ .= @. 2.0 * A * gravity_term / (n + 2) # 1 / m^3 s
+        D .= @. (C * gravity_term + Γ * H̄) * H̄^(n + 1) * ∇S
     end
 
     # Compute flux components
@@ -189,8 +190,9 @@ function SIA2D(
         dSdy = diff_y(S) ./ Δy
         ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2).^((n[] - 1) / 2)
         H̄ = avg(H)
-        Γ = 2.0 * A[] * (ρ * g)^n[] / (n[] + 2) # 1 / m^3 s
-        D = (C[] * (ρ * g)^n .+ Γ * H̄) .* H̄.^(n[] + 1) .* ∇S
+        gravity_term = (ρ * g)^n[]
+        Γ = 2.0 * A[] * gravity_term / (n[] + 2) # 1 / m^3 s
+        D = (C[] * gravity_term .+ Γ * H̄) .* H̄.^(n[] + 1) .* ∇S
     end
 
     # Compute flux components
@@ -355,8 +357,9 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM) where {SIM <: Simulation
     ∇S .= (∇Sx.^2 .+ ∇Sy.^2).^((n[] - 1)/2)
 
     avg!(H̄, H)
-    Γꜛ[] = 2.0 * A[] * (ρ * g)^n[] / (n[]+1) # surface stress (not average)  # 1 / m^3 s
-    D = (C[] * (n[]+2) * (ρ * g)^n + Γꜛ[]) .* H̄.^(n[] + 1) .* ∇S
+    gravity_term = (ρ * g)^n[]
+    Γꜛ[] = 2.0 * A[] * gravity_term / (n[]+1) # surface stress (not average)  # 1 / m^3 s
+    D = (C[] * (n[]+2) * gravity_term + Γꜛ[]) .* H̄.^(n[] + 1) .* ∇S
 
     # Compute averaged surface velocities
     Vx = .-D .* ∇Sx
@@ -414,8 +417,9 @@ function surface_V(H::Matrix{R}, simulation::SIM; batch_id::Union{Nothing, I} = 
     dSdy = diff_y(S) / Δy
     ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2).^((n[] - 1)/2)
 
-    Γꜛ = 2.0 * A[] * (ρ * g)^n[] / (n[]+1) # surface stress (not average)  # 1 / m^3 s
-    D = (C[] * (n[]+2) * (ρ * g)^n + Γꜛ) .* avg(H).^(n[] + 1) .* ∇S
+    gravity_term = (ρ * g)^n[]
+    Γꜛ = 2.0 * A[] * gravity_term / (n[]+1) # surface stress (not average)  # 1 / m^3 s
+    D = (C[] * (n[]+2) * gravity_term + Γꜛ) .* avg(H).^(n[] + 1) .* ∇S
 
     # Compute averaged surface velocities
     Vx = - D .* avg_y(dSdx)
