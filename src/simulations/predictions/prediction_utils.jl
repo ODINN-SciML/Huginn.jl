@@ -139,32 +139,44 @@ end
 Solve the Shallow Ice Approximation iceflow PDE for a given temperature series batch out-of-place.
 """
 function batch_iceflow_PDE(glacier_idx::I, simulation::Prediction) where {I <: Integer}
-    
     model = simulation.model
     params = simulation.parameters
     glacier = simulation.glaciers[glacier_idx]
 
-    glacier_id = isnothing(glacier.rgi_id) ? "unnamed" : glacier.rgi_id
-    println("Processing glacier: ", glacier_id)
-    
-    # Initialize glacier ice flow model (don't needed for out-of-place? maybe a simplified version?)
-    initialize_iceflow_model(model.iceflow, glacier_idx, glacier, params)
+    # for now we don't use θ
+    θ = nothing
 
-    params.solver.tstops = define_callback_steps(params.simulation.tspan, params.solver.step)
-    stop_condition(u,t,integrator) = Sleipnir.stop_condition_tstops(u,t,integrator, params.solver.tstops) #closure
-    function action!(integrator)
-        if params.simulation.use_MB 
-            # Compute mass balance
-            MB_timestep!(model, glacier, params.solver.step, integrator.t)
-            apply_MB_mask!(integrator.u, glacier, model.iceflow)
+    glacier_id = isnothing(glacier.rgi_id) ? "unnamed" : glacier.rgi_id
+    println("Processing glacier $(glacier_id) for PDE forward simulation")
+
+    # Initialize iceflow and mb cache
+    simulation.cache = init_cache(model, simulation, glacier_idx, θ)
+    cache = simulation.cache
+
+    # Create mass balance callback
+    mb_tstops = define_callback_steps(params.simulation.tspan, params.solver.step)
+    mb_stop_condition(u,t,integrator) = Sleipnir.stop_condition_tstops(u,t,integrator, mb_tstops) #closure
+    params.solver.tstops = mb_tstops
+
+    mb_action! = let model = model, cache = cache, glacier = glacier, step = params.solver.step
+        function (integrator)
+            if params.simulation.use_MB
+                # Compute mass balance
+                MB_timestep!(cache, model, glacier, step, integrator.t)
+                apply_MB_mask!(integrator.u, glacier, cache.iceflow)
+            end
         end
     end
-    
-    cb_MB = DiscreteCallback(stop_condition, action!)
+    cb_MB = DiscreteCallback(mb_stop_condition, mb_action!)
+
+    # Create iceflow law callback
+    cb_iceflow = build_callback(model.iceflow, simulation.cache.iceflow, glacier_idx, θ)
+
+    cb = CallbackSet(cb_MB, cb_iceflow)
 
     # Run iceflow PDE for this glacier
-    du = params.simulation.use_iceflow ? SIA2D : noSIA2D
-    results = simulate_iceflow_PDE(simulation, cb_MB; du = du)
+    du = params.simulation.use_iceflow ? SIA2D_with_laws : noSIA2D
+    results = simulate_iceflow_PDE(simulation, cb; du = du)
 
     return results
 end
@@ -181,37 +193,33 @@ function simulate_iceflow_PDE(
     simulation::SIM,
     cb::SciMLBase.DECallback;
     du = SIA2D) where {SIM <: Simulation}
-    model = simulation.model
+    cache = simulation.cache
     params = simulation.parameters
 
     # Define problem to be solved
-    iceflow_prob = ODEProblem{false,SciMLBase.FullSpecialize}(du, model.iceflow.H, params.simulation.tspan, tstops=params.solver.tstops, simulation)
-    iceflow_sol = solve(iceflow_prob, 
-                        params.solver.solver, 
-                        callback=cb, 
-                        tstops=params.solver.tstops, 
-                        reltol=params.solver.reltol, 
-                        save_everystep=params.solver.save_everystep, 
-                        progress=params.solver.progress, 
+    iceflow_prob = ODEProblem{false,SciMLBase.FullSpecialize}(du, cache.iceflow.H, params.simulation.tspan, simulation; tstops=params.solver.tstops)
+
+    iceflow_sol = solve(iceflow_prob,
+                        params.solver.solver,
+                        callback=cb,
+                        reltol=params.solver.reltol,
+                        save_everystep=params.solver.save_everystep,
+                        progress=params.solver.progress,
                         progress_steps=params.solver.progress_steps)
+
     # @show iceflow_sol.destats
     # Compute average ice surface velocities for the simulated period
-    model.iceflow.H .= iceflow_sol.u[end]
-    map!(x -> ifelse(x>0.0,x,0.0), model.iceflow.H, model.iceflow.H)
+    cache.iceflow.H .= iceflow_sol.u[end]
+    map!(x -> ifelse(x>0.0,x,0.0), cache.iceflow.H, cache.iceflow.H)
 
     # Average surface velocity
-    Vx, Vy, V = avg_surface_V(simulation)
+    avg_surface_V!(simulation)
 
-    # Since we are doing out-of-place, we need to add this to the result
-    model.iceflow.Vx = Vx
-    model.iceflow.Vy = Vy
-    model.iceflow.V  = V
-
-    glacier_idx = simulation.model.iceflow.glacier_idx
-    glacier = simulation.glaciers[glacier_idx[]]
+    glacier_idx = cache.iceflow.glacier_idx
+    glacier::Sleipnir.Glacier2D = simulation.glaciers[glacier_idx[]]
 
     # Surface topography
-    model.iceflow.S = glacier.B .+ model.iceflow.H
+    @. cache.iceflow.S = glacier.B + cache.iceflow.H
 
     # Update simulation results
     results = Sleipnir.create_results(simulation, glacier_idx[], iceflow_sol, nothing; light=!params.solver.save_everystep, processVelocity=V_from_H)

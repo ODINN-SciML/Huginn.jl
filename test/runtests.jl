@@ -52,7 +52,7 @@ end
 
 @testset "Analytical Halfar solution is correct" unit_halfar_is_solution()
 
-# @testset "Halfar Solutions" halfar_test()
+@testset "Halfar Solutions" halfar_test()
 
 @testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
 

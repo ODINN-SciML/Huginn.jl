@@ -17,6 +17,8 @@ This function updates the ice thickness `H` and computes the rate of change `dH`
 - The function operates on a staggered grid for computing gradients and fluxes.
 - Surface elevation differences are capped using upstream ice thickness to impose boundary conditions.
 - The function modifies the input matrices `dH` and `H` in-place.
+
+See also [`SIA2D`](@ref), [`SIA2D_with_laws!`](@ref), [`SIA2D_with_laws`](@ref)
 """
 function SIA2D!(
     dH::Matrix{R},
@@ -175,6 +177,8 @@ This function performs the following steps:
 # Notes
 - The function uses `@views` to avoid unnecessary array allocations.
 - The `@tullio` macro is used for efficient tensor operations.
+
+See also [`SIA2D!`](@ref), [`SIA2D_with_laws!`](@ref), [`SIA2D_with_laws`](@ref)
 """
 function SIA2D(
     H::Matrix{R},
@@ -188,20 +192,23 @@ function SIA2D(
     # For simulations using Reverse Diff, an iceflow model per glacier is needed
     if isnothing(batch_id)
         SIA2D_model = simulation.model.iceflow
-        glacier = simulation.glaciers[SIA2D_model.glacier_idx[]]
+        SIA2D_cache = simulation.cache.iceflow
+        glacier = simulation.glaciers[SIA2D_cache.glacier_idx[]]
     else
         SIA2D_model = simulation.model.iceflow[batch_id] # We pick the right iceflow model for this glacier
+        SIA2D_cache = simulation.model.cache[batch_id]
         glacier = simulation.glaciers[batch_id]
     end
 
     params = simulation.parameters
+    
     # Retrieve parameters
     B = glacier.B
     Δx = glacier.Δx
     Δy = glacier.Δy
-    A = SIA2D_model.A
-    n = SIA2D_model.n
-    C = SIA2D_model.C
+    A = SIA2D_cache.A
+    C = SIA2D_cache.C
+    n = SIA2D_cache.n
     ρ = params.physical.ρ
     g = params.physical.g
 
@@ -216,8 +223,8 @@ function SIA2D(
     S = B .+ H
 
     # Compute D in case is not provided in the simulation
-    if SIA2D_model.D_is_provided
-        D = SIA2D_model.D
+    if SIA2D_cache.D_is_provided
+        D = SIA2D_cache.D
     else
         # All grid variables computed in a staggered grid
         # Compute surface gradients on edges
@@ -256,6 +263,57 @@ function SIA2D(
     dH = zero(H)
     inn(dH) .= .-(Fxx .+ Fyy)
     return dH
+end
+
+"""
+    SIA2D_with_laws(H::Matrix{R}, simulation::SIM, t::R; batch_id::Union{Nothing, I} = nothing)
+
+Compute the out-of-place 2D shallow ice approximation (`dH`) while applying the laws (`A`, `C`, `n`)
+that are not updated via callbacks.
+
+This function evaluates the necessary laws based on the current time and simulation context before
+calling the function `SIA2D` function.
+
+# Arguments
+- `H`: Current ice thickness.
+- `simulation`: Simulation object containing model state and parameters.
+- `t`: Current simulation time.
+- `batch_id`: Optional glacier index for batch simulations. Defaults to `nothing`.
+
+# Returns
+- `dH`: Matrix of the computed change in ice thickness.
+
+See also [`SIA2D`](@ref), [`SIA2D!`](@ref), [`SIA2D_with_laws!`](@ref)
+"""
+function SIA2D_with_laws(
+    H::Matrix{R},
+    simulation::SIM,
+    t::R;
+    batch_id::Union{Nothing, I} = nothing
+) where {R <:Real, I <: Integer, SIM <: Simulation}
+    SIA2D_model = simulation.model.iceflow
+    SIA2D_cache = simulation.cache.iceflow
+
+    glacier_idx = SIA2D_cache.glacier_idx[]
+
+    # for now θ is ignored
+    # in the future it should looks like `θ = simulation.params.θ.iceflow`
+    θ = nothing 
+
+    # Compute A, C and n if needed
+    if !is_callback_law(SIA2D_model.A)
+        apply_law!(SIA2D_model.A, SIA2D_cache.A, simulation, glacier_idx, t, θ)
+    end
+
+    if !is_callback_law(SIA2D_model.C)
+        apply_law!(SIA2D_model.C, SIA2D_cache.C, simulation, glacier_idx, t, θ)
+    end
+
+    if !is_callback_law(SIA2D_model.n)
+        apply_law!(SIA2D_model.n, SIA2D_cache.n, simulation, glacier_idx, t, θ)
+    end
+
+    return SIA2D(H, simulation, t; batch_id)
 end
 
 """
