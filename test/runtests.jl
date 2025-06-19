@@ -15,6 +15,7 @@ using OrdinaryDiffEq
 using CairoMakie
 using Random
 using JET
+using ForwardDiff
 using Huginn
 
 include("utils_test.jl")
@@ -39,9 +40,9 @@ ENV["GKSwstype"]="nul"
 
 @testset "Solver parameters construction with default variables" params_constructor_default()
 
-@testset "Halfar Solution (in-place)" halfar_test(; rtol=3e-3, atol=0.35, inplace=true, distance_to_border=10)
+@testset "Analytical Halfar solution is correct" unit_halfar_is_solution()
 
-@testset "Halfar Solution (out-of-place)" halfar_test(; rtol=3e-3, atol=0.35, inplace=false, distance_to_border=10)
+@testset "Halfar Solutions" halfar_test()
 
 @testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
 

@@ -7,6 +7,7 @@ version = "0.9.8"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Infiltrator = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
@@ -43,6 +44,7 @@ julia = "1.10"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 
 [targets]
-test = ["Test"]
+test = ["Test", "ForwardDiff"]
