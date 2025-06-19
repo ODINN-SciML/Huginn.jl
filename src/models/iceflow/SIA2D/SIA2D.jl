@@ -1,7 +1,7 @@
 using DiffEqCallbacks: PeriodicCallback
 
 using Sleipnir: AbstractLaw
-import Sleipnir: Law, init_cache, cache_type, apply_law!, is_callback_law, callback_freq
+import Sleipnir: Law, init_cache, cache_type, apply_law!, build_affect, is_callback_law, callback_freq
 
 export SIA2Dmodel, SIA2DCache, initialize_iceflow_model!, initialize_iceflow_model
 
@@ -200,24 +200,6 @@ function init_cache(model::SIA2Dmodel, simulation, glacier_idx, θ)
         # this is a `Ref` ?
         glacier_idx = Ref{Sleipnir.Int}(glacier_idx),
     )
-end
-
-# may be moved to Sleipnir
-"""
-    build_affect(law::Law, cache, glacier_idx, θ)
-Return a `!`-style function suitable for use in a callback, which applies the given `law`
-to update the `cache` for a specific glacier and parameters `θ`, using the simulation time.
-"""
-function build_affect(law::AbstractLaw, cache, glacier_idx, θ)
-    # The let block make sure that every variable are type stable
-    return let law = law, cache = cache, glacier_idx = glacier_idx, θ = θ
-        function affect!(integrator)
-            simulation = integrator.p
-            t = integrator.t
-
-            apply_law!(law, cache, simulation, glacier_idx, t, θ)
-        end
-    end
 end
 
 """
