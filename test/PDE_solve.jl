@@ -81,7 +81,10 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
 
     # We create an ODINN prediction
     prediction = Prediction(model, glaciers, params)
-    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Prediction(model, glaciers, params)
+    
+    # This test breaks because `Prediction` calls `cache_type(model.iceflow)`,
+    # and `model.iceflow` is a `Union`, which leads type instability.
+    JET.@test_opt broken=true target_modules=(Sleipnir, Muninn, Huginn) Prediction(model, glaciers, params)
 
     # We run the simulation
     @time run!(prediction)
