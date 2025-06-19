@@ -1,5 +1,7 @@
 export plot_analysis_flow_parameters
 
+import Sleipnir: ConstantLaw
+
 ########################################################
 ######## Flow-parameter analysing functions  ###########
 ########################################################
@@ -38,12 +40,9 @@ function plot_analysis_flow_parameters(simulation::SIM, A_values, n_values) wher
         error("only one glacier at a time is supported")
     end   
    
-    Huginn.initialize_iceflow_model!(simulation.model.iceflow, 1, simulation.glaciers[1], simulation.parameters)
-
     result = [
-        generate_result(
-            simulation, A_values[j], n_values[i]) for i in 1:rows, j in 1:cols
-            ]
+        generate_result(simulation, A_values[j], n_values[i]) for i in 1:rows, j in 1:cols
+    ]
     h_diff = [result[i,j].H[end]-result[i,j].H[1] for i in 1:rows, j in 1:cols]
     
     
@@ -112,12 +111,30 @@ Generate the result of a simulation by initializing the model with the specified
 # Returns
 - `result`: The first result from the simulation's results.
 """
-function generate_result(simulation::SIM, A, n,) where {SIM <: Simulation}
+function generate_result(placeholder_sim::SIM, A, n,) where {SIM <: Simulation}
     
     # Initialize the model using the specified or default models
-    simulation.model.iceflow.A[]=A
-    simulation.model.iceflow.n[]=n
 
+    if !(A isa Array)
+        A = fill(A)
+    end
+
+    if !(n isa Array)
+        n = fill(n)
+    end
+
+    iceflow_model = SIA2Dmodel(
+        placeholder_sim.parameters;
+        A = ConstantLaw{typeof(A)}(Returns(A)),
+        n = ConstantLaw{typeof(n)}(Returns(n)),
+    )
+
+    model = Model(;
+        mass_balance = placeholder_sim.model.mass_balance,
+        iceflow = iceflow_model
+    )
+
+    simulation = Prediction(model, placeholder_sim.glaciers, placeholder_sim.parameters)
     run!(simulation)
 
     # Extract the first result 
