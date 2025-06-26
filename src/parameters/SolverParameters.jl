@@ -13,15 +13,17 @@ A mutable struct that holds parameters for the solver.
 - `save_everystep::Bool`: Flag indicating whether to save the solution at every step.
 - `progress::Bool`: Flag indicating whether to show progress during the solving process.
 - `progress_steps::I`: The number of steps between progress updates.
+- `maxiters::I`: Maximum number of iterations to perform in the iceflow solver.
 """
 mutable struct SolverParameters{F <: AbstractFloat, I <: Integer} <: AbstractParameters
     solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm
     reltol::F
     step::F
-    tstops::Union{Nothing,Vector{F}} 
+    tstops::Union{Nothing,Vector{F}}
     save_everystep::Bool
     progress::Bool
     progress_steps::I
+    maxiters::I
 end
 
 """
@@ -33,7 +35,9 @@ Constructs a `SolverParameters` object with the specified parameters or using de
                       tstops::Union{Nothing,Vector{F}} = nothing,
                       save_everystep = false,
                       progress::Bool = true,
-                      progress_steps::I = 10) where {F <: AbstractFloat, I <: Integer}
+                      progress_steps::I = 10,
+                      maxiters::I = Int(1e5),
+                    ) where {F <: AbstractFloat, I <: Integer}
 
 # Arguments
 - `solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm`: The ODE solver algorithm to use. Defaults to `RDPK3Sp35()`.
@@ -43,6 +47,7 @@ Constructs a `SolverParameters` object with the specified parameters or using de
 - `save_everystep::Bool`: Whether to save the solution at every step. Defaults to `false`.
 - `progress::Bool`: Whether to show progress during the solving process. Defaults to `true`.
 - `progress_steps::I`: The number of steps between progress updates. Defaults to `10`.
+- `maxiters::I`: Maximum number of iterations to perform in the iceflow solver. Defaults to `1e5`.
 
 # Returns
 - `solver_parameters`: A `SolverParameters` object constructed with the specified parameters.
@@ -54,7 +59,8 @@ function SolverParameters(;
             tstops::Union{Nothing,Vector{F}} = nothing,
             save_everystep = false,
             progress::Bool = true,
-            progress_steps::I = 10
+            progress_steps::I = 10,
+            maxiters::I = Int(1e5),
             ) where {F <: AbstractFloat, I <: Integer}
     # Build the solver parameters based on input values
     if !isnothing(tstops)
@@ -67,8 +73,8 @@ function SolverParameters(;
         tstops,
         save_everystep,
         progress,
-        Sleipnir.Int(progress_steps
-        )
+        Sleipnir.Int(progress_steps),
+        Sleipnir.Int(maxiters),
     )
 
     return solver_parameters
@@ -76,7 +82,7 @@ end
 
 Base.:(==)(a::SolverParameters, b::SolverParameters) = a.solver == b.solver && a.reltol == b.reltol && a.step == b.step &&
                                       a.tstops == b.tstops && a.save_everystep == b.save_everystep && a.progress == b.progress &&
-                                      a.progress_steps == b.progress_steps
+                                      a.progress_steps == b.progress_steps && a.maxiters == b.maxiters
 
 function Parameters(;
     physical::PhysicalParameters = PhysicalParameters(),

@@ -1,4 +1,3 @@
-using Sleipnir: init_cache
 
 function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=false, fast::Bool=true, laws = nothing, callback_laws = false) where {F <: AbstractFloat}
 
@@ -81,16 +80,14 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
 
     # We create an ODINN prediction
     prediction = Prediction(model, glaciers, params)
-    
-    # This test breaks because `Prediction` calls `cache_type(model.iceflow)`,
-    # and `model.iceflow` is a `Union`, which leads type instability.
-    JET.@test_opt broken=true target_modules=(Sleipnir, Muninn, Huginn) Prediction(model, glaciers, params)
+
+    JET.@test_opt target_modules=(Sleipnir, Muninn, Huginn) Prediction(model, glaciers, params)
 
     # We run the simulation
     @time run!(prediction)
 
     # Test below is not ready yet
-    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Huginn.batch_iceflow_PDE!(1, prediction) # Call only the core of run! because saving to JLD2 file is not type stale and GC interferes with JET
+    # JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Huginn.batch_iceflow_PDE!(1, prediction) # Call only the core of run! because saving to JLD2 file is not type stable and GC interferes with JET
 
     # /!\ Saves current run as reference values
     if save_refs
@@ -177,7 +174,6 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     cache = init_cache(model, simulation, glacier_idx, params)
     # JET.@test_opt init_cache(model, simulation, glacier_idx, params) # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
 
-    #initialize_iceflow_model!(model.iceflow, 1, glacier, params)
     t = 2015.0
 
     MB_timestep!(cache, model, glacier, params.solver.step, t)
