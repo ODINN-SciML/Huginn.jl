@@ -30,9 +30,19 @@ ENV["GKSwstype"]="nul"
 
 @testset "Running all tests" begin
 
-@testset "PDE solving integration tests w/o MB" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=false, fast=true)
+@testset "PDE solving integration tests" begin
+    @testset "w/o MB w/o laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=false, fast=true, laws=nothing)
 
-@testset "PDE solving integration tests w/ MB" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true)
+    @testset "w/  MB w/o laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=nothing)
+
+    @testset "w/  MB w/  scalar laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:scalar, callback_laws=false)
+
+    @testset "w/  MB w/  scalar callback laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:scalar, callback_laws=true)
+
+    @testset "w/  MB w/  matrix  laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:matrix, callback_laws=false)
+
+    @testset "w/  MB w/  matrix callback laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:matrix, callback_laws=true)
+end
 
 @testset "Run TI models in-place" TI_run_test!(false; rtol=1e-5, atol=1e-5)
 
