@@ -35,7 +35,7 @@ function SIA2D!(
 ) where {R <:Real, SIM <: Simulation}
     SIA2D_model = simulation.model.iceflow
     SIA2D_cache = simulation.cache.iceflow
-    glacier_idx = SIA2D_cache.glacier_idx[]
+    glacier_idx = SIA2D_cache.glacier_idx
     glacier = simulation.glaciers[glacier_idx]
 
     params = simulation.parameters
@@ -152,7 +152,7 @@ function SIA2D(
 
     SIA2D_model = simulation.model.iceflow
     SIA2D_cache = simulation.cache.iceflow
-    glacier_idx = SIA2D_cache.glacier_idx[]
+    glacier_idx = SIA2D_cache.glacier_idx
     # Retrieve parameters
     glacier = simulation.glaciers[glacier_idx]
     params = simulation.parameters
@@ -195,7 +195,7 @@ function SIA2D(
         # Compute D from A, C and n
         gravity_term = (ρ * g).^n
         Γ = @. 2.0 * A * gravity_term / (n + 2) # 1 / m^3 s
-        @. (C * gravity_term + Γ * H̄) * H̄^(n + 1) * ∇S .^ (n[] - 1)
+        @. (C * gravity_term + Γ * H̄) * H̄^(n + 1) * ∇S .^ (n - 1)
     end
 
     # Compute flux components
@@ -366,7 +366,7 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM, t::R) where {SIM <: Simu
     params::Sleipnir.Parameters = simulation.parameters
     iceflow_model = simulation.model.iceflow
     iceflow_cache = simulation.cache.iceflow
-    glacier_idx = iceflow_cache.glacier_idx[]
+    glacier_idx = iceflow_cache.glacier_idx
     glacier = simulation.glaciers[glacier_idx]
     B = glacier.B
     H̄ = iceflow_cache.H̄
@@ -400,9 +400,9 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM, t::R) where {SIM <: Simu
         # With a ϕ law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
         ϕ
     else
-        gravity_term = (ρ * g).^n[]
+        gravity_term = (ρ * g).^n
         @. Γꜛ = 2.0 * A * gravity_term / (n+1) # surface stress (not average)  # 1 / m^3 s
-        @. (C * (n+2) * gravity_term + Γꜛ) * H̄^(n + 1) * ∇S .^ (n[] - 1)
+        @. (C * (n+2) * gravity_term + Γꜛ) * H̄^(n + 1) * ∇S .^ (n - 1)
     end
 
     # Compute averaged surface velocities
@@ -444,7 +444,7 @@ function surface_V(
     params::Sleipnir.Parameters = simulation.parameters
     iceflow_model = simulation.model.iceflow
     iceflow_cache = simulation.cache.iceflow
-    glacier_idx = iceflow_cache.glacier_idx[]
+    glacier_idx = iceflow_cache.glacier_idx
     glacier = simulation.glaciers[glacier_idx]
     B = glacier.B
     Δx = glacier.Δx

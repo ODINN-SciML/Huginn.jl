@@ -2,7 +2,7 @@
 export Prediction
 
 """
-    Prediction <: Simulation
+    Prediction{CACHE} <: Simulation
 
 A mutable struct that represents a prediction simulation.
 
@@ -12,7 +12,7 @@ A mutable struct that represents a prediction simulation.
 - `parameters::Sleipnir.Parameters`: The parameters used for the prediction.
 - `results::Vector{Results}`: A vector of results obtained from the prediction.
 """
-mutable struct Prediction{CACHE} <: Simulation 
+mutable struct Prediction{CACHE} <: Simulation
     model::Sleipnir.Model
     cache::Union{CACHE, Nothing}
     glaciers::Vector{Sleipnir.AbstractGlacier}
@@ -43,20 +43,7 @@ Create a `Prediction` object using the given model, glaciers, and parameters.
 # Returns
 - `Prediction`: A `Prediction` object based on the input values.
 """
-function Prediction(
-    model::Sleipnir.Model,
-    glaciers::Vector{G},
-    parameters::Sleipnir.Parameters
-    ) where {G <: Sleipnir.AbstractGlacier}
-
-    # Build the results struct based on input values
-    prediction = Prediction(model,
-                            glaciers,
-                            parameters,
-                            Results[])
-
-    return prediction
-end
+Prediction(model::Sleipnir.Model, glaciers::Vector{G}, parameters::Sleipnir.Parameters) where {G <: Sleipnir.AbstractGlacier} = Prediction(model, glaciers, parameters, Results[])
 
 ###############################################
 ################### UTILS #####################
