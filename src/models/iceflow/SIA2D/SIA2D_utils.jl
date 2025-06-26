@@ -1,3 +1,4 @@
+import Sleipnir: apply_laws!
 
 """
     SIA2D!(
@@ -225,7 +226,7 @@ function SIA2D(
 end
 
 """
-    apply_laws!(SIA2D_model, SIA2D_cache, simulation, glacier_idx::Integer, t::Real, θ)
+    apply_laws!(SIA2D_model::SIA2Dmodel, SIA2D_cache::SIA2DCache, simulation, glacier_idx::Integer, t::Real, θ)
 
 Applies the different laws required by the SIA2D glacier model for a given glacier and simulation state.
 If `ϕ_is_provided` is `false` in `SIA2D_model`, the function checks and applies the laws for `A`, `C`, and `n`, unless they are defined as "callback" laws (i.e., handled as callbacks by the ODE solver). If `ϕ_is_provided` is `true` and `ϕ` is not a callback law, it applies the law for `ϕ` only. Results are written in-place to the cache for subsequent use in the simulation step.
@@ -243,7 +244,7 @@ If `ϕ_is_provided` is `false` in `SIA2D_model`, the function checks and applies
 - "Callback" laws are skipped, as they are expected to be handled outside this function.
 - This function is typically called at each simulation time step for each glacier.
 """
-function apply_laws!(SIA2D_model, SIA2D_cache, simulation, glacier_idx::Integer, t::Real, θ)
+function apply_laws!(SIA2D_model::SIA2Dmodel, SIA2D_cache::SIA2DCache, simulation, glacier_idx::Integer, t::Real, θ)
     # Compute A, C, n or ϕ
     if !SIA2D_model.ϕ_is_provided
         if !is_callback_law(SIA2D_model.A)
