@@ -88,7 +88,7 @@ function simulate_iceflow_PDE!(
                         progress=params.solver.progress,
                         progress_steps=params.solver.progress_steps,
                         maxiters=params.solver.maxiters)
-    @assert params.simulation.test_mode || iceflow_sol.retcode==ReturnCode.Success "There was an error in the iceflow solver. Returned code is \"$(iceflow_sol.retcode)\""
+    @assert iceflow_sol.retcode==ReturnCode.Success "There was an error in the iceflow solver. Returned code is \"$(iceflow_sol.retcode)\""
 
     # @show iceflow_sol.destats
     # Compute average ice surface velocities for the simulated period
@@ -99,13 +99,13 @@ function simulate_iceflow_PDE!(
     avg_surface_V!(simulation, iceflow_sol.t[end])
 
     glacier_idx = cache.iceflow.glacier_idx
-    glacier::Sleipnir.Glacier2D = simulation.glaciers[glacier_idx[]]
+    glacier::Sleipnir.Glacier2D = simulation.glaciers[glacier_idx]
 
     # Surface topography
     @. cache.iceflow.S = glacier.B + cache.iceflow.H
 
     # Update simulation results
-    results = Sleipnir.create_results(simulation, glacier_idx[], iceflow_sol, nothing; light=!params.solver.save_everystep, processVelocity=V_from_H)
+    results = Sleipnir.create_results(simulation, glacier_idx, iceflow_sol, nothing; light=!params.solver.save_everystep, processVelocity=V_from_H)
 
     return results
 end
@@ -201,7 +201,7 @@ function simulate_iceflow_PDE(
                         progress=params.solver.progress,
                         progress_steps=params.solver.progress_steps,
                         maxiters=params.solver.maxiters)
-    @assert params.simulation.test_mode || iceflow_sol.retcode==ReturnCode.Success "There was an error in the iceflow solver. Returned code is \"$(iceflow_sol.retcode)\""
+    @assert iceflow_sol.retcode==ReturnCode.Success "There was an error in the iceflow solver. Returned code is \"$(iceflow_sol.retcode)\""
 
     # @show iceflow_sol.destats
     # Compute average ice surface velocities for the simulated period
@@ -212,18 +212,18 @@ function simulate_iceflow_PDE(
     avg_surface_V!(simulation, iceflow_sol.t[end])
 
     glacier_idx = cache.iceflow.glacier_idx
-    glacier::Sleipnir.Glacier2D = simulation.glaciers[glacier_idx[]]
+    glacier::Sleipnir.Glacier2D = simulation.glaciers[glacier_idx]
 
     # Surface topography
     @. cache.iceflow.S = glacier.B + cache.iceflow.H
 
     # Update simulation results
-    results = Sleipnir.create_results(simulation, glacier_idx[], iceflow_sol, nothing; light=!params.solver.save_everystep, processVelocity=V_from_H)
+    results = Sleipnir.create_results(simulation, glacier_idx, iceflow_sol, nothing; light=!params.solver.save_everystep, processVelocity=V_from_H)
 
     return results
 end
 
-function apply_MB_mask!(H, glacier::G, ifm) where {G <: Sleipnir.AbstractGlacier}
+function apply_MB_mask!(H, glacier::G, ifm::SIA2DCache) where {G <: Sleipnir.AbstractGlacier}
     # Appy MB only over ice, and avoid applying it to the borders in the accummulation area to avoid overflow
     MB, MB_mask, MB_total = ifm.MB, ifm.MB_mask, ifm.MB_total
     MB_mask .= ((H .> 0.0) .&& (MB .< 0.0)) .|| ((H .> 10.0) .&& (MB .>= 0.0))
