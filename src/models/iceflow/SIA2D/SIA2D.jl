@@ -3,8 +3,6 @@ import Sleipnir: init_cache, cache_type
 
 export SIA2Dmodel, SIA2DCache
 
-include("SIA2D_utils.jl")
-
 ###############################################
 ###### SHALLOW ICE APPROXIMATION MODELS #######
 ###############################################
@@ -299,3 +297,5 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
 end
 
 build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx) = build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, nothing)
+
+include("SIA2D_utils.jl")
