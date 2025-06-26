@@ -46,17 +46,19 @@ end
 
 @testset "Run TI models in-place" TI_run_test!(false; rtol=1e-5, atol=1e-5)
 
-@testset "Solver parameters construction with specified variables" params_constructor_specified()
-
-@testset "Solver parameters construction with default variables" params_constructor_default()
+@testset "Solver parameters construction" begin
+    @testset "With specified variables" params_constructor_specified(false)
+    @testset "With default variables" params_constructor_default(false)
+end
 
 @testset "Analytical Halfar solution is correct" unit_halfar_is_solution()
 
 @testset "Halfar Solutions" halfar_test()
 
-@testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
-
-@testset "Conservation of Mass - Non Flat Bed" unit_mass_nonflatbed_test(; rtol=1.0e-7)
+@testset "Mass Conservation" begin
+    @testset "Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
+    @testset "Non Flat Bed" unit_mass_nonflatbed_test(; rtol=1.0e-7)
+end
 
 @testset "Glacier Plotting" plot_analysis_flow_parameters_test()
 

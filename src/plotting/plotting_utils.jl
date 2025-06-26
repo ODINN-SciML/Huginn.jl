@@ -1,7 +1,5 @@
 export plot_analysis_flow_parameters
 
-import Sleipnir: ConstantLaw
-
 ########################################################
 ######## Flow-parameter analysing functions  ###########
 ########################################################
@@ -99,7 +97,7 @@ function plot_analysis_flow_parameters(simulation::SIM, A_values, n_values) wher
 end
 
 """
-    generate_result(simulation::SIM, A, n) where {SIM <: Simulation}
+    generate_result(placeholder_sim::SIM, A, n) where {SIM <: Simulation}
 
 Generate the result of a simulation by initializing the model with the specified parameters and running the simulation.
 
@@ -111,8 +109,8 @@ Generate the result of a simulation by initializing the model with the specified
 # Returns
 - `result`: The first result from the simulation's results.
 """
-function generate_result(placeholder_sim::SIM, A, n,) where {SIM <: Simulation}
-    
+function generate_result(placeholder_sim::SIM, A, n) where {SIM <: Simulation}
+
     # Initialize the model using the specified or default models
 
     if !(A isa Array)

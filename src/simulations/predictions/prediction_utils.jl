@@ -1,11 +1,9 @@
-import Sleipnir: init_cache
-
 export run₀, run!, apply_MB_mask!
 
 """
     run!(simulation::Prediction)
 
-In-place run of the model. 
+In-place run of the model.
 """
 function run!(simulation::Prediction)
 
@@ -19,7 +17,7 @@ function run!(simulation::Prediction)
 end
 
 """
-    batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) 
+    batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: Integer}
 
 Solve the Shallow Ice Approximation iceflow PDE for a given temperature series batch in-place.
 """
@@ -29,14 +27,11 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     params = simulation.parameters
     glacier = simulation.glaciers[glacier_idx]
 
-    # for now we don't use θ
-    θ = nothing
-
     glacier_id = isnothing(glacier.rgi_id) ? "unnamed" : glacier.rgi_id
     println("Processing glacier $(glacier_id) for PDE forward simulation")
 
     # Initialize iceflow and mb cache
-    simulation.cache = init_cache(model, simulation, glacier_idx, θ)
+    simulation.cache = init_cache(model, simulation, glacier_idx)
     cache = simulation.cache
 
     # Create mass balance callback
@@ -56,13 +51,13 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     cb_MB = DiscreteCallback(mb_stop_condition, mb_action!)
 
     # Create iceflow law callback
-    cb_iceflow = build_callback(model.iceflow, simulation.cache.iceflow, glacier_idx, θ)
+    cb_iceflow = build_callback(model.iceflow, simulation.cache.iceflow, glacier_idx)
 
     cb = CallbackSet(cb_MB, cb_iceflow)
 
     # Run iceflow PDE for this glacier
-    du = params.simulation.use_iceflow ? SIA2D_with_laws! : noSIA2D!
-    results = simulate_iceflow_PDE!(simulation, cb; du = du)
+    du = params.simulation.use_iceflow ? SIA2D! : noSIA2D!
+    results = simulate_iceflow_PDE!(simulation, cb, du)
 
     return results
 end
@@ -70,15 +65,15 @@ end
 """
     function simulate_iceflow_PDE!(
         simulation::SIM,
-        cb::DiscreteCallback;
-        du = SIA2D!) where {SIM <: Simulation}
+        cb::DiscreteCallback,
+        du) where {SIM <: Simulation}
 
 Make forward simulation of the iceflow PDE determined in `du`.
 """
 function simulate_iceflow_PDE!(
     simulation::SIM,
-    cb::SciMLBase.DECallback;
-    du = SIA2D!) where {SIM <: Simulation}
+    cb::SciMLBase.DECallback,
+    du) where {SIM <: Simulation}
     cache = simulation.cache
     params = simulation.parameters
 
@@ -91,7 +86,9 @@ function simulate_iceflow_PDE!(
                         reltol=params.solver.reltol,
                         save_everystep=params.solver.save_everystep,
                         progress=params.solver.progress,
-                        progress_steps=params.solver.progress_steps)
+                        progress_steps=params.solver.progress_steps,
+                        maxiters=params.solver.maxiters)
+    @assert params.simulation.test_mode || iceflow_sol.retcode==ReturnCode.Success "There was an error in the iceflow solver. Returned code is \"$(iceflow_sol.retcode)\""
 
     # @show iceflow_sol.destats
     # Compute average ice surface velocities for the simulated period
@@ -99,7 +96,7 @@ function simulate_iceflow_PDE!(
     map!(x -> ifelse(x>0.0,x,0.0), cache.iceflow.H, cache.iceflow.H)
 
     # Average surface velocity
-    avg_surface_V!(simulation)
+    avg_surface_V!(simulation, iceflow_sol.t[end])
 
     glacier_idx = cache.iceflow.glacier_idx
     glacier::Sleipnir.Glacier2D = simulation.glaciers[glacier_idx[]]
@@ -143,14 +140,11 @@ function batch_iceflow_PDE(glacier_idx::I, simulation::Prediction) where {I <: I
     params = simulation.parameters
     glacier = simulation.glaciers[glacier_idx]
 
-    # for now we don't use θ
-    θ = nothing
-
     glacier_id = isnothing(glacier.rgi_id) ? "unnamed" : glacier.rgi_id
     println("Processing glacier $(glacier_id) for PDE forward simulation")
 
     # Initialize iceflow and mb cache
-    simulation.cache = init_cache(model, simulation, glacier_idx, θ)
+    simulation.cache = init_cache(model, simulation, glacier_idx)
     cache = simulation.cache
 
     # Create mass balance callback
@@ -170,12 +164,12 @@ function batch_iceflow_PDE(glacier_idx::I, simulation::Prediction) where {I <: I
     cb_MB = DiscreteCallback(mb_stop_condition, mb_action!)
 
     # Create iceflow law callback
-    cb_iceflow = build_callback(model.iceflow, simulation.cache.iceflow, glacier_idx, θ)
+    cb_iceflow = build_callback(model.iceflow, simulation.cache.iceflow, glacier_idx)
 
     cb = CallbackSet(cb_MB, cb_iceflow)
 
     # Run iceflow PDE for this glacier
-    du = params.simulation.use_iceflow ? SIA2D_with_laws : noSIA2D
+    du = params.simulation.use_iceflow ? SIA2D : noSIA2D
     results = simulate_iceflow_PDE(simulation, cb; du = du)
 
     return results
@@ -205,7 +199,9 @@ function simulate_iceflow_PDE(
                         reltol=params.solver.reltol,
                         save_everystep=params.solver.save_everystep,
                         progress=params.solver.progress,
-                        progress_steps=params.solver.progress_steps)
+                        progress_steps=params.solver.progress_steps,
+                        maxiters=params.solver.maxiters)
+    @assert params.simulation.test_mode || iceflow_sol.retcode==ReturnCode.Success "There was an error in the iceflow solver. Returned code is \"$(iceflow_sol.retcode)\""
 
     # @show iceflow_sol.destats
     # Compute average ice surface velocities for the simulated period
@@ -213,7 +209,7 @@ function simulate_iceflow_PDE(
     map!(x -> ifelse(x>0.0,x,0.0), cache.iceflow.H, cache.iceflow.H)
 
     # Average surface velocity
-    avg_surface_V!(simulation)
+    avg_surface_V!(simulation, iceflow_sol.t[end])
 
     glacier_idx = cache.iceflow.glacier_idx
     glacier::Sleipnir.Glacier2D = simulation.glaciers[glacier_idx[]]

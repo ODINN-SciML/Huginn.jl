@@ -1,9 +1,7 @@
 using DiffEqCallbacks: PeriodicCallback
+import Sleipnir: init_cache, cache_type
 
-using Sleipnir: AbstractLaw
-import Sleipnir: Law, init_cache, cache_type, apply_law!, build_affect, is_callback_law, callback_freq
-
-export SIA2Dmodel, SIA2DCache, initialize_iceflow_model!, initialize_iceflow_model
+export SIA2Dmodel, SIA2DCache
 
 include("SIA2D_utils.jl")
 
@@ -12,14 +10,15 @@ include("SIA2D_utils.jl")
 ###############################################
 
 """
-    SIA2Dmodel(A, C, n)
-    SIA2Dmodel(;A, C, n)
+    SIA2Dmodel(A, C, n, ϕ)
+    SIA2Dmodel(;A, C, n, ϕ)
 
 Create a `SIA2Dmodel`, representing a two-dimensional Shallow Ice Approximation (SIA) model.
 
 The SIA model describes glacier flow under the assumption that deformation and basal sliding dominate the ice dynamics. It relies on:
 - Glen's flow law for internal deformation, with flow rate factor `A` and exponent `n`,
-- A sliding law governed by coefficient `C`.
+- A sliding law governed by coefficient `C`,
+- Optionally the user can provide a specific diffusivity flux `ϕ`.
 
 This struct stores the laws used to compute these three parameters during a simulation. If not provided, default constant laws are used based on glacier-specific values.
 
@@ -27,18 +26,24 @@ This struct stores the laws used to compute these three parameters during a simu
 - `A`: Law for the flow rate factor. Defaults to a constant value from the glacier.
 - `C`: Law for the sliding coefficient. Defaults similarly.
 - `n`: Law for the flow law exponent. Defaults similarly.
+- `ϕ`: Law for the diffusivity flux. Defaults behavior is to disable it and in such a case it is computed from `A`, `C` and `n`. Providing a law for ϕ discards the laws of `A`, `C` and `n`.
+- `ϕ_is_provided::Bool`: Whether the diffusivity is provided by the user through the diffusivity flux `ϕ` or it has to be computed from the SIA formula from `A`, `C` and `n`.
 """
-@kwdef struct SIA2Dmodel{ALAW <: AbstractLaw, CLAW <: AbstractLaw, nLAW <: AbstractLaw} <: SIAmodel
+@kwdef struct SIA2Dmodel{ALAW <: AbstractLaw, CLAW <: AbstractLaw, nLAW <: AbstractLaw, ϕLAW <: AbstractLaw} <: SIAmodel
     A::ALAW = nothing
     C::CLAW = nothing
     n::nLAW = nothing
+    ϕ::ϕLAW = nothing
+    ϕ_is_provided::Bool = false
 
-    function SIA2Dmodel(A, C, n)
+    function SIA2Dmodel(A, C, n, ϕ)
         A = something(A, _default_A_law)
         C = something(C, _default_C_law)
         n = something(n, _default_n_law)
-        
-        new{typeof(A), typeof(C), typeof(n)}(A, C, n)
+        ϕ_is_provided = !isnothing(ϕ)
+        ϕ = something(ϕ, _default_ϕ_law)
+
+        new{typeof(A), typeof(C), typeof(n), typeof(ϕ)}(A, C, n, ϕ, ϕ_is_provided)
     end
 end
 
@@ -54,10 +59,14 @@ const _default_n_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
     (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].n)
 )
 
-SIA2Dmodel(params::Sleipnir.Parameters; A = nothing, C = nothing, n = nothing) = SIA2Dmodel(A, C, n)
+const _default_ϕ_law = ConstantLaw{Array{Sleipnir.Float, 2}}(
+    (simulation, glacier_idx, θ) -> fill(0.0, (simulation.glaciers[glacier_idx].nx-1, simulation.glaciers[glacier_idx].ny-1))
+)
+
+SIA2Dmodel(params::Sleipnir.Parameters; A = nothing, C = nothing, n = nothing, ϕ = nothing) = SIA2Dmodel(A, C, n, ϕ)
 
 """
-    struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE}
+    struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, ϕ_CACHE, ∂A∂H_CACHE, ∂A∂θ_CACHE, ∂ϕ∂H_CACHE, ∂ϕ∂θ_CACHE} <: SIAmodel
 
 Store and preallocated all variables needed for running the 2D Shallow Ice Approximation (SIA) model efficiently.
 
@@ -65,11 +74,21 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 - `R`: Real number type used for physical fields.
 - `I`: Integer type used for indexing glaciers.
 - `A_CACHE`, `C_CACHE`, `n_CACHE`: Types used for caching `A`, `C`, and `n`, which can be scalars, vectors, or matrices.
+- `ϕ_CACHE`: Type used for caching `ϕ` which is a matrix.
+- `∂A∂H_CACHE`: Type used for caching `∂A∂H` in the VJP computation which is of the same type as `A_CACHE`.
+- `∂A∂θ_CACHE`: Type used for caching `∂A∂θ` in the VJP computation which is a scalar.
+- `∂ϕ∂H_CACHE`: Type used for caching `∂ϕ∂H` in the VJP computation which is of the same type as `ϕ_CACHE`.
+- `∂ϕ∂θ_CACHE`: Type used for caching `∂ϕ∂θ` in the VJP computation which is a scalar.
 
 # Fields
 - `A::A_CACHE`: Flow rate factor.
 - `n::n_CACHE`: Flow law exponent.
 - `C::C_CACHE`: Sliding coefficient.
+- `ϕ::ϕ_CACHE`: Diffusivity flux.
+- `∂A∂H::∂A∂H_CACHE`: Buffer for VJP computation.
+- `∂A∂θ::∂A∂θ_CACHE`: Buffer for VJP computation.
+- `∂ϕ∂H::∂ϕ∂H_CACHE`: Buffer for VJP computation.
+- `∂ϕ∂θ::∂ϕ∂θ_CACHE`: Buffer for VJP computation.
 - `H₀::Matrix{R}`: Initial ice thickness.
 - `H::Matrix{R}`: Ice thickness.
 - `H̄::Matrix{R}`: Averaged ice thickness.
@@ -77,7 +96,6 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 - `dSdx::Matrix{R}`: Surface slope in the x-direction.
 - `dSdy::Matrix{R}`: Surface slope in the y-direction.
 - `D::Matrix{R}`: Diffusivity.
-- `D_is_provided::Bool`: Whether the diffusivity is provided by the user.
 - `Dx::Matrix{R}`: Diffusivity in the x-direction.
 - `Dy::Matrix{R}`: Diffusivity in the y-direction.
 - `dSdx_edges::Matrix{R}`: Surface slope at edges in the x-direction.
@@ -96,12 +114,17 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 - `MB::Matrix{R}`: Mass balance.
 - `MB_mask::BitMatrix`: Boolean mask for applying the mass balance.
 - `MB_total::Matrix{R}`: Total mass balance field.
-- `glacier_idx::Ref{I}`: Index of the glacier for use in simulations with multiple glaciers.
+- `glacier_idx::I`: Index of the glacier for use in simulations with multiple glaciers.
 """
-@kwdef struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE} <: SIAmodel
+@kwdef struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, ϕ_CACHE, ∂A∂H_CACHE, ∂A∂θ_CACHE, ∂ϕ∂H_CACHE, ∂ϕ∂θ_CACHE} <: SIAmodel
     A::A_CACHE
     n::n_CACHE
     C::C_CACHE
+    ϕ::ϕ_CACHE
+    ∂A∂H::∂A∂H_CACHE
+    ∂A∂θ::∂A∂θ_CACHE
+    ∂ϕ∂H::∂ϕ∂H_CACHE
+    ∂ϕ∂θ::∂ϕ∂θ_CACHE
     H₀::Matrix{R}
     H::Matrix{R}
     H̄::Matrix{R}
@@ -109,7 +132,6 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
     dSdx::Matrix{R}
     dSdy::Matrix{R}
     D::Matrix{R}
-    D_is_provided::Bool
     Dx::Matrix{R}
     Dy::Matrix{R}
     dSdx_edges::Matrix{R}
@@ -128,23 +150,32 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
     MB::Matrix{R}
     MB_mask::BitMatrix
     MB_total::Matrix{R}
-    glacier_idx::Ref{I}
+    glacier_idx::I
 end
 
-cache_type(sia2d_model::SIA2Dmodel) = SIA2DCache{
-    Sleipnir.Float,
-    Sleipnir.Int,
-    cache_type(sia2d_model.A),
-    cache_type(sia2d_model.C),
-    cache_type(sia2d_model.n),
-}
+function cache_type(sia2d_model::SIA2Dmodel)
+    ACacheType = cache_type(sia2d_model.A)
+    ϕCacheType = cache_type(sia2d_model.ϕ)
+    return SIA2DCache{
+        Sleipnir.Float,
+        Sleipnir.Int,
+        ACacheType,
+        cache_type(sia2d_model.C),
+        cache_type(sia2d_model.n),
+        ϕCacheType,
+        ACacheType,
+        Array{eltype(ACacheType), 0},
+        ϕCacheType,
+        Array{eltype(ϕCacheType), 0},
+    }
+end
 
 """
 function init_cache(
     iceflow_model::SIA2Dmodel,
     glacier::AbstractGlacier,
     glacier_idx::I,
-    params::Sleipnir.Parameters
+    θ
 ) where {IF <: IceflowModel, I <: Integer}
 
 Initialize iceflow model data structures to enable in-place mutation.
@@ -153,9 +184,14 @@ Keyword arguments
 - `iceflow_model`: Iceflow model used for simulation.
 - `glacier_idx`: Index of glacier.
 - `glacier`: `Glacier` to provide basic initial state of the ice flow model.
-- `parameters`: `Parameters` to configure some physical variables.
+- `θ`: Optional parameters of the laws.
 """
-function init_cache(model::SIA2Dmodel, simulation, glacier_idx, θ)
+function init_cache(
+    model::SIA2Dmodel,
+    simulation,
+    glacier_idx::Int,
+    θ
+)
     glacier = simulation.glaciers[glacier_idx]
 
     nx, ny = glacier.nx, glacier.ny
@@ -164,14 +200,27 @@ function init_cache(model::SIA2Dmodel, simulation, glacier_idx, θ)
     A = init_cache(model.A, simulation, glacier_idx, θ)
     C = init_cache(model.C, simulation, glacier_idx, θ)
     n = init_cache(model.n, simulation, glacier_idx, θ)
+    ϕ = init_cache(model.ϕ, simulation, glacier_idx, θ)
+
+    # Buffer for VJP computation, they are used when the law needs either to be evaluated or differentiated
+    ∂A∂H = similar(A)
+    ∂ϕ∂H = similar(ϕ)
+    # Needs to be a scalar as it may be used with a backward interpolation which evaluates the backward element wise
+    ∂A∂θ = similar(A, ())
+    ∂ϕ∂θ = similar(ϕ, ())
 
     Γ = similar(A)
 
     return SIA2DCache(;
         A,
+        n,
         C,
+        ϕ,
+        ∂A∂H,
+        ∂A∂θ,
+        ∂ϕ∂H,
+        ∂ϕ∂θ,
         Γ,
-        n, 
         H₀ = deepcopy(glacier.H₀),
         H = deepcopy(glacier.H₀),
         H̄ = zeros(F,nx-1,ny-1),
@@ -179,7 +228,6 @@ function init_cache(model::SIA2Dmodel, simulation, glacier_idx, θ)
         dSdx = zeros(F,nx-1,ny),
         dSdy= zeros(F,nx,ny-1),
         D = zeros(F,nx-1,ny-1),
-        D_is_provided = false,
         Dx = zeros(F,nx-1,ny-2),
         Dy = zeros(F,nx-2,ny-1),
         dSdx_edges = zeros(F,nx-1,ny-2),
@@ -197,20 +245,19 @@ function init_cache(model::SIA2Dmodel, simulation, glacier_idx, θ)
         MB = zeros(F,nx,ny),
         MB_mask = falses(nx,ny),
         MB_total = zeros(F,nx,ny),
-        # this is a `Ref` ?
-        glacier_idx = Ref{Sleipnir.Int}(glacier_idx),
+        glacier_idx = Sleipnir.Int(glacier_idx),
     )
 end
 
 """
     build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ) -> CallbackSet
 
-Return a `CallbackSet` that updates the cached values of `A`, `C`, and `n` at provided time intervals.
+Return a `CallbackSet` that updates the cached values of `A`, `C`, `n` and `ϕ` at provided time intervals.
 
 Each law can optionally specify a callback frequency. If such a frequency is set (via `callback_freq`),
 the update is done using a `PeriodicCallback`. Otherwise, no callback is used for that component.
 """
-function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)   
+function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
     A_cb = if is_callback_law(model.A)
         A_affect! = build_affect(model.A, cache.A, glacier_idx, θ)
         freq = callback_freq(model.A)
@@ -238,5 +285,16 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         CallbackSet()
     end
 
-    return CallbackSet(A_cb, C_cb, n_cb)
+    ϕ_cb = if is_callback_law(model.ϕ)
+        ϕ_affect! = build_affect(model.ϕ, cache.ϕ, glacier_idx, θ)
+        freq = callback_freq(model.ϕ)
+
+        PeriodicCallback(ϕ_affect!, freq; initial_affect = true)
+    else
+        CallbackSet()
+    end
+
+    return CallbackSet(A_cb, C_cb, n_cb, ϕ_cb)
 end
+
+build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx) = build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, nothing)
