@@ -257,7 +257,7 @@ Each law can optionally specify a callback frequency. If such a frequency is set
 the update is done using a `PeriodicCallback`. Otherwise, no callback is used for that component.
 """
 function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
-    A_cb = if !isnothing(model.A) && is_callback_law(model.A)
+    A_cb = if is_callback_law(model.A)
         A_affect! = build_affect(model.A, cache.A, glacier_idx, θ)
         freq = callback_freq(model.A)
 
@@ -266,7 +266,7 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         CallbackSet()
     end
 
-    C_cb = if !isnothing(model.C) && is_callback_law(model.C)
+    C_cb = if is_callback_law(model.C)
         C_affect! = build_affect(model.C, cache.C, glacier_idx, θ)
         freq = callback_freq(model.C)
 
@@ -275,7 +275,7 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         CallbackSet()
     end
 
-    n_cb = if !isnothing(model.n) && is_callback_law(model.n)
+    n_cb = if is_callback_law(model.n)
         n_affect! = build_affect(model.n, cache.n, glacier_idx, θ)
         freq = callback_freq(model.n)
 
@@ -284,7 +284,7 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         CallbackSet()
     end
 
-    U_cb = if !isnothing(model.U) && is_callback_law(model.U)
+    U_cb = if is_callback_law(model.U)
         U_affect! = build_affect(model.U, cache.U, glacier_idx, θ)
         freq = callback_freq(model.U)
 
