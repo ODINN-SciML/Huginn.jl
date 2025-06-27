@@ -8,15 +8,15 @@ export SIA2Dmodel, SIA2DCache
 ###############################################
 
 """
-    SIA2Dmodel(A, C, n, ϕ)
-    SIA2Dmodel(;A, C, n, ϕ)
+    SIA2Dmodel(A, C, n, U)
+    SIA2Dmodel(;A, C, n, U)
 
 Create a `SIA2Dmodel`, representing a two-dimensional Shallow Ice Approximation (SIA) model.
 
 The SIA model describes glacier flow under the assumption that deformation and basal sliding dominate the ice dynamics. It relies on:
 - Glen's flow law for internal deformation, with flow rate factor `A` and exponent `n`,
 - A sliding law governed by coefficient `C`,
-- Optionally the user can provide a specific diffusivity flux `ϕ`.
+- Optionally the user can provide a specific diffusive velocity `U` such that `D = U * H`.
 
 This struct stores the laws used to compute these three parameters during a simulation. If not provided, default constant laws are used based on glacier-specific values.
 
@@ -24,33 +24,33 @@ This struct stores the laws used to compute these three parameters during a simu
 - `A`: Law for the flow rate factor. Defaults to a constant value from the glacier.
 - `C`: Law for the sliding coefficient. Defaults similarly.
 - `n`: Law for the flow law exponent. Defaults similarly.
-- `ϕ`: Law for the diffusivity flux. Defaults behavior is to disable it and in such a case it is computed from `A`, `C` and `n`. Providing a law for ϕ discards the laws of `A`, `C` and `n`.
+- `U`: Law for the diffusive velocity. Defaults behavior is to disable it and in such a case it is computed from `A`, `C` and `n`. Providing a law for U discards the laws of `A`, `C` and `n`.
 """
-@kwdef struct SIA2Dmodel{ALAW <: AbstractLaw, CLAW <: AbstractLaw, nLAW <: AbstractLaw, ϕLAW <: AbstractLaw} <: SIAmodel
+@kwdef struct SIA2Dmodel{ALAW <: AbstractLaw, CLAW <: AbstractLaw, nLAW <: AbstractLaw, ULAW <: AbstractLaw} <: SIAmodel
     A::ALAW = nothing
     C::CLAW = nothing
     n::nLAW = nothing
-    ϕ::ϕLAW = nothing
-    ϕ_is_provided::Bool = false # Whether the diffusivity is provided by the user through the diffusivity flux `ϕ` or it has to be computed from the SIA formula from `A`, `C` and `n`.
+    U::ULAW = nothing
+    U_is_provided::Bool = false # Whether the diffusivity is provided by the user through the diffusive velocity `U` or it has to be computed from the SIA formula from `A`, `C` and `n`.
 
-    function SIA2Dmodel(A, C, n, ϕ)
-        ϕ_is_provided = !isnothing(ϕ)
+    function SIA2Dmodel(A, C, n, U)
+        U_is_provided = !isnothing(U)
 
-        if ϕ_is_provided
-            @assert isnothing(A) "When ϕ law is provided, A should not be provided."
-            @assert isnothing(C) "When ϕ law is provided, C should not be provided."
-            @assert isnothing(n) "When ϕ law is provided, n should not be provided."
+        if U_is_provided
+            @assert isnothing(A) "When U law is provided, A should not be provided."
+            @assert isnothing(C) "When U law is provided, C should not be provided."
+            @assert isnothing(n) "When U law is provided, n should not be provided."
             A = NullLaw()
             C = NullLaw()
             n = NullLaw()
         else
-            @assert isnothing(ϕ) "When either A, C or n law are provided, ϕ should not be provided."
+            @assert isnothing(U) "When either A, C or n law are provided, U should not be provided."
             A = something(A, _default_A_law)
             C = something(C, _default_C_law)
             n = something(n, _default_n_law)
-            ϕ = NullLaw()
+            U = NullLaw()
         end
-        new{typeof(A), typeof(C), typeof(n), typeof(ϕ)}(A, C, n, ϕ, ϕ_is_provided)
+        new{typeof(A), typeof(C), typeof(n), typeof(U)}(A, C, n, U, U_is_provided)
     end
 end
 
@@ -66,10 +66,10 @@ const _default_n_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
     (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].n)
 )
 
-SIA2Dmodel(params::Sleipnir.Parameters; A = nothing, C = nothing, n = nothing, ϕ = nothing) = SIA2Dmodel(A, C, n, ϕ)
+SIA2Dmodel(params::Sleipnir.Parameters; A = nothing, C = nothing, n = nothing, U = nothing) = SIA2Dmodel(A, C, n, U)
 
 """
-    struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, ϕ_CACHE, ∂A∂θ_CACHE, ∂ϕ∂θ_CACHE} <: SIAmodel
+    struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, U_CACHE, ∂A∂θ_CACHE, ∂U∂θ_CACHE} <: SIAmodel
 
 Store and preallocated all variables needed for running the 2D Shallow Ice Approximation (SIA) model efficiently.
 
@@ -77,19 +77,19 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 - `R`: Real number type used for physical fields.
 - `I`: Integer type used for indexing glaciers.
 - `A_CACHE`, `C_CACHE`, `n_CACHE`: Types used for caching `A`, `C`, and `n`, which can be scalars, vectors, or matrices.
-- `ϕ_CACHE`: Type used for caching `ϕ` which is a matrix.
+- `U_CACHE`: Type used for caching `U` which is a matrix.
 - `∂A∂θ_CACHE`: Type used for caching `∂A∂θ` in the VJP computation which is a scalar.
-- `∂ϕ∂θ_CACHE`: Type used for caching `∂ϕ∂θ` in the VJP computation which is a scalar.
+- `∂U∂θ_CACHE`: Type used for caching `∂U∂θ` in the VJP computation which is a scalar.
 
 # Fields
 - `A::A_CACHE`: Flow rate factor.
 - `n::n_CACHE`: Flow law exponent.
 - `C::C_CACHE`: Sliding coefficient.
-- `ϕ::ϕ_CACHE`: Diffusivity flux.
+- `U::U_CACHE`: Diffusive velocity.
 - `∂A∂H::A_CACHE`: Buffer for VJP computation.
 - `∂A∂θ::∂A∂θ_CACHE`: Buffer for VJP computation.
-- `∂ϕ∂H::ϕ_CACHE`: Buffer for VJP computation.
-- `∂ϕ∂θ::∂ϕ∂θ_CACHE`: Buffer for VJP computation.
+- `∂U∂H::U_CACHE`: Buffer for VJP computation.
+- `∂U∂θ::∂U∂θ_CACHE`: Buffer for VJP computation.
 - `H₀::Matrix{R}`: Initial ice thickness.
 - `H::Matrix{R}`: Ice thickness.
 - `H̄::Matrix{R}`: Averaged ice thickness.
@@ -117,15 +117,15 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 - `MB_total::Matrix{R}`: Total mass balance field.
 - `glacier_idx::I`: Index of the glacier for use in simulations with multiple glaciers.
 """
-@kwdef struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, ϕ_CACHE, ∂A∂θ_CACHE, ∂ϕ∂θ_CACHE} <: SIAmodel
+@kwdef struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, U_CACHE, ∂A∂θ_CACHE, ∂U∂θ_CACHE} <: SIAmodel
     A::A_CACHE
     n::n_CACHE
     C::C_CACHE
-    ϕ::ϕ_CACHE
+    U::U_CACHE
     ∂A∂H::A_CACHE
     ∂A∂θ::∂A∂θ_CACHE
-    ∂ϕ∂H::ϕ_CACHE
-    ∂ϕ∂θ::∂ϕ∂θ_CACHE
+    ∂U∂H::U_CACHE
+    ∂U∂θ::∂U∂θ_CACHE
     H₀::Matrix{R}
     H::Matrix{R}
     H̄::Matrix{R}
@@ -156,16 +156,16 @@ end
 
 function cache_type(sia2d_model::SIA2Dmodel)
     A_CACHE = cache_type(sia2d_model.A)
-    ϕ_CACHE = cache_type(sia2d_model.ϕ)
+    U_CACHE = cache_type(sia2d_model.U)
     return SIA2DCache{
         Sleipnir.Float,
         Sleipnir.Int,
         A_CACHE,
         cache_type(sia2d_model.C),
         cache_type(sia2d_model.n),
-        ϕ_CACHE,
+        U_CACHE,
         Array{eltype(A_CACHE), 0},
-        Array{eltype(ϕ_CACHE), 0},
+        Array{eltype(U_CACHE), 0},
     }
 end
 
@@ -199,14 +199,14 @@ function init_cache(
     A = init_cache(model.A, simulation, glacier_idx, θ)
     C = init_cache(model.C, simulation, glacier_idx, θ)
     n = init_cache(model.n, simulation, glacier_idx, θ)
-    ϕ = init_cache(model.ϕ, simulation, glacier_idx, θ)
+    U = init_cache(model.U, simulation, glacier_idx, θ)
 
     # Buffer for VJP computation, they are used when the law needs either to be evaluated or differentiated
     ∂A∂H = similar(A)
-    ∂ϕ∂H = similar(ϕ)
+    ∂U∂H = similar(U)
     # Needs to be a scalar as it may be used with a backward interpolation which evaluates the backward element wise
     ∂A∂θ = similar(A, ())
-    ∂ϕ∂θ = similar(ϕ, ())
+    ∂U∂θ = similar(U, ())
 
     Γ = similar(A)
 
@@ -214,11 +214,11 @@ function init_cache(
         A,
         n,
         C,
-        ϕ,
+        U,
         ∂A∂H,
         ∂A∂θ,
-        ∂ϕ∂H,
-        ∂ϕ∂θ,
+        ∂U∂H,
+        ∂U∂θ,
         Γ,
         H₀ = deepcopy(glacier.H₀),
         H = deepcopy(glacier.H₀),
@@ -251,7 +251,7 @@ end
 """
     build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ) -> CallbackSet
 
-Return a `CallbackSet` that updates the cached values of `A`, `C`, `n` and `ϕ` at provided time intervals.
+Return a `CallbackSet` that updates the cached values of `A`, `C`, `n` and `U` at provided time intervals.
 
 Each law can optionally specify a callback frequency. If such a frequency is set (via `callback_freq`),
 the update is done using a `PeriodicCallback`. Otherwise, no callback is used for that component.
@@ -284,16 +284,16 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         CallbackSet()
     end
 
-    ϕ_cb = if !isnothing(model.ϕ) && is_callback_law(model.ϕ)
-        ϕ_affect! = build_affect(model.ϕ, cache.ϕ, glacier_idx, θ)
-        freq = callback_freq(model.ϕ)
+    U_cb = if !isnothing(model.U) && is_callback_law(model.U)
+        U_affect! = build_affect(model.U, cache.U, glacier_idx, θ)
+        freq = callback_freq(model.U)
 
-        PeriodicCallback(ϕ_affect!, freq; initial_affect = true)
+        PeriodicCallback(U_affect!, freq; initial_affect = true)
     else
         CallbackSet()
     end
 
-    return CallbackSet(A_cb, C_cb, n_cb, ϕ_cb)
+    return CallbackSet(A_cb, C_cb, n_cb, U_cb)
 end
 
 build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx) = build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, nothing)

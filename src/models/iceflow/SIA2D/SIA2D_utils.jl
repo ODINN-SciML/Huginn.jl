@@ -19,7 +19,7 @@ Simulates the evolution of ice thickness in a 2D shallow ice approximation (SIA)
 # Details
 This function updates the ice thickness `H` and computes the rate of change `dH` using the shallow ice approximation in 2D.
 It retrieves necessary parameters from the `simulation` object, enforces positive ice thickness values, updates glacier surface altimetry and computes surface gradients.
-It then applies the necessary laws that are not updated via callbacks (`A`, `C`, `n` or `ϕ` depending on the use-case) and computes the flux components, and flux divergence.
+It then applies the necessary laws that are not updated via callbacks (`A`, `C`, `n` or `U` depending on the use-case) and computes the flux components, and flux divergence.
 
 # Notes
 - The function operates on a staggered grid for computing gradients and fluxes.
@@ -69,11 +69,11 @@ function SIA2D!(
 
     θ = isnothing(simulation.model.machine_learning) ? nothing : simulation.model.machine_learning.θ
     apply_laws!(SIA2D_model, SIA2D_cache, simulation, glacier_idx, t, θ)
-    (; A, C, n, ϕ) = SIA2D_cache
+    (; A, C, n, U) = SIA2D_cache
 
-    if SIA2D_model.ϕ_is_provided
-        # Compute D from ϕ
-        D .= ϕ .* H̄
+    if SIA2D_model.U_is_provided
+        # Compute D from U
+        D .= U .* H̄
     else
         # Compute D from A, C and n
         gravity_term = (ρ * g).^n
@@ -134,8 +134,8 @@ This function performs the following steps:
 3. Ensures that ice thickness values are non-negative.
 4. Updates the glacier surface altimetry.
 5. Computes surface gradients on the edges of the grid.
-6. Applies necessary laws that are not updated via callbacks (`A`, `C`, `n` or `ϕ` depending on the use-case).
-7. Retrieves the diffusivity flux `ϕ` based on the surface gradients and ice thickness (may be computed inside a `ϕ` law) and then computes the diffusivity `D`.
+6. Applies necessary laws that are not updated via callbacks (`A`, `C`, `n` or `U` depending on the use-case).
+7. Retrieves the diffusive velocity `U` based on the surface gradients and ice thickness (may be computed inside a `U` law) and then computes the diffusivity `D`.
 8. Computes the flux components `Fx` and `Fy`.
 9. Calculates the flux divergence to determine the change in ice thickness `dH`.
 
@@ -187,11 +187,11 @@ function SIA2D(
 
     θ = isnothing(simulation.model.machine_learning) ? nothing : simulation.model.machine_learning.θ
     apply_laws!(SIA2D_model, SIA2D_cache, simulation, glacier_idx, t, θ)
-    (; A, C, n, ϕ) = SIA2D_cache
+    (; A, C, n, U) = SIA2D_cache
 
-    D = if SIA2D_model.ϕ_is_provided
-        # Compute D from ϕ
-        ϕ .* H̄
+    D = if SIA2D_model.U_is_provided
+        # Compute D from U
+        U .* H̄
     else
         # Compute D from A, C and n
         gravity_term = (ρ * g).^n
@@ -229,11 +229,11 @@ end
     apply_laws!(SIA2D_model::SIA2Dmodel, SIA2D_cache::SIA2DCache, simulation, glacier_idx::Integer, t::Real, θ)
 
 Applies the different laws required by the SIA2D glacier model for a given glacier and simulation state.
-If `ϕ_is_provided` is `false` in `SIA2D_model`, the function checks and applies the laws for `A`, `C`, and `n`, unless they are defined as "callback" laws (i.e., handled as callbacks by the ODE solver). If `ϕ_is_provided` is `true` and `ϕ` is not a callback law, it applies the law for `ϕ` only. Results are written in-place to the cache for subsequent use in the simulation step.
+If `U_is_provided` is `false` in `SIA2D_model`, the function checks and applies the laws for `A`, `C`, and `n`, unless they are defined as "callback" laws (i.e., handled as callbacks by the ODE solver). If `U_is_provided` is `true` and `U` is not a callback law, it applies the law for `U` only. Results are written in-place to the cache for subsequent use in the simulation step.
 
 # Arguments
-- `SIA2D_model`: The model object containing the laws (`A`, `C`, `n` and `ϕ`).
-- `SIA2D_cache`: A cache object to store the evaluated values of the laws (`A`, `C`, `n` and `ϕ`) for the current step.
+- `SIA2D_model`: The model object containing the laws (`A`, `C`, `n` and `U`).
+- `SIA2D_cache`: A cache object to store the evaluated values of the laws (`A`, `C`, `n` and `U`) for the current step.
 - `simulation`: The simulation object.
 - `glacier_idx::Integer`: Index of the glacier being simulated, used to select data for multi-glacier simulations.
 - `t::Real`: Current simulation time.
@@ -245,8 +245,8 @@ If `ϕ_is_provided` is `false` in `SIA2D_model`, the function checks and applies
 - This function is typically called at each simulation time step for each glacier.
 """
 function apply_laws!(SIA2D_model::SIA2Dmodel, SIA2D_cache::SIA2DCache, simulation, glacier_idx::Integer, t::Real, θ)
-    # Compute A, C, n or ϕ
-    if !SIA2D_model.ϕ_is_provided
+    # Compute A, C, n or U
+    if !SIA2D_model.U_is_provided
         if !is_callback_law(SIA2D_model.A)
             apply_law!(SIA2D_model.A, SIA2D_cache.A, simulation, glacier_idx, t, θ)
         end
@@ -256,8 +256,8 @@ function apply_laws!(SIA2D_model::SIA2Dmodel, SIA2D_cache::SIA2DCache, simulatio
         if !is_callback_law(SIA2D_model.n)
             apply_law!(SIA2D_model.n, SIA2D_cache.n, simulation, glacier_idx, t, θ)
         end
-    elseif SIA2D_model.ϕ_is_provided && !is_callback_law(SIA2D_model.ϕ)
-        apply_law!(SIA2D_model.ϕ, SIA2D_cache.ϕ, simulation, glacier_idx, t, θ)
+    elseif SIA2D_model.U_is_provided && !is_callback_law(SIA2D_model.U)
+        apply_law!(SIA2D_model.U, SIA2D_cache.U, simulation, glacier_idx, t, θ)
     end
 end
 
@@ -395,11 +395,11 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM, t::R) where {SIM <: Simu
 
     θ = isnothing(simulation.model.machine_learning) ? nothing : simulation.model.machine_learning.θ
     apply_laws!(iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
-    (; A, C, n, ϕ) = iceflow_cache
+    (; A, C, n, U) = iceflow_cache
 
-    D = if iceflow_model.ϕ_is_provided
-        # With a ϕ law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        ϕ
+    D = if iceflow_model.U_is_provided
+        # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
+        U
     else
         gravity_term = (ρ * g).^n
         @. Γꜛ = 2.0 * A * gravity_term / (n+1) # surface stress (not average)  # 1 / m^3 s
@@ -468,11 +468,11 @@ function surface_V(
 
     θ = isnothing(simulation.model.machine_learning) ? nothing : simulation.model.machine_learning.θ
     apply_laws!(iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
-    (; A, C, n, ϕ) = iceflow_cache
+    (; A, C, n, U) = iceflow_cache
 
-    D = if iceflow_model.ϕ_is_provided
-        # With a ϕ law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        ϕ
+    D = if iceflow_model.U_is_provided
+        # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
+        U
     else
         gravity_term = (ρ * g).^n
         Γꜛ = @. 2.0 * A * gravity_term / (n+1) # surface stress (not average)  # 1 / m^3 s
