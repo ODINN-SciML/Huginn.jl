@@ -23,18 +23,8 @@ function get_input(::Inp∇S, simulation, glacier_idx, t)
 end
 
 function ConstantA(A::F) where {F <: AbstractFloat}
-    return Law{Array{Float64, 0}}(;
-        f! = function (cache, simulation, glacier_idx, t, θ)
-            # # Flag the in-place assignment as non differented and return A instead in
-            # # order to be able to compute ∂A∂θ with Zygote
-            # Zygote.@ignore cache .= A
-            # return A
-            # Flag the in-place assignment as non differented and return A instead in
-            # order to be able to compute ∂A∂θ with Zygote
-            cache .= A
-        end,
-        init_cache = function (simulation, glacier_idx, θ)
-            return zeros()
+    return ConstantLaw{Array{Float64, 0}}(function (simulation, glacier_idx, θ)
+            return fill(A)
         end,
     )
 end
