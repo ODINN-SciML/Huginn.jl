@@ -237,7 +237,7 @@ If `U_is_provided` is `false` in `SIA2D_model`, the function checks and applies 
 - `simulation`: The simulation object.
 - `glacier_idx::Integer`: Index of the glacier being simulated, used to select data for multi-glacier simulations.
 - `t::Real`: Current simulation time.
-- `θ`: Parameters of the laws.
+- `θ`: Parameters of the laws to be used in the SIA. Can be `nothing` when no learnable laws are used.
 
 # Notes
 - The function mutates the contents of `SIA2D_cache`.
@@ -247,16 +247,16 @@ If `U_is_provided` is `false` in `SIA2D_model`, the function checks and applies 
 function apply_all_non_callback_laws!(SIA2D_model::SIA2Dmodel, SIA2D_cache::SIA2DCache, simulation, glacier_idx::Integer, t::Real, θ)
     # Compute A, C, n or U
     if !SIA2D_model.U_is_provided
-        if !is_callback_law(SIA2D_model.A)
+        if SIA2D_model.apply_A_in_SIA
             apply_law!(SIA2D_model.A, SIA2D_cache.A, simulation, glacier_idx, t, θ)
         end
-        if !is_callback_law(SIA2D_model.C)
+        if SIA2D_model.apply_C_in_SIA
             apply_law!(SIA2D_model.C, SIA2D_cache.C, simulation, glacier_idx, t, θ)
         end
-        if !is_callback_law(SIA2D_model.n)
+        if SIA2D_model.apply_n_in_SIA
             apply_law!(SIA2D_model.n, SIA2D_cache.n, simulation, glacier_idx, t, θ)
         end
-    elseif SIA2D_model.U_is_provided && !is_callback_law(SIA2D_model.U)
+    elseif SIA2D_model.U_is_provided && SIA2D_model.apply_U_in_SIA
         apply_law!(SIA2D_model.U, SIA2D_cache.U, simulation, glacier_idx, t, θ)
     end
 end

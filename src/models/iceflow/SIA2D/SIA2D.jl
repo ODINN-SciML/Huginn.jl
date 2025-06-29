@@ -32,6 +32,10 @@ This struct stores the laws used to compute these three parameters during a simu
     n::nLAW = nothing
     U::ULAW = nothing
     U_is_provided::Bool = false # Whether the diffusivity is provided by the user through the diffusive velocity `U` or it has to be computed from the SIA formula from `A`, `C` and `n`.
+    apply_A_in_SIA::Bool = false
+    apply_C_in_SIA::Bool = false
+    apply_n_in_SIA::Bool = false
+    apply_U_in_SIA::Bool = false
 
     function SIA2Dmodel(A, C, n, U)
         U_is_provided = !isnothing(U)
@@ -50,7 +54,14 @@ This struct stores the laws used to compute these three parameters during a simu
             n = something(n, _default_n_law)
             U = NullLaw()
         end
-        new{typeof(A), typeof(C), typeof(n), typeof(U)}(A, C, n, U, U_is_provided)
+        new{typeof(A), typeof(C), typeof(n), typeof(U)}(
+            A, C, n, U,
+            U_is_provided,
+            !is_callback_law(A) && !(A isa ConstantLaw) && !(A isa NullLaw),
+            !is_callback_law(C) && !(C isa ConstantLaw) && !(C isa NullLaw),
+            !is_callback_law(n) && !(n isa ConstantLaw) && !(n isa NullLaw),
+            !is_callback_law(U) && !(U isa ConstantLaw) && !(U isa NullLaw),
+        )
     end
 end
 
