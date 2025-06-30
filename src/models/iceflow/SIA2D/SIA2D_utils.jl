@@ -26,7 +26,7 @@ It then applies the necessary laws that are not updated via callbacks (`A`, `C`,
 - Surface elevation differences are capped using upstream ice thickness to impose boundary conditions.
 - The function modifies the input matrices `dH` and `H` in-place.
 
-See also [`SIA2D`](@ref)
+See also `SIA2D`
 """
 function SIA2D!(
     dH::Matrix{R},
@@ -150,7 +150,7 @@ This function performs the following steps:
 - The function uses `@views` to avoid unnecessary array allocations.
 - Although this function works out-of-place for its inputs and output, the cache of the laws is updated in-place.
 
-See also [`SIA2D!`](@ref)
+See also `SIA2D!`
 """
 function SIA2D(
     H::Matrix{R},
