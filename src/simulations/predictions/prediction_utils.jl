@@ -19,7 +19,15 @@ end
 """
     batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: Integer}
 
-Solve the Shallow Ice Approximation iceflow PDE for a given temperature series batch in-place.
+Solve the Shallow Ice Approximation iceflow PDE in-place for a given set of laws prescribed in the simulation object.
+It creates the iceflow problem, the necessary callbacks and solve the PDE.
+
+# Arguments:
+- `glacier_idx::I`: Integer ID of the glacier.
+- `simulation::Prediction`: Simulation object that contains all the necessary information to solve the iceflow.
+
+# Returns
+- A `Results` instance that stores the iceflow solution.
 """
 function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: Integer}
 
@@ -44,7 +52,7 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
             if params.simulation.use_MB
                 # Compute mass balance
                 MB_timestep!(cache, model, glacier, step, integrator.t)
-                apply_MB_mask!(integrator.u, glacier, cache.iceflow)
+                apply_MB_mask!(integrator.u, cache.iceflow)
             end
         end
     end
@@ -66,14 +74,16 @@ end
     function simulate_iceflow_PDE!(
         simulation::SIM,
         cb::DiscreteCallback,
-        du) where {SIM <: Simulation}
+        du
+    ) where {SIM <: Simulation}
 
-Make forward simulation of the iceflow PDE determined in `du`.
+Make forward simulation of the iceflow PDE determined in `du` in-place and create the results.
 """
 function simulate_iceflow_PDE!(
     simulation::SIM,
     cb::SciMLBase.DECallback,
-    du) where {SIM <: Simulation}
+    du
+) where {SIM <: Simulation}
     cache = simulation.cache
     params = simulation.parameters
 
@@ -115,9 +125,9 @@ end
 ########################################################
 
 """
-    run(simulation::Prediction)
+    run₀(simulation::Prediction)
 
-Out-of-place run of the model. 
+Out-of-place run of the model.
 """
 function run₀(simulation::Prediction)
 
@@ -131,9 +141,17 @@ function run₀(simulation::Prediction)
 end
 
 """
-    batch_iceflow_PDE(glacier_idx::I, simulation::Prediction) 
+    batch_iceflow_PDE(glacier_idx::I, simulation::Prediction) where {I <: Integer}
 
-Solve the Shallow Ice Approximation iceflow PDE for a given temperature series batch out-of-place.
+Solve the Shallow Ice Approximation iceflow PDE out-of-place for a given set of laws prescribed in the simulation object.
+It creates the iceflow problem, the necessary callbacks and solve the PDE.
+
+# Arguments:
+- `glacier_idx::I`: Integer ID of the glacier.
+- `simulation::Prediction`: Simulation object that contains all the necessary information to solve the iceflow.
+
+# Returns
+- A `Results` instance that stores the iceflow solution.
 """
 function batch_iceflow_PDE(glacier_idx::I, simulation::Prediction) where {I <: Integer}
     model = simulation.model
@@ -157,7 +175,7 @@ function batch_iceflow_PDE(glacier_idx::I, simulation::Prediction) where {I <: I
             if params.simulation.use_MB
                 # Compute mass balance
                 MB_timestep!(cache, model, glacier, step, integrator.t)
-                apply_MB_mask!(integrator.u, glacier, cache.iceflow)
+                apply_MB_mask!(integrator.u, cache.iceflow)
             end
         end
     end
@@ -179,14 +197,16 @@ end
     function simulate_iceflow_PDE(
         simulation::SIM,
         cb::DiscreteCallback;
-        du = SIA2D) where {SIM <: Simulation}
+        du = SIA2D
+    ) where {SIM <: Simulation}
 
-Make forward simulation of the iceflow PDE determined in `du`.
+Make forward simulation of the iceflow PDE determined in `du` out-of-place and create the results.
 """
 function simulate_iceflow_PDE(
     simulation::SIM,
     cb::SciMLBase.DECallback;
-    du = SIA2D) where {SIM <: Simulation}
+    du = SIA2D
+) where {SIM <: Simulation}
     cache = simulation.cache
     params = simulation.parameters
 
@@ -237,7 +257,6 @@ This function iterates over the glaciers in the `Prediction` object and stores t
 
 # Notes
 - The function asserts that the time steps (`ts`) in the simulation results match the provided `tstops`. If they do not match, an error is raised.
-- T
 """
 function store_thickness_data!(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
     # Store the thickness data in the glacier
@@ -297,7 +316,17 @@ function generate_ground_truth!(
     store_thickness_data!(prediction, tstops)
 end
 
-function apply_MB_mask!(H, glacier::G, ifm::SIA2DCache) where {G <: Sleipnir.AbstractGlacier}
+"""
+    apply_MB_mask!(H, ifm::SIA2DCache)
+
+Apply the mass balance (MB) mask to the iceflow model in-place.
+This function ensures that no MB is applied on the borders of the glacier to prevent overflow.
+
+# Arguments:
+- `H`: Ice thickness.
+- `ifm::SIA2DCache`: Iceflow cache of the SIA2D that provides the mass balance information and that is modified in-place.
+"""
+function apply_MB_mask!(H, ifm::SIA2DCache)
     # Appy MB only over ice, and avoid applying it to the borders in the accummulation area to avoid overflow
     MB, MB_mask, MB_total = ifm.MB, ifm.MB_mask, ifm.MB_total
     MB_mask .= ((H .> 0.0) .&& (MB .< 0.0)) .|| ((H .> 10.0) .&& (MB .>= 0.0))
