@@ -30,23 +30,35 @@ ENV["GKSwstype"]="nul"
 
 @testset "Running all tests" begin
 
-@testset "PDE solving integration tests w/o MB" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=false, fast=true)
+@testset "PDE solving integration tests" begin
+    @testset "w/o MB w/o laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=false, fast=true, laws=nothing)
 
-@testset "PDE solving integration tests w/ MB" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true)
+    @testset "w/  MB w/o laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=nothing)
+
+    @testset "w/  MB w/  scalar laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:scalar, callback_laws=false)
+
+    @testset "w/  MB w/  scalar callback laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:scalar, callback_laws=true)
+
+    @testset "w/  MB w/  matrix  laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:matrix, callback_laws=false)
+
+    @testset "w/  MB w/  matrix callback laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:matrix, callback_laws=true)
+end
 
 @testset "Run TI models in-place" TI_run_test!(false; rtol=1e-5, atol=1e-5)
 
-@testset "Solver parameters construction with specified variables" params_constructor_specified()
-
-@testset "Solver parameters construction with default variables" params_constructor_default()
+@testset "Solver parameters construction" begin
+    @testset "With specified variables" params_constructor_specified(false)
+    @testset "With default variables" params_constructor_default(false)
+end
 
 @testset "Analytical Halfar solution is correct" unit_halfar_is_solution()
 
 @testset "Halfar Solutions" halfar_test()
 
-@testset "Conservation of Mass - Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
-
-@testset "Conservation of Mass - Non Flat Bed" unit_mass_nonflatbed_test(; rtol=1.0e-7)
+@testset "Mass Conservation" begin
+    @testset "Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
+    @testset "Non Flat Bed" unit_mass_nonflatbed_test(; rtol=1.0e-7)
+end
 
 @testset "Glacier Plotting" plot_analysis_flow_parameters_test()
 

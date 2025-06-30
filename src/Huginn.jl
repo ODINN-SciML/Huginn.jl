@@ -17,6 +17,8 @@ import Pkg
 using Distributed
 using ProgressMeter
 using Printf
+using Statistics
+using Polynomials
 
 ### ODINN.jl dependencies ###
 using Reexport
@@ -45,6 +47,9 @@ include("simulations/predictions/Prediction.jl")
 
 # Everything related to analytical solutions
 include("models/solutions/halfar.jl")
+
+# Parameterizations
+include("laws/Laws.jl")
 
 # Everything related to plotting
 include("plotting/plotting_utils.jl")

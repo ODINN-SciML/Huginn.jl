@@ -1,313 +1,312 @@
+using DiffEqCallbacks: PeriodicCallback
+import Sleipnir: init_cache, cache_type
 
-export SIA2Dmodel, initialize_iceflow_model!, initialize_iceflow_model
-
-include("SIA2D_utils.jl")
+export SIA2Dmodel, SIA2DCache
 
 ###############################################
 ###### SHALLOW ICE APPROXIMATION MODELS #######
 ###############################################
 
 """
-    mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
+    SIA2Dmodel(A, C, n, U)
+    SIA2Dmodel(;A, C, n, U)
 
-A mutable struct representing a 2D Shallow Ice Approximation (SIA) model.
+Create a `SIA2Dmodel`, representing a two-dimensional Shallow Ice Approximation (SIA) model.
 
-# Fields
-- `A::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}`: Flow rate factor.
-- `n::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}`: Flow law exponent.
-- `C::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}`: Sliding coefficient.
-- `H₀::Matrix{R}`: Initial ice thickness.
-- `H::Union{Matrix{R}, Nothing}`: Ice thickness.
-- `H̄::Union{Matrix{R}, Nothing}`: Averaged ice thickness.
-- `S::Matrix{R}`: Surface elevation.
-- `dSdx::Union{Matrix{R}, Nothing}`: Surface slope in the x-direction.
-- `dSdy::Union{Matrix{R}, Nothing}`: Surface slope in the y-direction.
-- `D::Union{Matrix{R}, Nothing}`: Diffusivity.
-- `D_is_provided::Union{Bool, Nothing}`: Specifies if D is provided by user or computed.
-- `Dx::Union{Matrix{R}, Nothing}`: Diffusivity in the x-direction.
-- `Dy::Union{Matrix{R}, Nothing}`: Diffusivity in the y-direction.
-- `dSdx_edges::Union{Matrix{R}, Nothing}`: Surface slope at edges in the x-direction.
-- `dSdy_edges::Union{Matrix{R}, Nothing}`: Surface slope at edges in the y-direction.
-- `∇S::Union{Matrix{R}, Nothing}`: Gradient of the surface elevation.
-- `∇Sy::Union{Matrix{R}, Nothing}`: Gradient of the surface elevation in the y-direction.
-- `∇Sx::Union{Matrix{R}, Nothing}`: Gradient of the surface elevation in the x-direction.
-- `Fx::Union{Matrix{R}, Nothing}`: Flux in the x-direction.
-- `Fy::Union{Matrix{R}, Nothing}`: Flux in the y-direction.
-- `Fxx::Union{Matrix{R}, Nothing}`: Second derivative of flux in the x-direction.
-- `Fyy::Union{Matrix{R}, Nothing}`: Second derivative of flux in the y-direction.
-- `V::Union{Matrix{R}, Nothing}`: Velocity.
-- `Vx::Union{Matrix{R}, Nothing}`: Velocity in the x-direction.
-- `Vy::Union{Matrix{R}, Nothing}`: Velocity in the y-direction.
-- `Γ::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}`: Basal shear stress.
-- `MB::Union{Matrix{R}, Nothing}`: Mass balance.
-- `MB_mask::Union{AbstractArray{Bool}, Nothing}`: Mask for mass balance.
-- `MB_total::Union{Matrix{R}, Nothing}`: Total mass balance.
-- `glacier_idx::Union{Ref{I}, Nothing}`: Index of the glacier.
-"""
-mutable struct SIA2Dmodel{R <: Real, I <: Integer} <: SIAmodel
-    A::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
-    n::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
-    C::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
-    H₀::Matrix{R}
-    H::Union{Matrix{R}, Nothing}
-    H̄::Union{Matrix{R}, Nothing}
-    S::Matrix{R}
-    dSdx::Union{Matrix{R}, Nothing}
-    dSdy::Union{Matrix{R}, Nothing}
-    D::Union{Matrix{R}, Nothing}
-    D_is_provided::Union{Bool, Nothing}
-    Dx::Union{Matrix{R}, Nothing}
-    Dy::Union{Matrix{R}, Nothing}
-    dSdx_edges::Union{Matrix{R}, Nothing}
-    dSdy_edges::Union{Matrix{R}, Nothing}
-    ∇S::Union{Matrix{R}, Nothing}
-    ∇Sy::Union{Matrix{R}, Nothing}
-    ∇Sx::Union{Matrix{R}, Nothing}
-    Fx::Union{Matrix{R}, Nothing}
-    Fy::Union{Matrix{R}, Nothing}
-    Fxx::Union{Matrix{R}, Nothing}
-    Fyy::Union{Matrix{R}, Nothing}
-    V::Union{Matrix{R}, Nothing}
-    Vx::Union{Matrix{R}, Nothing}
-    Vy::Union{Matrix{R}, Nothing}
-    Γ::Union{Ref{R}, Vector{R}, Matrix{R}, Nothing}
-    MB::Union{Matrix{R}, Nothing}
-    MB_mask::Union{AbstractArray{Bool}, Nothing}
-    MB_total::Union{Matrix{R}, Nothing}
-    glacier_idx::Union{Ref{I}, Nothing}
-end
+The SIA model describes glacier flow under the assumption that deformation and basal sliding dominate the ice dynamics. It relies on:
+- Glen's flow law for internal deformation, with flow rate factor `A` and exponent `n`,
+- A sliding law governed by coefficient `C`,
+- Optionally the user can provide a specific diffusive velocity `U` such that `D = U * H`.
 
-"""
-    SIA2Dmodel(
-        params::Sleipnir.Parameters;
-        A::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-        n::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-        C::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-        H₀::Matrix{R} = Matrix{Sleipnir.Float}([;;]),
-        H::Union{Matrix{R}, Nothing} = nothing,
-        H̄::Union{Matrix{R}, Nothing} = nothing,
-        S::Matrix{R} = Matrix{Sleipnir.Float}([;;]),
-        dSdx::Union{Matrix{R}, Nothing} = nothing,
-        dSdy::Union{Matrix{R}, Nothing} = nothing,
-        D::Union{Matrix{R}, Nothing} = nothing,
-        D_is_provided::Union{Bool, Nothing} = nothing,
-        Dx::Union{Matrix{R}, Nothing} = nothing,
-        Dy::Union{Matrix{R}, Nothing} = nothing,
-        dSdx_edges::Union{Matrix{R}, Nothing} = nothing,
-        dSdy_edges::Union{Matrix{R}, Nothing} = nothing,
-        ∇S::Union{Matrix{R}, Nothing} = nothing,
-        ∇Sy::Union{Matrix{R}, Nothing} = nothing,
-        ∇Sx::Union{Matrix{R}, Nothing} = nothing,
-        Fx::Union{Matrix{R}, Nothing} = nothing,
-        Fy::Union{Matrix{R}, Nothing} = nothing,
-        Fxx::Union{Matrix{R}, Nothing} = nothing,
-        Fyy::Union{Matrix{R}, Nothing} = nothing,
-        V::Union{Matrix{R}, Nothing} = nothing,
-        Vx::Union{Matrix{R}, Nothing} = nothing,
-        Vy::Union{Matrix{R}, Nothing} = nothing,
-        Γ::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-        MB::Union{Matrix{R}, Nothing} = nothing,
-        MB_mask::Union{BitMatrix, Nothing} = nothing,
-        MB_total::Union{Matrix{R}, Nothing} = nothing,
-        glacier_idx::Union{I, Nothing} = nothing
-    ) where {I <: Integer, R <: Real}
-
-Constructs a new `SIA2Dmodel` object with the given parameters.
+This struct stores the laws used to compute these three parameters during a simulation. If not provided, default constant laws are used based on glacier-specific values.
 
 # Arguments
-- `params::Sleipnir.Parameters`: Simulation parameters.
-- `A::Union{R, Vector{R}, Matrix{R}, Nothing}`: Flow law parameter (default: `nothing`).
-- `n::Union{R, Vector{R}, Matrix{R}, Nothing}`: Flow law exponent (default: `nothing`).
-- `C::Union{R, Vector{R}, Matrix{R}, Nothing}`: Basal sliding parameter (default: `nothing`).
-- `H₀::Matrix{R}`: Initial ice thickness (default: empty matrix).
-- `H::Union{Matrix{R}, Nothing}`: Ice thickness (default: `nothing`).
-- `H̄::Union{Matrix{R}, Nothing}`: Averaged ice thickness (default: `nothing`).
-- `S::Matrix{R}`: Surface elevation (default: empty matrix).
-- `dSdx::Union{Matrix{R}, Nothing}`: Surface slope in x-direction (default: `nothing`).
-- `dSdy::Union{Matrix{R}, Nothing}`: Surface slope in y-direction (default: `nothing`).
-- `D::Union{Matrix{R}, Nothing}`: Diffusivity (default: `nothing`).
-- `D_is_provided::Union{Bool, Nothing}`: Specifies if D is provided by user or computed (default: `false`).
-- `Dx::Union{Matrix{R}, Nothing}`: Diffusivity in x-direction (default: `nothing`).
-- `Dy::Union{Matrix{R}, Nothing}`: Diffusivity in y-direction (default: `nothing`).
-- `dSdx_edges::Union{Matrix{R}, Nothing}`: Surface slope at edges in x-direction (default: `nothing`).
-- `dSdy_edges::Union{Matrix{R}, Nothing}`: Surface slope at edges in y-direction (default: `nothing`).
-- `∇S::Union{Matrix{R}, Nothing}`: Gradient of surface elevation (default: `nothing`).
-- `∇Sy::Union{Matrix{R}, Nothing}`: Gradient of surface elevation in y-direction (default: `nothing`).
-- `∇Sx::Union{Matrix{R}, Nothing}`: Gradient of surface elevation in x-direction (default: `nothing`).
-- `Fx::Union{Matrix{R}, Nothing}`: Flux in x-direction (default: `nothing`).
-- `Fy::Union{Matrix{R}, Nothing}`: Flux in y-direction (default: `nothing`).
-- `Fxx::Union{Matrix{R}, Nothing}`: Second derivative of flux in x-direction (default: `nothing`).
-- `Fyy::Union{Matrix{R}, Nothing}`: Second derivative of flux in y-direction (default: `nothing`).
-- `V::Union{Matrix{R}, Nothing}`: Velocity (default: `nothing`).
-- `Vx::Union{Matrix{R}, Nothing}`: Velocity in x-direction (default: `nothing`).
-- `Vy::Union{Matrix{R}, Nothing}`: Velocity in y-direction (default: `nothing`).
-- `Γ::Union{R, Vector{R}, Matrix{R}, Nothing}`: Auxiliary matrix (default: `nothing`).
-- `MB::Union{Matrix{R}, Nothing}`: Mass balance (default: `nothing`).
-- `MB_mask::Union{BitMatrix, Nothing}`: Mask for mass balance (default: `nothing`).
-- `MB_total::Union{Matrix{R}, Nothing}`: Total mass balance (default: `nothing`).
-- `glacier_idx::Union{I, Nothing}`: Index of the glacier (default: `nothing`).
-
-# Returns
-- `SIA2Dmodel`: A new `SIA2Dmodel` object.
+- `A`: Law for the flow rate factor. Defaults to a constant value from the glacier.
+- `C`: Law for the sliding coefficient. Defaults similarly.
+- `n`: Law for the flow law exponent. Defaults similarly.
+- `U`: Law for the diffusive velocity. Defaults behavior is to disable it and in such a case it is computed from `A`, `C` and `n`. Providing a law for U discards the laws of `A`, `C` and `n`.
 """
-function SIA2Dmodel(
-    params::Sleipnir.Parameters;
-    A::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-    n::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-    C::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-    H₀::Matrix{R} = Matrix{Sleipnir.Float}([;;]),
-    H::Union{Matrix{R}, Nothing} = nothing,
-    H̄::Union{Matrix{R}, Nothing} = nothing,
-    S::Matrix{R} = Matrix{Sleipnir.Float}([;;]),
-    dSdx::Union{Matrix{R}, Nothing} = nothing,
-    dSdy::Union{Matrix{R}, Nothing} = nothing,
-    D::Union{Matrix{R}, Nothing} = nothing,
-    D_is_provided::Union{Bool, Nothing} = nothing,
-    Dx::Union{Matrix{R}, Nothing} = nothing,
-    Dy::Union{Matrix{R}, Nothing} = nothing,
-    dSdx_edges::Union{Matrix{R}, Nothing} = nothing,
-    dSdy_edges::Union{Matrix{R}, Nothing} = nothing,
-    ∇S::Union{Matrix{R}, Nothing} = nothing,
-    ∇Sy::Union{Matrix{R}, Nothing} = nothing,
-    ∇Sx::Union{Matrix{R}, Nothing} = nothing,
-    Fx::Union{Matrix{R}, Nothing} = nothing,
-    Fy::Union{Matrix{R}, Nothing} = nothing,
-    Fxx::Union{Matrix{R}, Nothing} = nothing,
-    Fyy::Union{Matrix{R}, Nothing} = nothing,
-    V::Union{Matrix{R}, Nothing} = nothing,
-    Vx::Union{Matrix{R}, Nothing} = nothing,
-    Vy::Union{Matrix{R}, Nothing} = nothing,
-    Γ::Union{R, Vector{R}, Matrix{R}, Nothing} = nothing,
-    MB::Union{Matrix{R}, Nothing} = nothing,
-    MB_mask::Union{BitMatrix, Nothing} = nothing,
-    MB_total::Union{Matrix{R}, Nothing} = nothing,
-    glacier_idx::Union{I, Nothing} = nothing
-) where {I <: Integer, R <: Real}
+@kwdef struct SIA2Dmodel{ALAW <: AbstractLaw, CLAW <: AbstractLaw, nLAW <: AbstractLaw, ULAW <: AbstractLaw} <: SIAmodel
+    A::ALAW = nothing
+    C::CLAW = nothing
+    n::nLAW = nothing
+    U::ULAW = nothing
+    U_is_provided::Bool = false # Whether the diffusivity is provided by the user through the diffusive velocity `U` or it has to be computed from the SIA formula from `A`, `C` and `n`.
+    apply_A_in_SIA::Bool = false
+    apply_C_in_SIA::Bool = false
+    apply_n_in_SIA::Bool = false
+    apply_U_in_SIA::Bool = false
 
-    ft = Sleipnir.Float
-    it = Sleipnir.Int
-    if !isnothing(A)
-        A = [A]
-    end
-    if !isnothing(n)
-        n = [n]
-    end
-    if !isnothing(C)
-        C = [C]
-    end
-    if !isnothing(Γ)
-        Γ = [Γ]
-    end
-    if !isnothing(glacier_idx)
-        glacier_idx = Ref{I}(glacier_idx)
-    end
+    function SIA2Dmodel(A, C, n, U)
+        U_is_provided = !isnothing(U)
 
-    SIA2D_model = SIA2Dmodel{ft, it}(
-        A, n, C, H₀, H, H̄, S, dSdx, dSdy, D, D_is_provided, Dx, Dy, dSdx_edges, dSdy_edges,
-        ∇S, ∇Sx, ∇Sy, Fx, Fy, Fxx, Fyy, V, Vx, Vy, Γ, MB, MB_mask, MB_total, glacier_idx
-    )
+        if U_is_provided
+            @assert isnothing(A) "When U law is provided, A should not be provided."
+            @assert isnothing(C) "When U law is provided, C should not be provided."
+            @assert isnothing(n) "When U law is provided, n should not be provided."
+            A = NullLaw()
+            C = NullLaw()
+            n = NullLaw()
+        else
+            @assert isnothing(U) "When either A, C or n law are provided, U should not be provided."
+            A = something(A, _default_A_law)
+            C = something(C, _default_C_law)
+            n = something(n, _default_n_law)
+            U = NullLaw()
+        end
+        new{typeof(A), typeof(C), typeof(n), typeof(U)}(
+            A, C, n, U,
+            U_is_provided,
+            !is_callback_law(A) && !(A isa ConstantLaw) && !(A isa NullLaw),
+            !is_callback_law(C) && !(C isa ConstantLaw) && !(C isa NullLaw),
+            !is_callback_law(n) && !(n isa ConstantLaw) && !(n isa NullLaw),
+            !is_callback_law(U) && !(U isa ConstantLaw) && !(U isa NullLaw),
+        )
+    end
+end
 
-    return SIA2D_model
+const _default_A_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
+    (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].A)
+)
+
+const _default_C_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
+    (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].C)
+)
+
+const _default_n_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
+    (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].n)
+)
+
+SIA2Dmodel(params::Sleipnir.Parameters; A = nothing, C = nothing, n = nothing, U = nothing) = SIA2Dmodel(A, C, n, U)
+
+"""
+    struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, U_CACHE, ∂A∂θ_CACHE, ∂U∂θ_CACHE} <: SIAmodel
+
+Store and preallocated all variables needed for running the 2D Shallow Ice Approximation (SIA) model efficiently.
+
+# Type Parameters
+- `R`: Real number type used for physical fields.
+- `I`: Integer type used for indexing glaciers.
+- `A_CACHE`, `C_CACHE`, `n_CACHE`: Types used for caching `A`, `C`, and `n`, which can be scalars, vectors, or matrices.
+- `U_CACHE`: Type used for caching `U` which is a matrix.
+- `∂A∂θ_CACHE`: Type used for caching `∂A∂θ` in the VJP computation which is a scalar.
+- `∂U∂θ_CACHE`: Type used for caching `∂U∂θ` in the VJP computation which is a scalar.
+
+# Fields
+- `A::A_CACHE`: Flow rate factor.
+- `n::n_CACHE`: Flow law exponent.
+- `C::C_CACHE`: Sliding coefficient.
+- `U::U_CACHE`: Diffusive velocity.
+- `∂A∂H::A_CACHE`: Buffer for VJP computation.
+- `∂A∂θ::∂A∂θ_CACHE`: Buffer for VJP computation.
+- `∂U∂H::U_CACHE`: Buffer for VJP computation.
+- `∂U∂θ::∂U∂θ_CACHE`: Buffer for VJP computation.
+- `H₀::Matrix{R}`: Initial ice thickness.
+- `H::Matrix{R}`: Ice thickness.
+- `H̄::Matrix{R}`: Averaged ice thickness.
+- `S::Matrix{R}`: Surface elevation.
+- `dSdx::Matrix{R}`: Surface slope in the x-direction.
+- `dSdy::Matrix{R}`: Surface slope in the y-direction.
+- `D::Matrix{R}`: Diffusivity.
+- `Dx::Matrix{R}`: Diffusivity in the x-direction.
+- `Dy::Matrix{R}`: Diffusivity in the y-direction.
+- `dSdx_edges::Matrix{R}`: Surface slope at edges in the x-direction.
+- `dSdy_edges::Matrix{R}`: Surface slope at edges in the y-direction.
+- `∇S::Matrix{R}`: Norm of the surface gradient.
+- `∇Sy::Matrix{R}`: Surface gradient component in the y-direction.
+- `∇Sx::Matrix{R}`: Surface gradient component in the x-direction.
+- `Fx::Matrix{R}`: Flux in the x-direction.
+- `Fy::Matrix{R}`: Flux in the y-direction.
+- `Fxx::Matrix{R}`: Second derivative of flux in the x-direction.
+- `Fyy::Matrix{R}`: Second derivative of flux in the y-direction.
+- `V::Matrix{R}`: Velocity magnitude.
+- `Vx::Matrix{R}`: Velocity in the x-direction.
+- `Vy::Matrix{R}`: Velocity in the y-direction.
+- `Γ::A_CACHE`: Basal shear stress.
+- `MB::Matrix{R}`: Mass balance.
+- `MB_mask::BitMatrix`: Boolean mask for applying the mass balance.
+- `MB_total::Matrix{R}`: Total mass balance field.
+- `glacier_idx::I`: Index of the glacier for use in simulations with multiple glaciers.
+"""
+@kwdef struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, U_CACHE, ∂A∂θ_CACHE, ∂U∂θ_CACHE} <: SIAmodel
+    A::A_CACHE
+    n::n_CACHE
+    C::C_CACHE
+    U::U_CACHE
+    ∂A∂H::A_CACHE
+    ∂A∂θ::∂A∂θ_CACHE
+    ∂U∂H::U_CACHE
+    ∂U∂θ::∂U∂θ_CACHE
+    H₀::Matrix{R}
+    H::Matrix{R}
+    H̄::Matrix{R}
+    S::Matrix{R}
+    dSdx::Matrix{R}
+    dSdy::Matrix{R}
+    D::Matrix{R}
+    Dx::Matrix{R}
+    Dy::Matrix{R}
+    dSdx_edges::Matrix{R}
+    dSdy_edges::Matrix{R}
+    ∇S::Matrix{R}
+    ∇Sy::Matrix{R}
+    ∇Sx::Matrix{R}
+    Fx::Matrix{R}
+    Fy::Matrix{R}
+    Fxx::Matrix{R}
+    Fyy::Matrix{R}
+    V::Matrix{R}
+    Vx::Matrix{R}
+    Vy::Matrix{R}
+    Γ::A_CACHE
+    MB::Matrix{R}
+    MB_mask::BitMatrix
+    MB_total::Matrix{R}
+    glacier_idx::I
+end
+
+function cache_type(sia2d_model::SIA2Dmodel)
+    A_CACHE = cache_type(sia2d_model.A)
+    U_CACHE = cache_type(sia2d_model.U)
+    return SIA2DCache{
+        Sleipnir.Float,
+        Sleipnir.Int,
+        A_CACHE,
+        cache_type(sia2d_model.C),
+        cache_type(sia2d_model.n),
+        U_CACHE,
+        Array{eltype(A_CACHE), 0},
+        Array{eltype(U_CACHE), 0},
+    }
 end
 
 """
-function initialize_iceflow_model!(
-    iceflow_model::IF,
-    glacier_idx::I,
+function init_cache(
+    iceflow_model::SIA2Dmodel,
     glacier::AbstractGlacier,
-    params::Sleipnir.Parameters
+    glacier_idx::I,
+    θ
 ) where {IF <: IceflowModel, I <: Integer}
 
 Initialize iceflow model data structures to enable in-place mutation.
 
 Keyword arguments
-=================
-    - `iceflow_model`: Iceflow model used for simulation.
-    - `glacier_idx`: Index of glacier.
-    - `glacier`: `Glacier` to provide basic initial state of the ice flow model.
-    - `parameters`: `Parameters` to configure some physical variables.
+- `iceflow_model`: Iceflow model used for simulation.
+- `glacier_idx`: Index of glacier.
+- `glacier`: `Glacier` to provide basic initial state of the ice flow model.
+- `θ`: Optional parameters of the laws.
 """
-function initialize_iceflow_model!(
-    iceflow_model::IF,
-    glacier_idx::I,
-    glacier::G,
-    params::Sleipnir.Parameters
-) where {IF <: IceflowModel, I <: Integer, G <: Sleipnir.AbstractGlacier}
+function init_cache(
+    model::SIA2Dmodel,
+    simulation,
+    glacier_idx::Int,
+    θ
+)
+    glacier = simulation.glaciers[glacier_idx]
 
     nx, ny = glacier.nx, glacier.ny
     F = Sleipnir.Float
-    iceflow_model.A = isnothing(iceflow_model.A) ? [glacier.A] : iceflow_model.A
-    iceflow_model.n = isnothing(iceflow_model.n) ? [glacier.n] : iceflow_model.n
-    iceflow_model.C = isnothing(iceflow_model.C) ? [glacier.C] : iceflow_model.C
-    iceflow_model.H₀ = deepcopy(glacier.H₀)
-    iceflow_model.H = deepcopy(glacier.H₀)
-    iceflow_model.H̄ = zeros(F,nx-1,ny-1)
-    iceflow_model.S = deepcopy(glacier.S)
-    iceflow_model.dSdx = zeros(F,nx-1,ny)
-    iceflow_model.dSdy= zeros(F,nx,ny-1)
-    iceflow_model.D = zeros(F,nx-1,ny-1)
-    iceflow_model.D_is_provided = false
-    iceflow_model.Dx = zeros(F,nx-1,ny-2)
-    iceflow_model.Dy = zeros(F,nx-2,ny-1)
-    iceflow_model.dSdx_edges = zeros(F,nx-1,ny-2)
-    iceflow_model.dSdy_edges = zeros(F,nx-2,ny-1) 
-    iceflow_model.∇S = zeros(F,nx-1,ny-1)
-    iceflow_model.∇Sx = zeros(F,nx-1,ny-1)
-    iceflow_model.∇Sy = zeros(F,nx-1,ny-1)
-    iceflow_model.Fx = zeros(F,nx-1,ny-2)
-    iceflow_model.Fy = zeros(F,nx-2,ny-1)
-    iceflow_model.Fxx = zeros(F,nx-2,ny-2)
-    iceflow_model.Fyy = zeros(F,nx-2,ny-2)
-    iceflow_model.V = zeros(F,nx,ny)
-    iceflow_model.Vx = zeros(F,nx,ny)
-    iceflow_model.Vy = zeros(F,nx,ny)
-    iceflow_model.Γ = isnothing(iceflow_model.Γ) ? [0.0] : iceflow_model.Γ
-    iceflow_model.MB = zeros(F,nx,ny)
-    iceflow_model.MB_mask= zeros(F,nx,ny)
-    iceflow_model.MB_total = zeros(F,nx,ny)
-    iceflow_model.glacier_idx = Ref{Sleipnir.Int}(glacier_idx)
+
+    A = init_cache(model.A, simulation, glacier_idx, θ)
+    C = init_cache(model.C, simulation, glacier_idx, θ)
+    n = init_cache(model.n, simulation, glacier_idx, θ)
+    U = init_cache(model.U, simulation, glacier_idx, θ)
+
+    # Buffer for VJP computation, they are used when the law needs either to be evaluated or differentiated
+    ∂A∂H = similar(A)
+    ∂U∂H = similar(U)
+    # Needs to be a scalar as it may be used with a backward interpolation which evaluates the backward element wise
+    ∂A∂θ = similar(A, ())
+    ∂U∂θ = similar(U, ())
+
+    Γ = similar(A)
+
+    return SIA2DCache(;
+        A,
+        n,
+        C,
+        U,
+        ∂A∂H,
+        ∂A∂θ,
+        ∂U∂H,
+        ∂U∂θ,
+        Γ,
+        H₀ = deepcopy(glacier.H₀),
+        H = deepcopy(glacier.H₀),
+        H̄ = zeros(F,nx-1,ny-1),
+        S = deepcopy(glacier.S),
+        dSdx = zeros(F,nx-1,ny),
+        dSdy= zeros(F,nx,ny-1),
+        D = zeros(F,nx-1,ny-1),
+        Dx = zeros(F,nx-1,ny-2),
+        Dy = zeros(F,nx-2,ny-1),
+        dSdx_edges = zeros(F,nx-1,ny-2),
+        dSdy_edges = zeros(F,nx-2,ny-1) ,
+        ∇S = zeros(F,nx-1,ny-1),
+        ∇Sx = zeros(F,nx-1,ny-1),
+        ∇Sy = zeros(F,nx-1,ny-1),
+        Fx = zeros(F,nx-1,ny-2),
+        Fy = zeros(F,nx-2,ny-1),
+        Fxx = zeros(F,nx-2,ny-2),
+        Fyy = zeros(F,nx-2,ny-2),
+        V = zeros(F,nx,ny),
+        Vx = zeros(F,nx,ny),
+        Vy = zeros(F,nx,ny),
+        MB = zeros(F,nx,ny),
+        MB_mask = falses(nx,ny),
+        MB_total = zeros(F,nx,ny),
+        glacier_idx = Sleipnir.Int(glacier_idx),
+    )
 end
 
 """
-function initialize_iceflow_model(
-    iceflow_model::IF,
-    glacier_idx::I,
-    glacier::AbstractGlacier,
-    params::Sleipnir.Parameters
-) where {IF <: IceflowModel, I <: Integer}
+    build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ) -> CallbackSet
 
-Initialize iceflow model data structures to enable out-of-place mutation.
+Return a `CallbackSet` that updates the cached values of `A`, `C`, `n` and `U` at provided time intervals.
 
-Keyword arguments
-=================
-    - `iceflow_model`: Iceflow model used for simulation.
-    - `glacier_idx`: Index of glacier.
-    - `glacier`: `Glacier` to provide basic initial state of the ice flow model.
-    - `parameters`: `Parameters` to configure some physical variables.
+Each law can optionally specify a callback frequency. If such a frequency is set (via `callback_freq`),
+the update is done using a `PeriodicCallback`. Otherwise, no callback is used for that component.
 """
-function initialize_iceflow_model(
-    iceflow_model::IF,
-    glacier_idx::I,
-    glacier::Sleipnir.AbstractGlacier,
-    params::Sleipnir.Parameters
-) where {IF <: IceflowModel, I <: Integer}
+function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
+    A_cb = if is_callback_law(model.A)
+        A_affect! = build_affect(model.A, cache.A, glacier_idx, θ)
+        freq = callback_freq(model.A)
 
-    F = Sleipnir.Float
-    nx, ny = glacier.nx, glacier.ny
-    iceflow_model.A = [glacier.A]
-    iceflow_model.n = [glacier.n]
-    iceflow_model.C = [glacier.C]
-    iceflow_model.D_is_provided = false
-    iceflow_model.glacier_idx = Ref{I}(glacier_idx)
-    iceflow_model.H₀ = deepcopy(glacier.H₀)
-    iceflow_model.H  = deepcopy(glacier.H₀)
-    iceflow_model.S = deepcopy(glacier.S)
-    iceflow_model.V = zeros(F,nx,ny)
-    iceflow_model.Vx = zeros(F,nx,ny)
-    iceflow_model.Vy = zeros(F,nx,ny)
-    # Initialize MB matrices for in-place MB operations
-    iceflow_model.MB = zeros(F,nx,ny)
-    iceflow_model.MB_mask = zeros(I,nx,ny)
-    iceflow_model.MB_total = zeros(F,nx,ny)
+        PeriodicCallback(A_affect!, freq; initial_affect = true)
+    else
+        CallbackSet()
+    end
+
+    C_cb = if is_callback_law(model.C)
+        C_affect! = build_affect(model.C, cache.C, glacier_idx, θ)
+        freq = callback_freq(model.C)
+
+        PeriodicCallback(C_affect!, freq; initial_affect = true)
+    else
+        CallbackSet()
+    end
+
+    n_cb = if is_callback_law(model.n)
+        n_affect! = build_affect(model.n, cache.n, glacier_idx, θ)
+        freq = callback_freq(model.n)
+
+        PeriodicCallback(n_affect!, freq; initial_affect = true)
+    else
+        CallbackSet()
+    end
+
+    U_cb = if is_callback_law(model.U)
+        U_affect! = build_affect(model.U, cache.U, glacier_idx, θ)
+        freq = callback_freq(model.U)
+
+        PeriodicCallback(U_affect!, freq; initial_affect = true)
+    else
+        CallbackSet()
+    end
+
+    return CallbackSet(A_cb, C_cb, n_cb, U_cb)
 end
 
+build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx) = build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, nothing)
+
+include("SIA2D_utils.jl")
