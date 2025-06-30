@@ -226,7 +226,14 @@ function SIA2D(
 end
 
 """
-    apply_all_non_callback_laws!(SIA2D_model::SIA2Dmodel, SIA2D_cache::SIA2DCache, simulation, glacier_idx::Integer, t::Real, θ)
+    function apply_all_non_callback_laws!(
+        SIA2D_model::SIA2Dmodel,
+        SIA2D_cache::SIA2DCache,
+        simulation,
+        glacier_idx::Integer,
+        t::Real,
+        θ
+    )
 
 Applies the different laws required by the SIA2D glacier model for a given glacier and simulation state.
 If `U_is_provided` is `false` in `SIA2D_model`, the function checks and applies the laws for `A`, `C`, and `n`, unless they are defined as "callback" laws (i.e., handled as callbacks by the ODE solver). If `U_is_provided` is `true` and `U` is not a callback law, it applies the law for `U` only. Results are written in-place to the cache for subsequent use in the simulation step.
@@ -244,7 +251,14 @@ If `U_is_provided` is `false` in `SIA2D_model`, the function checks and applies 
 - "Callback" laws are skipped, as they are expected to be handled outside this function.
 - This function is typically called at each simulation time step for each glacier.
 """
-function apply_all_non_callback_laws!(SIA2D_model::SIA2Dmodel, SIA2D_cache::SIA2DCache, simulation, glacier_idx::Integer, t::Real, θ)
+function apply_all_non_callback_laws!(
+    SIA2D_model::SIA2Dmodel,
+    SIA2D_cache::SIA2DCache,
+    simulation,
+    glacier_idx::Integer,
+    t::Real,
+    θ
+)
     # Compute A, C, n or U
     if !SIA2D_model.U_is_provided
         if SIA2D_model.apply_A_in_SIA

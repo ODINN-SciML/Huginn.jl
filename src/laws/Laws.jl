@@ -3,6 +3,12 @@ import Sleipnir: get_input, default_name
 export InpTemp, InpH̄, Inp∇S
 export ConstantA, CuffeyPaterson
 
+"""
+    InpTemp <: AbstractInput
+
+Input that represents the long term air temperature of a glacier.
+It is computed using the OGGM data over a period predefined in Gungnir.
+"""
 struct InpTemp <: AbstractInput end
 default_name(::InpTemp) = :long_term_temperature
 function get_input(::InpTemp, simulation, glacier_idx, t)
@@ -10,18 +16,40 @@ function get_input(::InpTemp, simulation, glacier_idx, t)
     return mean(glacier.climate.longterm_temps)
 end
 
+"""
+    InpH̄ <: AbstractInput
+
+Input that represents the ice thickness in the SIA.
+It is the averaged ice thickness computed on the dual grid, that is `H̄ = avg(H)`
+which is different from the ice thickness solution H.
+"""
 struct InpH̄ <: AbstractInput end
 default_name(::InpH̄) = :H_dual_grid
 function get_input(::InpH̄, simulation, glacier_idx, t)
     return simulation.cache.iceflow.H̄
 end
 
+"""
+Input that represents the surface slope in the SIA.
+It is computed using the bedrock elevation and the ice thickness solution H. The
+spatial differences are averaged over the opposite axis:
+S = B + H
+∇S = (avg_y(diff_x(S) / Δx).^2 .+ avg_x(diff_y(S) / Δy).^2).^(1/2)
+"""
 struct Inp∇S <: AbstractInput end
 default_name(::Inp∇S) = :∇S
 function get_input(::Inp∇S, simulation, glacier_idx, t)
     return simulation.cache.iceflow.∇S
 end
 
+"""
+    ConstantA(A::F) where {F <: AbstractFloat}
+
+Law that represents a constant A in the SIA.
+
+# Arguments:
+- `A::F`: Rheology factor A.
+"""
 function ConstantA(A::F) where {F <: AbstractFloat}
     return ConstantLaw{Array{Float64, 0}}(function (simulation, glacier_idx, θ)
             return fill(A)
