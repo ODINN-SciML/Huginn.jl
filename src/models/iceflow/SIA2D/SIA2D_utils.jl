@@ -69,11 +69,18 @@ function SIA2D!(
 
     θ = isnothing(simulation.model.machine_learning) ? nothing : simulation.model.machine_learning.θ
     apply_all_non_callback_laws!(SIA2D_model, SIA2D_cache, simulation, glacier_idx, t, θ)
-    (; A, C, n, U) = SIA2D_cache
+    (; A, C, n, Y, U) = SIA2D_cache
 
     if SIA2D_model.U_is_provided
         # Compute D from U
         D .= U .* H̄
+    elseif SIA2D_model.Y_is_provided
+        # Compute D from Y, H and the exponent defined in target
+        n_H = isnothing(SIA2D_model.n_H) ? n : SIA2D_model.n_H
+        n_∇S = isnothing(SIA2D_model.n_∇S) ? n : SIA2D_model.n_∇S
+        gravity_term = (ρ * g).^n
+        Γ_no_A = @. 2.0 * gravity_term / (n + 2)
+        D .= (C .* gravity_term .+ Y .* Γ_no_A .* H̄) .* H̄.^(n_H .+ 1) .* ∇S.^(n_∇S .- 1)
     else
         # Compute D from A, C and n
         gravity_term = (ρ * g).^n
@@ -187,11 +194,18 @@ function SIA2D(
 
     θ = isnothing(simulation.model.machine_learning) ? nothing : simulation.model.machine_learning.θ
     apply_all_non_callback_laws!(SIA2D_model, SIA2D_cache, simulation, glacier_idx, t, θ)
-    (; A, C, n, U) = SIA2D_cache
+    (; A, C, n, Y, U) = SIA2D_cache
 
     D = if SIA2D_model.U_is_provided
         # Compute D from U
         U .* H̄
+    elseif SIA2D_model.Y_is_provided
+        # Compute D from Y, H and the exponent defined in target
+        n_H = isnothing(SIA2D_model.n_H) ? n : SIA2D_model.n_H
+        n_∇S = isnothing(SIA2D_model.n_∇S) ? n : SIA2D_model.n_∇S
+        gravity_term = (ρ * g).^n
+        Γ_no_A = @. 2.0 * gravity_term / (n + 2)
+        (C .* gravity_term .+ Y .* Γ_no_A .* H̄) .* H̄.^(n_H .+ 1) .* ∇S.^(n_∇S .- 1)
     else
         # Compute D from A, C and n
         gravity_term = (ρ * g).^n
@@ -236,11 +250,14 @@ end
     )
 
 Applies the different laws required by the SIA2D glacier model for a given glacier and simulation state.
-If `U_is_provided` is `false` in `SIA2D_model`, the function checks and applies the laws for `A`, `C`, and `n`, unless they are defined as "callback" laws (i.e., handled as callbacks by the ODE solver). If `U_is_provided` is `true` and `U` is not a callback law, it applies the law for `U` only. Results are written in-place to the cache for subsequent use in the simulation step.
+If `U_is_provided` is `true` in `SIA2D_model` and `U` is not a callback law, it applies the law for `U` only.
+Otherwise if `Y_is_provided` and `Y` is not a callback law, it applies the law for `Y` only.
+Finally, if `U_is_provided` and `Y_is_provided` are false, the function checks and applies the laws for `A`, `C`, and `n`, unless they are defined as "callback" laws (i.e., handled as callbacks by the ODE solver).
+Results are written in-place to the cache for subsequent use in the simulation step.
 
 # Arguments
-- `SIA2D_model`: The model object containing the laws (`A`, `C`, `n` and `U`).
-- `SIA2D_cache`: A cache object to store the evaluated values of the laws (`A`, `C`, `n` and `U`) for the current step.
+- `SIA2D_model`: The model object containing the laws (`A`, `C`, `n`, `Y` and `U`).
+- `SIA2D_cache`: A cache object to store the evaluated values of the laws (`A`, `C`, `n`, `Y` and `U`) for the current step.
 - `simulation`: The simulation object.
 - `glacier_idx::Integer`: Index of the glacier being simulated, used to select data for multi-glacier simulations.
 - `t::Real`: Current simulation time.
@@ -259,8 +276,16 @@ function apply_all_non_callback_laws!(
     t::Real,
     θ
 )
-    # Compute A, C, n or U
-    if !SIA2D_model.U_is_provided
+    # Compute A, C, n, Y or U
+    if SIA2D_model.U_is_provided
+        if SIA2D_model.apply_U_in_SIA
+            apply_law!(SIA2D_model.U, SIA2D_cache.U, simulation, glacier_idx, t, θ)
+        end
+    elseif SIA2D_model.Y_is_provided
+        if SIA2D_model.apply_Y_in_SIA
+            apply_law!(SIA2D_model.Y, SIA2D_cache.Y, simulation, glacier_idx, t, θ)
+        end
+    else
         if SIA2D_model.apply_A_in_SIA
             apply_law!(SIA2D_model.A, SIA2D_cache.A, simulation, glacier_idx, t, θ)
         end
@@ -270,8 +295,6 @@ function apply_all_non_callback_laws!(
         if SIA2D_model.apply_n_in_SIA
             apply_law!(SIA2D_model.n, SIA2D_cache.n, simulation, glacier_idx, t, θ)
         end
-    elseif SIA2D_model.U_is_provided && SIA2D_model.apply_U_in_SIA
-        apply_law!(SIA2D_model.U, SIA2D_cache.U, simulation, glacier_idx, t, θ)
     end
 end
 
@@ -409,11 +432,18 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM, t::R) where {SIM <: Simu
 
     θ = isnothing(simulation.model.machine_learning) ? nothing : simulation.model.machine_learning.θ
     apply_all_non_callback_laws!(iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
-    (; A, C, n, U) = iceflow_cache
+    (; A, C, n, Y, U) = iceflow_cache
 
     D = if iceflow_model.U_is_provided
         # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
         U
+    elseif iceflow_model.Y_is_provided
+        # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
+        n_H = isnothing(iceflow_model.n_H) ? n : iceflow_model.n_H
+        n_∇S = isnothing(iceflow_model.n_∇S) ? n : iceflow_model.n_∇S
+        gravity_term = (ρ * g).^n
+        Γ_no_A = @. 2.0 * gravity_term / (n + 2)
+        (C .* gravity_term .+ Y .* Γ_no_A .* H̄) .* H̄.^n_H .* ∇S.^(n_∇S .- 1)
     else
         gravity_term = (ρ * g).^n
         @. Γꜛ = 2.0 * A * gravity_term / (n+1) # surface stress (not average)  # 1 / m^3 s
@@ -482,11 +512,18 @@ function surface_V(
 
     θ = isnothing(simulation.model.machine_learning) ? nothing : simulation.model.machine_learning.θ
     apply_all_non_callback_laws!(iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
-    (; A, C, n, U) = iceflow_cache
+    (; A, C, n, Y, U) = iceflow_cache
 
     D = if iceflow_model.U_is_provided
         # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
         U
+    elseif iceflow_model.Y_is_provided
+        # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
+        n_H = isnothing(iceflow_model.n_H) ? n : iceflow_model.n_H
+        n_∇S = isnothing(iceflow_model.n_∇S) ? n : iceflow_model.n_∇S
+        gravity_term = (ρ * g).^n
+        Γ_no_A = @. 2.0 * gravity_term / (n + 2)
+        (C .* gravity_term .+ Y .* Γ_no_A .* H̄) .* H̄.^n_H .* ∇S.^(n_∇S .- 1)
     else
         gravity_term = (ρ * g).^n
         Γꜛ = @. 2.0 * A * gravity_term / (n+1) # surface stress (not average)  # 1 / m^3 s
