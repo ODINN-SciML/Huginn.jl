@@ -19,18 +19,18 @@ include("iceflow_utils.jl")
 include("SIA2D/SIA2D.jl")
 
 """
-function Model(;
-    iceflow::Union{IFM, Nothing},
-    mass_balance::Union{MBM, Nothing}
+    Model(;
+        iceflow::Union{IFM, Nothing},
+        mass_balance::Union{MBM, Nothing}
     ) where {IFM <: IceflowModel, MBM <: MBmodel}
-    
+
 Initialize Model at Huginn level (no machine learning model).
 
 """
 function Model(;
     iceflow::Union{IFM, Nothing},
     mass_balance::Union{MBM, Nothing}
-    ) where {IFM <: IceflowModel, MBM <: MBmodel}
+) where {IFM <: IceflowModel, MBM <: MBmodel}
 
     model = Sleipnir.Model{typeof(iceflow), typeof(mass_balance), Nothing}(iceflow, mass_balance, nothing)
 
