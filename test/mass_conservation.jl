@@ -53,7 +53,7 @@ function unit_mass_test(;
     nx, ny = size(H₀)
 
     # Define glacier object
-    glacier = Glacier2D(rgi_id = "toy", H₀ = H₀, S = S, B = B, A = A, n = n,
+    glacier = Glacier2D(rgi_id = "toy", climate = DummyClimate2D(), H₀ = H₀, S = S, B = B, A = A, n = n,
                         Δx=Δx, Δy=Δy, nx=nx, ny=ny, C = 0.0)
     glaciers = Vector{Sleipnir.AbstractGlacier}([glacier])
 

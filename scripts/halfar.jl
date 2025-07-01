@@ -3,7 +3,7 @@
 # We set default values as they are used in Bueler et al (2005).
 
 using Revise
-using Sleipnir: make_thickness_video
+using Sleipnir: make_thickness_video, DummyClimate2D
 using Huginn
 using GLMakie, CairoMakie
 
@@ -63,7 +63,7 @@ B = zeros((nx,ny))
 # Computed Halfar solution
 Hs = [[halfar(x, y, t) for x in xs, y in ys] for t in ts]
 
-glacier = Glacier2D(rgi_id = "Halfar", H₀ = Hs[begin], S = B + Hs[begin], B = B,
+glacier = Glacier2D(rgi_id = "Halfar", climate = DummyClimate2D(), H₀ = Hs[begin], S = B + Hs[begin], B = B,
     A = halfar_params.A, n = halfar_params.n, C = 0.0,
     Δx = Δx, Δy = Δy, nx = nx, ny = ny,
     )
