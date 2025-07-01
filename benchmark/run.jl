@@ -2,6 +2,7 @@ import Pkg
 Pkg.activate(dirname(Base.current_project()))
 
 using Huginn
+using Sleipnir: DummyClimate2D
 using BenchmarkTools
 using Logging
 Logging.disable_logging(Logging.Info)
@@ -35,7 +36,7 @@ model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
 H₀ = abs.(randn(nx, ny))
 B = abs.(randn(nx, ny))
 S = H₀ + B
-glacier = Glacier2D(rgi_id = "toy", H₀ = H₀, S = S, B = B, A = A, n=n, Δx=Δx, Δy=Δy, nx=nx, ny=ny, C = 0.0)
+glacier = Glacier2D(rgi_id = "toy", climate = DummyClimate2D(), H₀ = H₀, S = S, B = B, A = A, n=n, Δx=Δx, Δy=Δy, nx=nx, ny=ny, C = 0.0)
 glaciers = [glacier]
 
 simulation = Prediction(model, glaciers, params)

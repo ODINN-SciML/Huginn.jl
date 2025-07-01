@@ -17,6 +17,7 @@ using Random
 using JET
 using ForwardDiff
 using Huginn
+using Sleipnir: DummyClimate2D
 
 include("utils_test.jl")
 include("params_construction.jl")

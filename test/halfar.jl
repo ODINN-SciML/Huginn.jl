@@ -181,6 +181,7 @@ function unit_halfar_test(;
     # Define glacier object
     glacier = Glacier2D(
         rgi_id = "Halfar",
+        climate = DummyClimate2D(),
         H₀ = H₀,
         S = B + H₀,
         B = B,
