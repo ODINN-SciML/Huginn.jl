@@ -31,6 +31,8 @@ Tullio = "bc48ee85-29a4-5162-ae0b-a64e1601d4bc"
 [compat]
 BenchmarkTools = "1"
 CairoMakie = "0.11, 0.12"
+DiffEqCallbacks = "4.8.0"
+ForwardDiff = "1.0.1"
 Infiltrator = "1.8"
 JET = "0.9.18"
 JLD2 = "0.4, 0.5"
