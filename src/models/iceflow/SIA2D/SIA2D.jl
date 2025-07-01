@@ -368,4 +368,38 @@ end
 
 build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx) = build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, nothing)
 
+
+# Display setup
+function Base.show(io::IO, model::SIA2Dmodel)
+    print("SIA model")
+    print("  dH = ∇(D ∇S)")
+    println("    D = U H̄")
+    if model.U_is_provided
+        print("     U: "); println(model.U)
+    elseif model.Y_is_provided
+        n_H = isnothing(model.n_H) ? n : model.n_H
+        n_∇S = isnothing(model.n_∇S) ? n : model.n_∇S
+        n_H_str = isnothing(model.n_H) ? "n" : "n_H"
+        n_∇S_str = isnothing(model.n_∇S) ? "n" : "n_∇S"
+        println("     U = (C (ρg)^n + Y Γ H̄) H̄^$(n_H_str) ∇S^($(n_∇S_str)-1)")
+        println("      Γ = 2 (ρg)^n /(n+2)")
+        print("      Y: "); println(model.Y)
+        print("      C: "); println(model.C)
+        print("      n: "); println(model.n)
+        if !isnothing(model.n_H)
+            println("      n_H = $(n_H)")
+        end
+        if !isnothing(model.n_∇S)
+            println("      n_∇S = $(n_∇S)")
+        end
+    else
+        println("     U = (C (ρg)^n + Γ H̄) H̄^n ∇S^(n-1)")
+        println("      Γ = 2A (ρg)^n /(n+2)")
+        print("      A: "); println(model.A)
+        print("      C: "); println(model.C)
+        print("      n: "); println(model.n)
+    end
+end
+
+
 include("SIA2D_utils.jl")
