@@ -371,33 +371,83 @@ build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx) = build_callba
 
 # Display setup
 function Base.show(io::IO, model::SIA2Dmodel)
-    print("SIA model")
-    print("  dH = ∇(D ∇S)")
-    println("    D = U H̄")
+    colorD = :green
+    colorU = :red
+    colorA = :blue
+    colorC = :magenta
+    colorn = :yellow
+    colorY = :blue
+    colorΓ = :cyan
+    print("SIA2D iceflow equation")
+    print("  = ∇("); printstyled("D";color=colorD); print(" ∇S)")
+    print("  with "); printstyled("D";color=colorD); print(" = "); printstyled("U";color=colorU);println(" H̄")
+    inp = []
     if model.U_is_provided
-        print("     U: "); println(model.U)
+        print("  and "); printstyled("U";color=colorU); print(": "); println(model.U)
+        push!(inp, inputs(model.U))
     elseif model.Y_is_provided
-        n_H = isnothing(model.n_H) ? n : model.n_H
-        n_∇S = isnothing(model.n_∇S) ? n : model.n_∇S
-        n_H_str = isnothing(model.n_H) ? "n" : "n_H"
-        n_∇S_str = isnothing(model.n_∇S) ? "n" : "n_∇S"
-        println("     U = (C (ρg)^n + Y Γ H̄) H̄^$(n_H_str) ∇S^($(n_∇S_str)-1)")
-        println("      Γ = 2 (ρg)^n /(n+2)")
-        print("      Y: "); println(model.Y)
-        print("      C: "); println(model.C)
-        print("      n: "); println(model.n)
+        print("  and "); printstyled("U";color=colorU); print(" = (")
+
+        # Sliding part
+        printstyled("C";color=colorC);print(" (ρg)^");printstyled("n";color=colorn);print(" + ")
+        # Creeping part
+        printstyled("Y";color=colorY);print(" ")
+        printstyled("Γ";color=colorΓ);print(" H̄)")
+        # Non linear part
+        print(" H̄^")
+        if isnothing(model.n_H)
+            printstyled("n";color=colorn)
+        else
+            print("n_H")
+        end
+        print(" ∇S^(")
+        if isnothing(model.n_∇S)
+            printstyled("n";color=colorn); print("-1)")
+        else
+            print("n_∇S-1)")
+        end
+        println()
+
+        printstyled("      Γ";color=colorΓ);print(" = 2");print(" (ρg)^"); printstyled("n";color=colorn)
+        print(" /(");printstyled("n";color=colorn);println("+2)")
+
+        printstyled("      Y: ";color=colorY); println(model.Y)
+        printstyled("      C: ";color=colorC); println(model.C)
+        printstyled("      n: ";color=colorn); println(model.n)
         if !isnothing(model.n_H)
-            println("      n_H = $(n_H)")
+            println("      n_H = $(model.n_H)")
         end
         if !isnothing(model.n_∇S)
-            println("      n_∇S = $(n_∇S)")
+            println("      n_∇S = $(model.n_∇S)")
         end
+        push!(inp, inputs(model.Y))
+        push!(inp, inputs(model.C))
+        push!(inp, inputs(model.n))
     else
-        println("     U = (C (ρg)^n + Γ H̄) H̄^n ∇S^(n-1)")
-        println("      Γ = 2A (ρg)^n /(n+2)")
-        print("      A: "); println(model.A)
-        print("      C: "); println(model.C)
-        print("      n: "); println(model.n)
+        print("  and "); printstyled("U";color=colorU); print(" = (")
+        # Sliding part
+        printstyled("C";color=colorC);print(" (ρg)^");printstyled("n";color=colorn);print(" + ")
+        # Creeping part
+        printstyled("Γ";color=colorΓ);print(" H̄)")
+        # Non linear part
+        print(" H̄^");printstyled("n";color=colorn);print(" ∇S^(");printstyled("n";color=colorn);println("-1)")
+
+        printstyled("      Γ";color=colorΓ);print(" = 2");printstyled("A";color=colorA);print(" (ρg)^"); printstyled("n";color=colorn)
+        print(" /(");printstyled("n";color=colorn);println("+2)")
+
+        printstyled("      A: ";color=colorA); println(model.A)
+        printstyled("      C: ";color=colorC); println(model.C)
+        printstyled("      n: ";color=colorn); println(model.n)
+        push!(inp, inputs(model.A))
+        push!(inp, inputs(model.C))
+        push!(inp, inputs(model.n))
+    end
+    inp = merge(inp...)
+    if length(inp)>0
+        println("  where")
+        for (k,v) in pairs(inp)
+            println("      $(k) => $(default_name(v))")
+        end
     end
 end
 
