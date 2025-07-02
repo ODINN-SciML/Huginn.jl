@@ -39,7 +39,7 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     println("Processing glacier $(glacier_id) for PDE forward simulation")
 
     # Initialize iceflow and mb cache
-    simulation.cache = init_cache(model, simulation, glacier_idx)
+    simulation.cache = init_cache(model, simulation, glacier_idx, nothing)
     cache = simulation.cache
 
     # Create mass balance callback
@@ -162,7 +162,7 @@ function batch_iceflow_PDE(glacier_idx::I, simulation::Prediction) where {I <: I
     println("Processing glacier $(glacier_id) for PDE forward simulation")
 
     # Initialize iceflow and mb cache
-    simulation.cache = init_cache(model, simulation, glacier_idx)
+    simulation.cache = init_cache(model, simulation, glacier_idx, nothing)
     cache = simulation.cache
 
     # Create mass balance callback
