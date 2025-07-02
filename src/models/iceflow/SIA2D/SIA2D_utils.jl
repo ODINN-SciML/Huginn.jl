@@ -76,8 +76,8 @@ function SIA2D!(
         D .= U .* H̄
     elseif SIA2D_model.Y_is_provided
         # Compute D from Y, H and the exponent defined in target
-        n_H = isnothing(SIA2D_model.n_H) ? n : SIA2D_model.n_H
-        n_∇S = isnothing(SIA2D_model.n_∇S) ? n : SIA2D_model.n_∇S
+        n_H = SIA2D_model.n_H_is_provided ? n : SIA2D_cache.n_H
+        n_∇S = SIA2D_model.n_∇S_is_provided ? n : SIA2D_cache.n_∇S
         gravity_term = (ρ * g).^n
         Γ_no_A = @. 2.0 * gravity_term / (n + 2)
         D .= (C .* gravity_term .+ Y .* Γ_no_A .* H̄) .* H̄.^(n_H .+ 1) .* ∇S.^(n_∇S .- 1)
