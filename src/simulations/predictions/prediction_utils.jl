@@ -314,6 +314,8 @@ function generate_ground_truth!(
 
     # Store the thickness data in the glacier
     store_thickness_data!(prediction, tstops)
+    # We return the prediction object so that it can be used later
+    return prediction
 end
 
 """
