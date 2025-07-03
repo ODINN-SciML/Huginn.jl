@@ -64,7 +64,8 @@ function SIA2D!(
     diff_y!(dSdy, S, Δy)
     avg_y!(∇Sx, dSdx)
     avg_x!(∇Sy, dSdy)
-    @. ∇S = (∇Sx^2 + ∇Sy^2)^(1/2)
+    # Numerical stability fix
+    @. ∇S = (∇Sx^2 + ∇Sy^2 + 10e-10)^(1/2)
     avg!(H̄, H)
 
     θ = isnothing(simulation.model.machine_learning) ? nothing : simulation.model.machine_learning.θ
