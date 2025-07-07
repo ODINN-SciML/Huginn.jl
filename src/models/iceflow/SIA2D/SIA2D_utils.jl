@@ -64,8 +64,7 @@ function SIA2D!(
     diff_y!(dSdy, S, Δy)
     avg_y!(∇Sx, dSdx)
     avg_x!(∇Sy, dSdy)
-    # Numerical stability fix
-    @. ∇S = (∇Sx^2 + ∇Sy^2 + 10e-10)^(1/2)
+    @. ∇S = (∇Sx^2 + ∇Sy^2 .+ 1e-10)^(1/2) # Add a very small constant for numerical stability of AD
     avg!(H̄, H)
 
     θ = isnothing(simulation.model.machine_learning) ? nothing : simulation.model.machine_learning.θ
@@ -122,7 +121,7 @@ end
     SIA2D(
         H::Matrix{R},
         simulation::SIM,
-        t::R;
+        t::R,
     ) where {R <: Real, SIM <: Simulation}
 
 Compute the change in ice thickness (`dH`) for a 2D Shallow Ice Approximation (SIA) model. Works out-of-place.
@@ -156,7 +155,7 @@ See also `SIA2D!`
 function SIA2D(
     H::Matrix{R},
     simulation::SIM,
-    t::R;
+    t::R,
 ) where {R <: Real, SIM <: Simulation}
 
     SIA2D_model = simulation.model.iceflow
@@ -186,7 +185,7 @@ function SIA2D(
     # Compute surface gradients on edges
     dSdx = diff_x(S) ./ Δx
     dSdy = diff_y(S) ./ Δy
-    ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2).^(1/2)
+    ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2 .+ 1e-10).^(1/2) # Add a very small constant for numerical stability of AD
     H̄ = avg(H)
 
     # Store temporary variables for use with the laws

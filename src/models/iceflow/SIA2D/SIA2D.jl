@@ -269,8 +269,8 @@ function init_cache(
     Y = init_cache(model.Y, simulation, glacier_idx, θ)
     U = init_cache(model.U, simulation, glacier_idx, θ)
 
-    n_H = fill!(similar(n), model.n_H)
-    n_∇S = fill!(similar(n), model.n_∇S)
+    n_H = fill(model.n_H, size(n))
+    n_∇S = fill(model.n_∇S, size(n))
 
     # Buffer for VJP computation, they are used when the law needs either to be evaluated or differentiated
     ∂A∂H = similar(A)
