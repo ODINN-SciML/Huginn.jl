@@ -44,7 +44,6 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
 
     # Create mass balance callback
     mb_tstops = define_callback_steps(params.simulation.tspan, params.solver.step)
-    mb_stop_condition(u,t,integrator) = Sleipnir.stop_condition_tstops(u,t,integrator, mb_tstops) #closure
     params.solver.tstops = mb_tstops
 
     mb_action! = let model = model, cache = cache, glacier = glacier, step = params.solver.step
@@ -56,7 +55,7 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
             end
         end
     end
-    cb_MB = DiscreteCallback(mb_stop_condition, mb_action!)
+    cb_MB = PeriodicCallback(mb_action!, params.solver.step; initial_affect=false)
 
     # Create iceflow law callback
     cb_iceflow = build_callback(model.iceflow, simulation.cache.iceflow, glacier_idx)
@@ -64,7 +63,7 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     cb = CallbackSet(cb_MB, cb_iceflow)
 
     # Run iceflow PDE for this glacier
-    du = params.simulation.use_iceflow ? SIA2D! : noSIA2D!
+    du = params.simulation.use_iceflow ? SIA2D_PDE! : noSIA2D!
     results = simulate_iceflow_PDE!(simulation, cb, du)
 
     return results
@@ -106,7 +105,7 @@ function simulate_iceflow_PDE!(
     map!(x -> ifelse(x>0.0,x,0.0), cache.iceflow.H, cache.iceflow.H)
 
     # Average surface velocity
-    avg_surface_V!(simulation, iceflow_sol.t[end])
+    avg_surface_V!(simulation, iceflow_sol.t[end], nothing)
 
     glacier_idx = cache.iceflow.glacier_idx
     glacier::Sleipnir.Glacier2D = simulation.glaciers[glacier_idx]
@@ -118,6 +117,11 @@ function simulate_iceflow_PDE!(
     results = Sleipnir.create_results(simulation, glacier_idx, iceflow_sol, nothing; light=!params.solver.save_everystep, processVelocity=V_from_H)
 
     return results
+end
+
+function SIA2D_PDE!(_dH::Matrix{R}, _H::Matrix{R}, simulation::SIM, t::R) where {R <: Real, SIM <: Simulation}
+    SIA2D!(_dH, _H, simulation, t, nothing)
+    return nothing
 end
 
 ########################################################
@@ -229,7 +233,7 @@ function simulate_iceflow_PDE(
     map!(x -> ifelse(x>0.0,x,0.0), cache.iceflow.H, cache.iceflow.H)
 
     # Average surface velocity
-    avg_surface_V!(simulation, iceflow_sol.t[end])
+    avg_surface_V!(simulation, iceflow_sol.t[end], nothing)
 
     glacier_idx = cache.iceflow.glacier_idx
     glacier::Sleipnir.Glacier2D = simulation.glaciers[glacier_idx]
