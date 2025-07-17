@@ -57,9 +57,9 @@ function SIA2D!(
     (;ρ, g) = simulation.parameters.physical
 
     # First, enforce values to be positive
-    map!(x -> ifelse(x > 0.0, x, 0.0), H, H)
+    Hclip = map(x -> ifelse(x > 0.0, x, 0.0), H) # We cannot change H otherwise Enzyme cannot differentiate it using Const (which is the case in SciMLSensitivity)
     # Update glacier surface altimetry
-    S .= B .+ H
+    S .= B .+ Hclip
 
     # All grid variables computed in a staggered grid
     # Compute surface gradients on edges
@@ -68,7 +68,7 @@ function SIA2D!(
     avg_y!(∇Sx, dSdx)
     avg_x!(∇Sy, dSdy)
     @. ∇S = (∇Sx^2 + ∇Sy^2 .+ 1e-10)^(1/2) # Add a very small constant for numerical stability of AD
-    avg!(H̄, H)
+    avg!(H̄, Hclip)
 
     apply_all_non_callback_laws!(SIA2D_model, SIA2D_cache, simulation, glacier_idx, t, θ)
     (; A, C, n, Y, U) = SIA2D_cache
@@ -97,10 +97,10 @@ function SIA2D!(
     # Cap surface elevaton differences with the upstream ice thickness to
     # imporse boundary condition of the SIA equation
     η₀ = params.physical.η₀
-    dSdx_edges .= @views @. min(dSdx_edges,  η₀ * H[2:end, 2:end-1] / Δx)
-    dSdx_edges .= @views @. max(dSdx_edges, -η₀ * H[1:end-1, 2:end-1] / Δx)
-    dSdy_edges .= @views @. min(dSdy_edges,  η₀ * H[2:end-1, 2:end] / Δy)
-    dSdy_edges .= @views @. max(dSdy_edges, -η₀ * H[2:end-1, 1:end-1] / Δy)
+    dSdx_edges .= @views @. min(dSdx_edges,  η₀ * Hclip[2:end, 2:end-1] / Δx)
+    dSdx_edges .= @views @. max(dSdx_edges, -η₀ * Hclip[1:end-1, 2:end-1] / Δx)
+    dSdy_edges .= @views @. min(dSdy_edges,  η₀ * Hclip[2:end-1, 2:end] / Δy)
+    dSdy_edges .= @views @. max(dSdy_edges, -η₀ * Hclip[2:end-1, 1:end-1] / Δy)
 
     avg_y!(Dx, D)
     avg_x!(Dy, D)
