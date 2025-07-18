@@ -54,7 +54,7 @@ function SIA2D!(
 
     (;Δx, Δy, B) = glacier
 
-    (;ρ, g, ϵ) = simulation.parameters.physical
+    (;ρ, g, ϵ) = params.physical
 
     # First, enforce values to be positive
     Hclip = map(x -> ifelse(x > 0.0, x, 0.0), H) # We cannot change H otherwise Enzyme cannot differentiate it using Const (which is the case in SciMLSensitivity)
