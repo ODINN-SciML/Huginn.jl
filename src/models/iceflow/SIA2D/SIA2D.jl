@@ -9,7 +9,7 @@ export SIA2Dmodel, SIA2DCache
 
 """
     SIA2Dmodel(A, C, n, Y, U, n_H, n_∇S)
-    SIA2Dmodel(;A, C, n, Y, U, n_H, n_∇S)
+    SIA2Dmodel(params; A, C, n, Y, U, n_H, n_∇S)
 
 Create a `SIA2Dmodel`, representing a two-dimensional Shallow Ice Approximation (SIA) model.
 
@@ -32,8 +32,17 @@ This struct stores the laws used to compute these three parameters during a simu
 - `n`: Law for the flow law exponent. Defaults similarly.
 - `Y`: Law for the hybrid diffusivity. Providing a law for `Y` discards the laws of `A`, `C` and `n`.
 - `U`: Law for the diffusive velocity. Defaults behavior is to disable it and in such a case it is computed from `A`, `C` and `n`. Providing a law for `U` discards the laws of `A`, `C`, `n` and `Y`.
-- `n_H::Union{Nothing, I}`: The exponent to use for `H` in the SIA equation when using the Y law (hybrid diffusivity). It should be `nothing` when this law is not used.
-- `n_∇S::Union{Nothing, I}`: The exponent to use for `∇S` in the SIA equation when using the Y law (hybrid diffusivity). It should be `nothing` when this law is not used.
+- `n_H::F`: The exponent to use for `H` in the SIA equation when using the Y law (hybrid diffusivity). It should be `nothing` when this law is not used.
+- `n_∇S::F`: The exponent to use for `∇S` in the SIA equation when using the Y law (hybrid diffusivity). It should be `nothing` when this law is not used.
+- `Y_is_provided::Bool`: Whether the diffusivity is provided by the user through the hybrid diffusivity `Y` or it has to be computed from the SIA formula from `A`, `C` and `n`.
+- `U_is_provided::Bool`: Whether the diffusivity is provided by the user through the diffusive velocity `U` or it has to be computed from the SIA formula from `A`, `C` and `n`.
+- `n_H_is_provided::Bool`: Whether the `H` exponent is prescribed by the user, or the one of the `n` law has to be used. This flag is used only when a law for `Y` is used.
+- `n_∇S_is_provided::Bool`: Whether the `∇S` exponent is prescribed by the user, or the one of the `n` law has to be used. This flag is used only when a law for `Y` is used.
+- `apply_A_in_SIA::Bool`: Whether the value of the `A` law should be computed each time the SIA is evaluated.
+- `apply_C_in_SIA::Bool`: Whether the value of the `C` law should be computed each time the SIA is evaluated.
+- `apply_n_in_SIA::Bool`: Whether the value of the `n` law should be computed each time the SIA is evaluated.
+- `apply_Y_in_SIA::Bool`: Whether the value of the `Y` law should be computed each time the SIA is evaluated.
+- `apply_U_in_SIA::Bool`: Whether the value of the `U` law should be computed each time the SIA is evaluated.
 """
 @kwdef struct SIA2Dmodel{F, ALAW <: AbstractLaw, CLAW <: AbstractLaw, nLAW <: AbstractLaw, YLAW <: AbstractLaw, ULAW <: AbstractLaw} <: SIAmodel
     A::ALAW = nothing
@@ -43,8 +52,8 @@ This struct stores the laws used to compute these three parameters during a simu
     U::ULAW = nothing
     n_H::F = nothing
     n_∇S::F = nothing
-    Y_is_provided::Bool = false # Whether the diffusivity is provided by the user through the hybrid diffusivity `Y` or it has to be computed from the SIA formula from `A`, `C` and `n`.
-    U_is_provided::Bool = false # Whether the diffusivity is provided by the user through the diffusive velocity `U` or it has to be computed from the SIA formula from `A`, `C` and `n`.
+    Y_is_provided::Bool = false
+    U_is_provided::Bool = false
     n_H_is_provided::Bool = false
     n_∇S_is_provided::Bool = false
     apply_A_in_SIA::Bool = false
@@ -140,6 +149,8 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 # Fields
 - `A::A_CACHE`: Flow rate factor.
 - `n::n_CACHE`: Flow law exponent.
+- `n_H::n_CACHE`: Exponent used for the power of `H` when using the `Y` law.
+- `n_∇S::n_CACHE`: Exponent used for the power of `∇S` when using the `Y` law.
 - `C::C_CACHE`: Sliding coefficient.
 - `Y::Y_CACHE`: Hybrid diffusivity.
 - `U::U_CACHE`: Diffusive velocity.

@@ -54,7 +54,7 @@ function SIA2D!(
 
     (;Δx, Δy, B) = glacier
 
-    (;ρ, g) = simulation.parameters.physical
+    (;ρ, g, ϵ) = simulation.parameters.physical
 
     # First, enforce values to be positive
     Hclip = map(x -> ifelse(x > 0.0, x, 0.0), H) # We cannot change H otherwise Enzyme cannot differentiate it using Const (which is the case in SciMLSensitivity)
@@ -67,7 +67,7 @@ function SIA2D!(
     diff_y!(dSdy, S, Δy)
     avg_y!(∇Sx, dSdx)
     avg_x!(∇Sy, dSdy)
-    @. ∇S = (∇Sx^2 + ∇Sy^2 .+ 1e-10)^(1/2) # Add a very small constant for numerical stability of AD
+    @. ∇S = (∇Sx^2 + ∇Sy^2 .+ ϵ)^(1/2) # Add a very small constant for numerical stability of AD
     avg!(H̄, Hclip)
 
     apply_all_non_callback_laws!(SIA2D_model, SIA2D_cache, simulation, glacier_idx, t, θ)
@@ -78,8 +78,8 @@ function SIA2D!(
         D .= U .* H̄
     elseif SIA2D_model.Y_is_provided
         # Compute D from Y, H and the exponent defined in target
-        n_H = SIA2D_model.n_H_is_provided ? n : SIA2D_cache.n_H
-        n_∇S = SIA2D_model.n_∇S_is_provided ? n : SIA2D_cache.n_∇S
+        n_H = SIA2D_model.n_H_is_provided ? SIA2D_cache.n_H : n
+        n_∇S = SIA2D_model.n_∇S_is_provided ? SIA2D_cache.n_∇S : n
         gravity_term = (ρ * g).^n
         Γ_no_A = @. 2.0 * gravity_term / (n + 2)
         D .= (C .* gravity_term .+ Y .* Γ_no_A .* H̄) .* H̄.^(n_H .+ 1) .* ∇S.^(n_∇S .- 1)
@@ -174,7 +174,7 @@ function SIA2D(
     B = glacier.B
     Δx = glacier.Δx
     Δy = glacier.Δy
-    (; ρ, g) = params.physical
+    (; ρ, g, ϵ) = params.physical
 
     @views H = ifelse.(H .< 0.0, 0.0, H) # prevent values from going negative
 
@@ -190,7 +190,7 @@ function SIA2D(
     # Compute surface gradients on edges
     dSdx = diff_x(S) ./ Δx
     dSdy = diff_y(S) ./ Δy
-    ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2 .+ 1e-10).^(1/2) # Add a very small constant for numerical stability of AD
+    ∇S = (avg_y(dSdx).^2 .+ avg_x(dSdy).^2 .+ ϵ).^(1/2) # Add a very small constant for numerical stability of AD
     H̄ = avg(H)
 
     # Store temporary variables for use with the laws
