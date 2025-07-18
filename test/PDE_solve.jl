@@ -76,7 +76,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
 
     # We retrieve some glaciers for the simulation
     glaciers = initialize_glaciers(rgi_ids, params)
-    # JET.@test_opt broken=true target_modules=(Sleipnir,Muninn,Huginn) initialize_glaciers(rgi_ids, params) # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
+    JET.@test_opt broken=true target_modules=(Sleipnir,Muninn,Huginn) initialize_glaciers(rgi_ids, params) # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
 
     # We create an ODINN prediction
     prediction = Prediction(model, glaciers, params)
