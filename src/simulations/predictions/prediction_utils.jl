@@ -191,8 +191,8 @@ function batch_iceflow_PDE(glacier_idx::I, simulation::Prediction) where {I <: I
     cb = CallbackSet(cb_MB, cb_iceflow)
 
     # Run iceflow PDE for this glacier
-    du = params.simulation.use_iceflow ? SIA2D : noSIA2D
-    results = simulate_iceflow_PDE(simulation, cb; du = du)
+    du = params.simulation.use_iceflow ? SIA2D_PDE : noSIA2D
+    results = simulate_iceflow_PDE(simulation, cb, du)
 
     return results
 end
@@ -200,16 +200,16 @@ end
 """
     function simulate_iceflow_PDE(
         simulation::SIM,
-        cb::DiscreteCallback;
-        du = SIA2D
+        cb::DiscreteCallback,
+        du,
     ) where {SIM <: Simulation}
 
 Make forward simulation of the iceflow PDE determined in `du` out-of-place and create the results.
 """
 function simulate_iceflow_PDE(
     simulation::SIM,
-    cb::SciMLBase.DECallback;
-    du = SIA2D
+    cb::SciMLBase.DECallback,
+    du,
 ) where {SIM <: Simulation}
     cache = simulation.cache
     params = simulation.parameters
@@ -245,6 +245,11 @@ function simulate_iceflow_PDE(
     results = Sleipnir.create_results(simulation, glacier_idx, iceflow_sol, nothing; light=!params.solver.save_everystep, processVelocity=V_from_H)
 
     return results
+end
+
+function SIA2D_PDE(_H::Matrix{R}, simulation::SIM, t::R) where {R <: Real, SIM <: Simulation}
+    return SIA2D(_H, simulation, t, nothing)
+    return nothing
 end
 
 """
