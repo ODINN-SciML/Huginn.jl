@@ -205,8 +205,8 @@ function SIA2D(
         U .* H̄
     elseif SIA2D_model.Y_is_provided
         # Compute D from Y, H and the exponent defined in target
-        n_H = isnothing(SIA2D_model.n_H) ? n : SIA2D_model.n_H
-        n_∇S = isnothing(SIA2D_model.n_∇S) ? n : SIA2D_model.n_∇S
+        n_H = SIA2D_model.n_H_is_provided ? SIA2D_cache.n_H : n
+        n_∇S = SIA2D_model.n_∇S_is_provided ? SIA2D_cache.n_∇S : n
         gravity_term = (ρ * g).^n
         Γ_no_A = @. 2.0 * gravity_term / (n + 2)
         (C .* gravity_term .+ Y .* Γ_no_A .* H̄) .* H̄.^(n_H .+ 1) .* ∇S.^(n_∇S .- 1)
@@ -447,8 +447,8 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM, t::R, θ) where {SIM <: 
         U
     elseif iceflow_model.Y_is_provided
         # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        n_H = isnothing(iceflow_model.n_H) ? n : iceflow_model.n_H
-        n_∇S = isnothing(iceflow_model.n_∇S) ? n : iceflow_model.n_∇S
+        n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n
+        n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n
         gravity_term = (ρ * g).^n
         Γ_no_A = @. 2.0 * gravity_term / (n + 2)
         (C .* gravity_term .+ Y .* Γ_no_A .* H̄) .* H̄.^n_H .* ∇S.^(n_∇S .- 1)
@@ -529,8 +529,8 @@ function surface_V(
         U
     elseif iceflow_model.Y_is_provided
         # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        n_H = isnothing(iceflow_model.n_H) ? n : iceflow_model.n_H
-        n_∇S = isnothing(iceflow_model.n_∇S) ? n : iceflow_model.n_∇S
+        n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n
+        n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n
         gravity_term = (ρ * g).^n
         Γ_no_A = @. 2.0 * gravity_term / (n + 2)
         (C .* gravity_term .+ Y .* Γ_no_A .* H̄) .* H̄.^n_H .* ∇S.^(n_∇S .- 1)
