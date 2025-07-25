@@ -500,6 +500,9 @@ build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx::Real, tspan) =
 
 
 # Display setup
+function Base.show(io::IO, type::MIME"text/plain", model::SIA2Dmodel)
+    Base.show(io, model)
+end
 function Base.show(io::IO, model::SIA2Dmodel)
     colorD = :green
     colorU = :red
