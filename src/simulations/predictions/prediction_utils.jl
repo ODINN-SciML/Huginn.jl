@@ -217,14 +217,16 @@ function simulate_iceflow_PDE(
     # Define problem to be solved
     iceflow_prob = ODEProblem{false,SciMLBase.FullSpecialize}(du, cache.iceflow.H, params.simulation.tspan, simulation; tstops=params.solver.tstops)
 
-    iceflow_sol = solve(iceflow_prob,
-                        params.solver.solver,
-                        callback=cb,
-                        reltol=params.solver.reltol,
-                        save_everystep=params.solver.save_everystep,
-                        progress=params.solver.progress,
-                        progress_steps=params.solver.progress_steps,
-                        maxiters=params.solver.maxiters)
+    iceflow_sol = solve(
+        iceflow_prob,
+        params.solver.solver,
+        callback=cb,
+        reltol=params.solver.reltol,
+        save_everystep=params.solver.save_everystep,
+        progress=params.solver.progress,
+        progress_steps=params.solver.progress_steps,
+        maxiters=params.solver.maxiters
+        )
     @assert iceflow_sol.retcode==ReturnCode.Success "There was an error in the iceflow solver. Returned code is \"$(iceflow_sol.retcode)\""
 
     # @show iceflow_sol.destats
@@ -323,6 +325,41 @@ function generate_ground_truth!(
 
     # Store the thickness data in the glacier
     store_thickness_data!(prediction, tstops)
+
+    # Store the velocity data in the glacier
+    store_velocity_data!(prediction, tstops)
+end
+
+function store_velocity_data!(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
+    # Store the velocity data in the glacier
+    for i in 1:length(prediction.glaciers)
+        ts = prediction.results[i].t
+        Hs = prediction.results[i].H
+        @assert ts ≈ tstops "Timestops of simulated PDE solution and the provided tstops do not match."
+        Vx = Array{Matrix{F}, 1}()
+        Vy = Array{Matrix{F}, 1}()
+        Vabs = Array{Matrix{F}, 1}()
+        for j in 1:length(ts)
+            vx, vy, vabs = Huginn.V_from_H(prediction, Hs[j], ts[j], nothing)
+            push!(Vx, vx)
+            push!(Vy, vy)
+            push!(Vabs, vabs)
+        end
+        prediction.glaciers[i].velocityData = SurfaceVelocityData(
+            date = decimal_year_to_datetime.(ts),
+            vx = Vx,
+            vy = Vy,
+            vabs = Vabs,
+        )
+    end
+end
+
+function decimal_year_to_datetime(year_decimal::Float64)
+    year = floor(Int, year_decimal)
+    frac = year_decimal - year
+    start = Sleipnir.Dates.DateTime(year, 1, 1)
+    days_in_year = Sleipnir.Dates.isleapyear(year) ? 366 : 365
+    return start + Sleipnir.Dates.Day(round(Int, frac * days_in_year))
 end
 
 """
