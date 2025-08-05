@@ -1,4 +1,4 @@
-export run₀, run!, generate_ground_truth!, apply_MB_mask!
+export run₀, run!, generate_ground_truth, apply_MB_mask!
 
 """
     run!(simulation::Prediction)
@@ -256,32 +256,36 @@ function SIA2D_PDE(_H::Matrix{R}, simulation::SIM, t::R) where {R <: Real, SIM <
 end
 
 """
-    store_thickness_data!(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
+    thickness_data(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
 
-Store the simulated thickness data in the corresponding glaciers within a `Prediction` object.
+Return a new vector of glaciers with the simulated thickness data for each of the glaciers.
 
 # Arguments
 - `prediction::Prediction`: A `Prediction` object containing the simulation results and associated glaciers.
 - `tstops::Vector{F}`: A vector of time steps (of type `F <: AbstractFloat`) at which the simulation was evaluated.
 
 # Description
-This function iterates over the glaciers in the `Prediction` object and stores the simulated thickness data (`H`) and corresponding time steps (`t`) in the `data` field of each glacier. If the `data` field is empty (`nothing`), it initializes it with the thickness data. Otherwise, it appends the new thickness data to the existing data.
+This function iterates over the glaciers in the `Prediction` object and generates the simulated thickness data (`H`) and corresponding time steps (`t`). A new vector of glaciers is created and each glacier is a copy with an updated `thicknessData` field.
 
 # Notes
 - The function asserts that the time steps (`ts`) in the simulation results match the provided `tstops`. If they do not match, an error is raised.
+
+# Returns
+A new vector of glaciers where each glacier is a copy of the original one with the updated `thicknessData`.
 """
-function store_thickness_data!(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
+function thickness_data(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
     # Store the thickness data in the glacier
-    for i in 1:length(prediction.glaciers)
+    glaciers = map(1:length(prediction.glaciers)) do i
         ts = prediction.results[i].t
         Hs = prediction.results[i].H
         @assert ts ≈ tstops "Timestops of simulated PDE solution and the provided tstops do not match."
-        prediction.glaciers[i].thicknessData = Sleipnir.ThicknessData(ts, Hs)
+        Glacier2D(prediction.glaciers[i], thicknessData = Sleipnir.ThicknessData(ts, Hs)) # Rebuild glacier since we cannot change type of `glacier.thicknessData`
     end
+    return glaciers
 end
 
 """
-    generate_ground_truth!(
+    generate_ground_truth(
         glaciers::Vector{G},
         params::Sleipnir.Parameters,
         model::Sleipnir.Model,
@@ -289,6 +293,7 @@ end
     ) where {G <: Sleipnir.AbstractGlacier, F <: AbstractFloat}
 
 Generate ground truth data for a glacier simulation by using the laws specified in the model and running a forward model.
+It returns a new vector of glaciers with updated `thicknessData` field.
 
 # Arguments
 - `glaciers::Vector{G}`: A vector of glacier objects of type `G`, where `G` is a subtype of `Sleipnir.AbstractGlacier`.
@@ -298,7 +303,7 @@ Generate ground truth data for a glacier simulation by using the laws specified 
 
 # Description
 1. Runs a forward model simulation for the glaciers using the provided laws, parameters, model, and time steps.
-2. Store the simulation results as ground truth in the `glaciers` struct. For each glacier it populates the `thicknessData` field.
+2. Build a new vector of glaciers and store the simulation results as ground truth in the `glaciers` struct. For each glacier it populates the `thicknessData` field.
 
 # Example
 ```julia
@@ -307,10 +312,10 @@ params = Sleipnir.Parameters(...) # to be filled
 model = Sleipnir.Model(...) # to be filled
 tstops = 0.0:1.0:10.0
 
-generate_ground_truth!(glaciers, params, model, tstops)
+glaciers = generate_ground_truth(glaciers, params, model, tstops)
 ```
 """
-function generate_ground_truth!(
+function generate_ground_truth(
     glaciers::Vector{G},
     params::Sleipnir.Parameters,
     model::Sleipnir.Model,
@@ -325,7 +330,7 @@ function generate_ground_truth!(
     Huginn.run!(prediction)
 
     # Store the thickness data in the glacier
-    store_thickness_data!(prediction, tstops)
+    return thickness_data(prediction, tstops)
 end
 
 """
