@@ -20,7 +20,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     params = Huginn.Parameters(
         simulation = SimulationParameters(
             use_MB = MB,
-            velocities = false,
+            use_velocities = false,
             tspan = (2010.0, 2015.0),
             working_dir = Huginn.root_dir,
             test_mode = true,
@@ -31,7 +31,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Huginn.Parameters(
         simulation = SimulationParameters(
             use_MB = MB,
-            velocities = false,
+            use_velocities = false,
             tspan = (2010.0, 2015.0),
             working_dir = Huginn.root_dir,
             test_mode = true,
@@ -150,7 +150,7 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     params = Huginn.Parameters(
         simulation = SimulationParameters(
             use_MB = true,
-            velocities = false,
+            use_velocities = false,
             tspan = (2010.0, 2015.0),
             working_dir = Huginn.root_dir,
             test_mode = true,
@@ -177,7 +177,7 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     t = 2015.0
 
     MB_timestep!(cache, model, glacier, params.solver.step, t)
-    # JET.@test_opt broken=true target_modules=(Sleipnir,Muninn,Huginn) MB_timestep!(cache, model, glacier, params.solver.step, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
+    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) MB_timestep!(cache, model, glacier, params.solver.step, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
 
     apply_MB_mask!(cache.iceflow.H, cache.iceflow)
     JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) apply_MB_mask!(cache.iceflow.H, cache.iceflow)
