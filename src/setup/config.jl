@@ -4,9 +4,9 @@ function clean()
         run(`$(Base.julia_cmd())`)
     end
     exit()
- end
+end
 
- function enable_multiprocessing(params::Sleipnir.Parameters)
+function enable_multiprocessing(params::Sleipnir.Parameters)
     procs = params.simulation.workers
     if procs > 0 && params.simulation.multiprocessing
         if nprocs() < procs
@@ -22,6 +22,13 @@ function clean()
             rmprocs(workers(), waitfor=0)
             @info "Number of cores: $(nprocs())"
             @info "Number of workers: $(nworkers())"
+            end # @eval
+        end
+    else
+        if !parse(Bool, get(ENV, "CI", "false")) && nprocs()>1 # If the session used to work with multiprocessing but now we want to switch to single processing
+            @info "Switching back to single processing"
+            @eval begin
+            rmprocs(workers(), waitfor=0)
             end # @eval
         end
     end
