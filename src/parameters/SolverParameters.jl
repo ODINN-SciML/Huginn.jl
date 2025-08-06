@@ -94,9 +94,7 @@ function Parameters(;
     parameters = Sleipnir.Parameters(physical, simulation,
                                      nothing, solver, nothing, nothing)
 
-    if parameters.simulation.multiprocessing
-        enable_multiprocessing(parameters)
-    end
+    enable_multiprocessing(parameters)
 
     return parameters
 end

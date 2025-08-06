@@ -24,6 +24,13 @@ function clean()
             @info "Number of workers: $(nworkers())"
             end # @eval
         end
+    else
+        if nprocs()>1 # If the session used to work with multiprocessing but now we want to switch to single processing
+            @info "Switching back to single processing"
+            @eval begin
+            rmprocs(workers(), waitfor=0)
+            end # @eval
+        end
     end
     return nworkers()
 end
