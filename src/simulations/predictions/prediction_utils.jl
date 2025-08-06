@@ -278,6 +278,7 @@ A new vector of glaciers where each glacier is a copy of the original one with t
 function thickness_velocity_data(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
     # Store the thickness data in the glacier
     glaciers = map(1:length(prediction.glaciers)) do i
+        prediction.cache = init_cache(prediction.model, prediction, i, nothing)
         ts = prediction.results[i].t
         Hs = prediction.results[i].H
         @assert ts ≈ tstops "Timestops of simulated PDE solution and the provided tstops do not match."
