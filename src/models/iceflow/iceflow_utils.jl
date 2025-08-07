@@ -128,6 +128,7 @@ Compute the difference along the first dimension of the array `A`.
 - An array of the same type as `A` containing the differences along the first dimension.
 """
 @views diff_x(A) = (A[begin + 1:end, :] .- A[1:end - 1, :])
+diff_x(A, Δx) = diff_x(A) ./ Δx
 
 """
     diff_y(A::AbstractArray)
@@ -141,6 +142,7 @@ Compute the difference between adjacent elements along the second dimension (col
 - An array of the same type as `A` containing the differences between adjacent elements along the second dimension.
 """
 @views diff_y(A) = (A[:, begin + 1:end] .- A[:, 1:end - 1])
+diff_y(A, Δy) = diff_y(A) ./ Δy
 
 """
     inn(A::AbstractArray)
