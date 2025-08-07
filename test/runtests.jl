@@ -45,6 +45,8 @@ ENV["GKSwstype"]="nul"
     @testset "w/  MB w/  matrix callback laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:matrix, callback_laws=true)
 end
 
+@testset "Ground truth generation" ground_truth_generation()
+
 @testset "Run TI models in-place" TI_run_test!(false; rtol=1e-5, atol=1e-5)
 
 @testset "Solver parameters construction" begin
