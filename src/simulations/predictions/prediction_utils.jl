@@ -220,14 +220,16 @@ function simulate_iceflow_PDE(
     # Define problem to be solved
     iceflow_prob = ODEProblem{false,SciMLBase.FullSpecialize}(du, cache.iceflow.H, params.simulation.tspan, simulation; tstops=params.solver.tstops)
 
-    iceflow_sol = solve(iceflow_prob,
-                        params.solver.solver,
-                        callback=cb,
-                        reltol=params.solver.reltol,
-                        save_everystep=params.solver.save_everystep,
-                        progress=params.solver.progress,
-                        progress_steps=params.solver.progress_steps,
-                        maxiters=params.solver.maxiters)
+    iceflow_sol = solve(
+        iceflow_prob,
+        params.solver.solver,
+        callback=cb,
+        reltol=params.solver.reltol,
+        save_everystep=params.solver.save_everystep,
+        progress=params.solver.progress,
+        progress_steps=params.solver.progress_steps,
+        maxiters=params.solver.maxiters
+        )
     @assert iceflow_sol.retcode==ReturnCode.Success "There was an error in the iceflow solver. Returned code is \"$(iceflow_sol.retcode)\""
 
     # @show iceflow_sol.destats
@@ -256,30 +258,54 @@ function SIA2D_PDE(_H::Matrix{R}, simulation::SIM, t::R) where {R <: Real, SIM <
 end
 
 """
-    thickness_data(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
+    thickness_velocity_data(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
 
-Return a new vector of glaciers with the simulated thickness data for each of the glaciers.
+Return a new vector of glaciers with the simulated thickness and ice velocity data for each of the glaciers.
 
 # Arguments
 - `prediction::Prediction`: A `Prediction` object containing the simulation results and associated glaciers.
 - `tstops::Vector{F}`: A vector of time steps (of type `F <: AbstractFloat`) at which the simulation was evaluated.
 
 # Description
-This function iterates over the glaciers in the `Prediction` object and generates the simulated thickness data (`H`) and corresponding time steps (`t`). A new vector of glaciers is created and each glacier is a copy with an updated `thicknessData` field.
+This function iterates over the glaciers in the `Prediction` object and generates the simulated thickness data (`H`) and corresponding time steps (`t`). I then computes the surface ice velocity data. A new vector of glaciers is created and each glacier is a copy with an updated `thicknessData` and `velocityData` fields.
 
 # Notes
 - The function asserts that the time steps (`ts`) in the simulation results match the provided `tstops`. If they do not match, an error is raised.
 
 # Returns
-A new vector of glaciers where each glacier is a copy of the original one with the updated `thicknessData`.
+A new vector of glaciers where each glacier is a copy of the original one with the updated `thicknessData` and `velocityData`.
 """
-function thickness_data(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
+function thickness_velocity_data(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
     # Store the thickness data in the glacier
     glaciers = map(1:length(prediction.glaciers)) do i
+        prediction.cache = init_cache(prediction.model, prediction, i, nothing)
         ts = prediction.results[i].t
         Hs = prediction.results[i].H
         @assert ts ≈ tstops "Timestops of simulated PDE solution and the provided tstops do not match."
-        Glacier2D(prediction.glaciers[i], thicknessData = Sleipnir.ThicknessData(ts, Hs)) # Rebuild glacier since we cannot change type of `glacier.thicknessData`
+
+        thicknessData = Sleipnir.ThicknessData(ts, Hs)
+
+        Vx = Array{Matrix{F}, 1}()
+        Vy = Array{Matrix{F}, 1}()
+        Vabs = Array{Matrix{F}, 1}()
+        for j in 1:length(ts)
+            vx, vy, vabs = Huginn.V_from_H(prediction, Hs[j], ts[j], nothing)
+            push!(Vx, vx)
+            push!(Vy, vy)
+            push!(Vabs, vabs)
+        end
+        velocityData = SurfaceVelocityData(
+            date = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day,ts)),
+            vx = Vx,
+            vy = Vy,
+            vabs = Vabs,
+        )
+
+        Glacier2D(
+            prediction.glaciers[i],
+            thicknessData = thicknessData,
+            velocityData = velocityData,
+        ) # Rebuild glacier since we cannot change type of `glacier.thicknessData` and `glacier.velocityData`
     end
     return glaciers
 end
@@ -329,8 +355,8 @@ function generate_ground_truth(
     prediction = Huginn.Prediction(model, glaciers, params)
     Huginn.run!(prediction)
 
-    # Store the thickness data in the glacier
-    return thickness_data(prediction, tstops)
+    # Create new glaciers with the thickness and velocity data
+    return thickness_velocity_data(prediction, tstops)
 end
 
 """
