@@ -295,7 +295,7 @@ function thickness_velocity_data(prediction::Prediction, tstops::Vector{F}) wher
             push!(Vabs, vabs)
         end
         velocityData = SurfaceVelocityData(
-            date = decimal_year_to_datetime.(ts),
+            date = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day,ts)),
             vx = Vx,
             vy = Vy,
             vabs = Vabs,
@@ -357,14 +357,6 @@ function generate_ground_truth(
 
     # Create new glaciers with the thickness and velocity data
     return thickness_velocity_data(prediction, tstops)
-end
-
-function decimal_year_to_datetime(year_decimal::Float64)
-    year = floor(Int, year_decimal)
-    frac = year_decimal - year
-    start = Sleipnir.Dates.DateTime(year, 1, 1)
-    days_in_year = Sleipnir.Dates.isleapyear(year) ? 366 : 365
-    return start + Sleipnir.Dates.Day(round(Int, frac * days_in_year))
 end
 
 """
