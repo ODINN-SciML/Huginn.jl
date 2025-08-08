@@ -13,7 +13,6 @@ function plot_analysis_flow_parameters_test()
             tspan=(2010.0, 2015.0),
             working_dir = working_dir,
             test_mode = true,
-            multiprocessing=false,
             workers=1,
             rgi_paths=rgi_paths
         ),

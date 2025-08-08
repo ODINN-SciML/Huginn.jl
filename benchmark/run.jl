@@ -49,13 +49,6 @@ t = tspan[1]
 
 vecBackwardSIA2D = randn(size(H,1), size(H,2))
 
-
-println("## Benchmark of SIA2D")
-trial = @benchmark Huginn.SIA2D($H, simulation, $t, $nothing)
-display(trial)
-println("")
-
-
 println("## Benchmark of SIA2D!")
 dH = deepcopy(H)
 trial = @benchmark Huginn.SIA2D!(dH, $H, simulation, $t, $nothing)
