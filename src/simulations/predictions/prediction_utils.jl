@@ -296,6 +296,8 @@ function thickness_velocity_data(prediction::Prediction, tstops::Vector{F}) wher
         end
         velocityData = SurfaceVelocityData(
             date = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day,ts)),
+            date1 = Vector{F}([]),
+            date2 = Vector{F}([]),
             vx = Vx,
             vy = Vy,
             vabs = Vabs,
