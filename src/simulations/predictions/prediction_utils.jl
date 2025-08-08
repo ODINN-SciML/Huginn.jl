@@ -1,4 +1,4 @@
-export run₀, run!, generate_ground_truth, apply_MB_mask!
+export run!, generate_ground_truth, apply_MB_mask!
 
 """
     run!(simulation::Prediction)

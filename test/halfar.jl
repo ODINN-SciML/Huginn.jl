@@ -72,7 +72,6 @@ Fails if any error exceeds tolerance thresholds.
 - `dometol::Float64=0.20`: Maximum allowed dome height error [m].
 - `distance_to_border::Int=3`: Distance (in grid cells) from ice margin to exclude from error computation.
 - `save_plot::Bool=false`: If `true`, saves diagnostic plots comparing analytical and simulated solutions.
-- `inplace::Bool=true`: If `true`, runs the model using in-place updates (`run!`), otherwise uses a non-mutating solver (`run₀`).
 
 # Outputs
 - Returns `nothing`, but throws `@test` failures if errors exceed tolerance.
