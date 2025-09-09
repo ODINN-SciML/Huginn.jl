@@ -24,7 +24,7 @@ n = 3.0
 params = Huginn.Parameters(
     simulation = SimulationParameters(
         use_MB=false,
-        velocities=false,
+        use_velocities=false,
         tspan=tspan,
         working_dir = Huginn.root_dir,
         test_mode = true,
@@ -42,17 +42,23 @@ glaciers = [glacier]
 simulation = Prediction(model, glaciers, params)
 
 glacier_idx = 1
-initialize_iceflow_model(model.iceflow, glacier_idx, glaciers[glacier_idx], params)
+simulation.cache = init_cache(model, simulation, glacier_idx, nothing)
 
 H = H₀
 t = tspan[1]
-simulation.model.iceflow.glacier_idx = glacier_idx
 
 vecBackwardSIA2D = randn(size(H,1), size(H,2))
 
 
 println("## Benchmark of SIA2D")
-trial = @benchmark Huginn.SIA2D($H, $simulation, $t)
+trial = @benchmark Huginn.SIA2D($H, simulation, $t, $nothing)
+display(trial)
+println("")
+
+
+println("## Benchmark of SIA2D!")
+dH = deepcopy(H)
+trial = @benchmark Huginn.SIA2D!(dH, $H, simulation, $t, $nothing)
 display(trial)
 println("")
 

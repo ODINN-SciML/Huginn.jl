@@ -4,9 +4,9 @@ function clean()
         run(`$(Base.julia_cmd())`)
     end
     exit()
- end
+end
 
- function enable_multiprocessing(params::Sleipnir.Parameters)
+function enable_multiprocessing(params::Sleipnir.Parameters)
     procs = params.simulation.workers
     if procs > 0 && params.simulation.multiprocessing
         if nprocs() < procs

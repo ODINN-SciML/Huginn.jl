@@ -20,7 +20,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     params = Huginn.Parameters(
         simulation = SimulationParameters(
             use_MB = MB,
-            velocities = false,
+            use_velocities = false,
             tspan = (2010.0, 2015.0),
             working_dir = Huginn.root_dir,
             test_mode = true,
@@ -31,7 +31,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Huginn.Parameters(
         simulation = SimulationParameters(
             use_MB = MB,
-            velocities = false,
+            use_velocities = false,
             tspan = (2010.0, 2015.0),
             working_dir = Huginn.root_dir,
             test_mode = true,
@@ -150,7 +150,7 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     params = Huginn.Parameters(
         simulation = SimulationParameters(
             use_MB = true,
-            velocities = false,
+            use_velocities = false,
             tspan = (2010.0, 2015.0),
             working_dir = Huginn.root_dir,
             test_mode = true,
@@ -177,7 +177,7 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     t = 2015.0
 
     MB_timestep!(cache, model, glacier, params.solver.step, t)
-    # JET.@test_opt broken=true target_modules=(Sleipnir,Muninn,Huginn) MB_timestep!(cache, model, glacier, params.solver.step, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
+    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) MB_timestep!(cache, model, glacier, params.solver.step, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
 
     apply_MB_mask!(cache.iceflow.H, cache.iceflow)
     JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) apply_MB_mask!(cache.iceflow.H, cache.iceflow)
@@ -194,4 +194,28 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     @test all(isapprox.(MB_ref, cache.iceflow.MB, rtol=rtol, atol=atol))
     @test all(isapprox.(H_w_MB_ref, cache.iceflow.H, rtol=rtol, atol=atol))
 
+end
+
+function ground_truth_generation()
+    rgi_ids = ["RGI60-11.03638", "RGI60-11.01450"]
+    tspan = (2010.0, 2012.0)
+    δt = 1/12
+    params = Huginn.Parameters(
+        simulation = SimulationParameters(
+            use_MB = true,
+            use_velocities = false,
+            tspan = tspan,
+            working_dir = Huginn.root_dir,
+            test_mode = true,
+            rgi_paths = get_rgi_paths()
+        ),
+        solver = SolverParameters(
+            reltol=1e-8,
+            save_everystep=true,
+        ),
+    )
+    model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    glaciers = initialize_glaciers(rgi_ids, params)
+    tstops = collect(tspan[1]:δt:tspan[2])
+    generate_ground_truth(glaciers, params, model, tstops)
 end

@@ -26,18 +26,24 @@ end
 Input that represents the cumulative positive degree days (PDD) over the last week.
 It is computed by summing the daily PDD values from `t - 1 week` to `t` using the glacier's climate data.
 """
-struct InpCPDD <: AbstractInput end
-default_name(::InpCPDD) = :CPDD
-function get_input(::InpCPDD, simulation, glacier_idx, t)
-    glacier = simulation.glaciers[glacier_idx]
-    # We trim only the time period between `t` and `t - x`, where `x` is the PDD time window defined in the physical parameters.
-    period = (partial_year(Day, t) - Day(simulation.parameters.physical.PDD_time_window)):Day(1):partial_year(Day, t)
-    get_cumulative_climate!(glacier.climate, period)
-    # Convert climate dataset to 2D based on the glacier's DEM
-    climate_2D_step = downscale_2D_climate(glacier.climate.climate_step, glacier)
-    
-    return climate_2D_step.PDD
+struct InpCPDD{I<:Integer} <: AbstractInput
+    window::I
+    InpCPDD{I}(; window::I = 7) where {I<:Integer} = new{I}(window)
 end
+
+default_name(::InpCPDD) = :CPDD  
+
+function get_input(cpdd::InpCPDD, simulation, glacier_idx, t)  
+    window = cpdd.window  
+    glacier = simulation.glaciers[glacier_idx]  
+    # We trim only the time period between `t` and `t - x`, where `x` is the PDD time window defined in the physical parameters.  
+    period = (partial_year(Day, t) - Day(window)):Day(1):partial_year(Day, t)  
+    get_cumulative_climate!(glacier.climate, period)  
+    # Convert climate dataset to 2D based on the glacier's DEM  
+    climate_2D_step = downscale_2D_climate(glacier.climate.climate_step, glacier)  
+
+    return climate_2D_step.PDD  
+end  
 
 """
     InpH̄ <: AbstractInput
@@ -69,27 +75,33 @@ end
 Input that represents the topographic roughness of the glacier.
 It is computed as the standard deviation of the elevation of the glacier's DEM.
 """
-struct InpTopoRough <: AbstractInput end
-default_name(::InpTopoRough) = :topographic_roughness
-function get_input(::InpTopoRough, simulation, glacier_idx, t)
-    glacier = simulation.glaciers[glacier_idx]
-    # Compute the topographic roughness as the standard deviation of the elevation in a window of around 200 meters
-    # around each pixel of the glacier's DEM.
-    dem = glacier.S
-    window_size = max(1, Int(round(simulation.parameters.physical.topo_spatial_window / glacier.Δx)))
-    half_window = max(1, div(window_size, 2))  # Ensure at least 1 pixel
-    rows, cols = size(dem)
-    roughness = similar(dem)
-    for i in 1:rows, j in 1:cols
-        rmin = max(1, i - half_window)
-        rmax = min(rows, i + half_window)
-        cmin = max(1, j - half_window)
-        cmax = min(cols, j + half_window)
-        window = dem[rmin:rmax, cmin:cmax]
-        roughness[i, j] = std(window)
-    end
-    return roughness
+struct InpTopoRough{F<:AbstractFloat} <: AbstractInput 
+    window::F
+    InpTopoRough{F}(; window::F = 200.0) where {F<:AbstractFloat} = new{F}(window)
 end
+
+default_name(::InpTopoRough) = :topographic_roughness  
+
+function get_input(inp_topo_rough::InpTopoRough, simulation, glacier_idx, t)  
+    window = inp_topo_rough.window  
+    glacier = simulation.glaciers[glacier_idx]  
+    # Compute the topographic roughness as the standard deviation of the elevation in a window of around 200 meters  
+    # around each pixel of the glacier's DEM.  
+    dem = glacier.S  
+    window_size = max(1, Int(round(window / glacier.Δx)))  
+    half_window = max(1, div(window_size, 2))  # Ensure at least 1 pixel  
+    rows, cols = size(dem)  
+    roughness = similar(dem)  
+    for i in 1:rows, j in 1:cols  
+        rmin = max(1, i - half_window)  
+        rmax = min(rows, i + half_window)  
+        cmin = max(1, j - half_window)  
+        cmax = min(cols, j + half_window)  
+        window = dem[rmin:rmax, cmin:cmax]  
+        roughness[i, j] = std(window)  
+    end  
+    return roughness  
+end 
 
 """
     ConstantA(A::F) where {F <: AbstractFloat}
