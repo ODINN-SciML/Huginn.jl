@@ -1,6 +1,6 @@
 import Sleipnir: get_input, default_name
 
-export InpTemp, InpH̄, Inp∇S, InpCPDD, InpTopoRough
+export iTemp, iH̄, i∇S, iCPDD, iTopoRough
 export ConstantA, CuffeyPaterson, SyntheticC
 
 ########################
@@ -8,53 +8,55 @@ export ConstantA, CuffeyPaterson, SyntheticC
 ########################
 
 """
-    InpTemp <: AbstractInput
+    iTemp <: AbstractInput
 
 Input that represents the long term air temperature of a glacier.
 It is computed using the OGGM data over a period predefined in Gungnir.
 """
-struct InpTemp <: AbstractInput end
-default_name(::InpTemp) = :long_term_temperature
-function get_input(::InpTemp, simulation, glacier_idx, t)
+struct iTemp <: AbstractInput end
+default_name(::iTemp) = :long_term_temperature
+function get_input(::iTemp, simulation, glacier_idx, t)
     glacier = simulation.glaciers[glacier_idx]
     return mean(glacier.climate.longterm_temps)
 end
 
 """
-    InpCPDD <: AbstractInput
+    iCPDD <: AbstractInput
 
-Input that represents the cumulative positive degree days (PDD) over the last week.
-It is computed by summing the daily PDD values from `t - 1 week` to `t` using the glacier's climate data.
+Input that represents the cumulative positive degree days (PDD) over the last time window `window`.
+It is computed by summing the daily PDD values from `t - window` to `t` using the glacier's climate data.
 """
-struct InpCPDD{I<:Integer} <: AbstractInput
+struct iCPDD{I<:Integer} <: AbstractInput
     window::I
-    InpCPDD{I}(; window::I = 7) where {I<:Integer} = new{I}(window)
+    iCPDD{I}(window::I = 7) where {I<:Integer} = new{I}(window)
 end
 
-default_name(::InpCPDD) = :CPDD  
+iCPDD(; window::I = 7) where {I<:Integer} = iCPDD{typeof(window)}(window)
 
-function get_input(cpdd::InpCPDD, simulation, glacier_idx, t)  
+default_name(::iCPDD) = :CPDD  
+
+function get_input(cpdd::iCPDD, simulation, glacier_idx, t)  
     window = cpdd.window  
     glacier = simulation.glaciers[glacier_idx]  
     # We trim only the time period between `t` and `t - x`, where `x` is the PDD time window defined in the physical parameters.  
     period = (partial_year(Day, t) - Day(window)):Day(1):partial_year(Day, t)  
     get_cumulative_climate!(glacier.climate, period)  
     # Convert climate dataset to 2D based on the glacier's DEM  
-    climate_2D_step = downscale_2D_climate(glacier.climate.climate_step, glacier)  
+    climate_2D_step = downscale_2D_climate(glacier.climate.climate_step, glacier.S, glacier.Coords)  
 
     return climate_2D_step.PDD  
 end  
 
 """
-    InpH̄ <: AbstractInput
+    iH̄ <: AbstractInput
 
 Input that represents the ice thickness in the SIA.
 It is the averaged ice thickness computed on the dual grid, that is `H̄ = avg(H)`
 which is different from the ice thickness solution H.
 """
-struct InpH̄ <: AbstractInput end
-default_name(::InpH̄) = :H_dual_grid
-function get_input(::InpH̄, simulation, glacier_idx, t)
+struct iH̄ <: AbstractInput end
+default_name(::iH̄) = :H_dual_grid
+function get_input(::iH̄, simulation, glacier_idx, t)
     return simulation.cache.iceflow.H̄
 end
 
@@ -65,9 +67,9 @@ spatial differences are averaged over the opposite axis:
 S = B + H
 ∇S = (avg_y(diff_x(S) / Δx).^2 .+ avg_x(diff_y(S) / Δy).^2).^(1/2)
 """
-struct Inp∇S <: AbstractInput end
-default_name(::Inp∇S) = :∇S
-function get_input(::Inp∇S, simulation, glacier_idx, t)
+struct i∇S <: AbstractInput end
+default_name(::i∇S) = :∇S
+function get_input(::i∇S, simulation, glacier_idx, t)
     return simulation.cache.iceflow.∇S
 end
 
@@ -75,33 +77,49 @@ end
 Input that represents the topographic roughness of the glacier.
 It is computed as the standard deviation of the elevation of the glacier's DEM.
 """
-struct InpTopoRough{F<:AbstractFloat} <: AbstractInput 
+struct iTopoRough{F<:AbstractFloat} <: AbstractInput 
     window::F
-    InpTopoRough{F}(; window::F = 200.0) where {F<:AbstractFloat} = new{F}(window)
+    iTopoRough{F}(window::F = 200.0) where {F<:AbstractFloat} = new{F}(window)
 end
 
-default_name(::InpTopoRough) = :topographic_roughness  
+iTopoRough(; window::F = 200.0) where {F<:AbstractFloat} = iTopoRough{F}(window)
 
-function get_input(inp_topo_rough::InpTopoRough, simulation, glacier_idx, t)  
-    window = inp_topo_rough.window  
-    glacier = simulation.glaciers[glacier_idx]  
-    # Compute the topographic roughness as the standard deviation of the elevation in a window of around 200 meters  
-    # around each pixel of the glacier's DEM.  
-    dem = glacier.S  
-    window_size = max(1, Int(round(window / glacier.Δx)))  
-    half_window = max(1, div(window_size, 2))  # Ensure at least 1 pixel  
-    rows, cols = size(dem)  
-    roughness = similar(dem)  
-    for i in 1:rows, j in 1:cols  
-        rmin = max(1, i - half_window)  
-        rmax = min(rows, i + half_window)  
-        cmin = max(1, j - half_window)  
-        cmax = min(cols, j + half_window)  
-        window = dem[rmin:rmax, cmin:cmax]  
-        roughness[i, j] = std(window)  
-    end  
-    return roughness  
-end 
+default_name(::iTopoRough) = :topographic_roughness  
+
+function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
+    window = inp_topo_rough.window
+    glacier = simulation.glaciers[glacier_idx]
+    dem = glacier.S
+    window_size = max(3, Int(round(window / glacier.Δx)))  # At least 3 for second derivative
+    half_window = max(1, div(window_size, 2))
+    rows, cols = size(dem)
+    roughness = zeros(eltype(dem), size(dem))
+
+    for i in 1:rows, j in 1:cols
+        rmin = max(1, i - half_window)
+        rmax = min(rows, i + half_window)
+        cmin = max(1, j - half_window)
+        cmax = min(cols, j + half_window)
+        window_dem = dem[rmin:rmax, cmin:cmax]
+
+        # Compute local slope (first derivative)
+        dx = diff_x(window_dem) / glacier.Δx
+        dy = diff_y(window_dem) / glacier.Δy
+
+        # Compute local curvature (second derivative)
+        dxx = diff_x(dx) / glacier.Δx
+        dyy = diff_y(dy) / glacier.Δy
+
+        # Ensure dxx and dyy have the same size for addition
+        minlen = min(length(dxx), length(dyy))
+        curvature = dxx[1:minlen] .+ dyy[1:minlen]
+        val = std(curvature)
+        # Double check that no NaNs are added due to border effects
+        roughness[i, j] = isnan(val) ? zero(eltype(dem)) : val 
+    end
+    
+    return roughness
+end
 
 """
     ConstantA(A::F) where {F <: AbstractFloat}
@@ -147,7 +165,7 @@ function CuffeyPaterson()
     A_law = let A = A
         Law{Array{Float64, 0}}(;
             name = :CuffeyPaterson,
-            inputs = (; T=InpTemp()),
+            inputs = (; T=iTemp()),
             f! = function (cache, inp, θ)
                 cache .= A.(inp.T)
             end,
@@ -168,24 +186,31 @@ based on the ratio of `CPDD` (cumulative positive degree days) to `topo_roughnes
 The law is parameterized by minimum and maximum values (`Cmin`, `Cmax`) from `params.physical`, and
 applies a sigmoid scaling to smoothly interpolate between these bounds.
 """
-function SyntheticC(params::Sleipnir.Parameters; inputs = (; CPDD=InpCPDD(), topo_roughness=InpTopoRough()))
+function SyntheticC(params::Sleipnir.Parameters; inputs = (; CPDD=iCPDD(), topo_roughness=iTopoRough()))
     C_synth_law = Law{Array{Float64, 2}}(;
         name = :SyntheticC,
         inputs = inputs,
         max_value = params.physical.maxC,
         min_value = params.physical.minC,
         f! = function (cache, inp, θ)
+            required_fields = (:CPDD, :topo_roughness)
+            missing = filter(f -> !haskey(inp, f), required_fields)
+            if !isempty(missing)
+                error("SyntheticC: Missing required input fields: $(missing)")
+            end
             # Nonlinear scaling using a sigmoid transformation
-            # C = Cmin + (Cmax - Cmin) * sigmoid(β * (inp.CPDD / (inp.topo_roughness + ϵ)))
             # β controls the steepness of the sigmoid, ϵ avoids division by zero
             Cmin = params.physical.minC
             Cmax = params.physical.maxC
             β = 1.0      # Steepness parameter for sigmoid
             ϵ = 1e-6     # Small value to avoid division by zeros
-            x = @. inp.CPDD / (inp.topo_roughness + ϵ)
+            norm_CPDD = normalize(inp.CPDD)
+            norm_topo = normalize(inp.topo_roughness)
+            # Predict value of C based a sigmoid function
+            x = @. norm_CPDD / (norm_topo + ϵ)
             sigmoid = @. 1.0 / (1.0 + exp(-β * (x - 1.0)))  # Center sigmoid at x=1 for flexibility
             # If the provided C values are a matrix, reduce matrix size to match operations
-            cache .= Cmin .+ (Cmax - Cmin) .* (isa(sigmoid, Matrix) ? inn1(sigmoid) : sigmoid)
+            cache .= Cmin .+ (Cmax - Cmin) .* inn1(sigmoid)
         end,
         init_cache = function (simulation, glacier_idx, θ; scalar::Bool = false)
             # Initialize cache as a scalar or vector depending on the required output
