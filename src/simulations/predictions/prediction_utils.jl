@@ -51,6 +51,7 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
         function (integrator)
             if params.simulation.use_MB
                 # Compute mass balance
+                glacier.S .= glacier.B .+ integrator.u
                 MB_timestep!(cache, model, glacier, step, integrator.t)
                 apply_MB_mask!(integrator.u, cache.iceflow)
             end
