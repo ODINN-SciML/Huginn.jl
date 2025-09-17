@@ -6,7 +6,7 @@ A mutable struct that holds parameters for the solver.
     SolverParameters{F <: AbstractFloat, I <: Integer}
 
 # Fields
-- `solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm`: The algorithm used for solving differential equations.
+- `solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm`: The algorithm used for solving differential equations.
 - `reltol::F`: The relative tolerance for the solver.
 - `step::F`: The step size for the solver.
 - `tstops::Union{Nothing, Vector{F}}`: Optional vector of time points where the solver should stop for the callbacks.
@@ -16,7 +16,7 @@ A mutable struct that holds parameters for the solver.
 - `maxiters::I`: Maximum number of iterations to perform in the iceflow solver.
 """
 mutable struct SolverParameters{F <: AbstractFloat, I <: Integer} <: AbstractParameters
-    solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm
+    solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm
     reltol::F
     step::F
     tstops::Union{Nothing,Vector{F}}
@@ -29,7 +29,7 @@ end
 """
 Constructs a `SolverParameters` object with the specified parameters or using default values.
 
-    SolverParameters(; solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm = RDPK3Sp35(),
+    SolverParameters(; solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm = RDPK3Sp35(),
                       reltol::F = 1e-12,
                       step::F = 1.0/12.0,
                       tstops::Union{Nothing,Vector{F}} = nothing,
@@ -40,7 +40,7 @@ Constructs a `SolverParameters` object with the specified parameters or using de
                     ) where {F <: AbstractFloat, I <: Integer}
 
 # Arguments
-- `solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm`: The ODE solver algorithm to use. Defaults to `RDPK3Sp35()`.
+- `solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm`: The ODE solver algorithm to use. Defaults to `RDPK3Sp35()`.
 - `reltol::F`: The relative tolerance for the solver. Defaults to `1e-12`.
 - `step::F`: The step size for the callbacks. These are mainly used to run the surface mass balance model. Defaults to `1.0/12.0` (i.e. a month).
 - `tstops::Union{Nothing, Vector{F}}`: Optional vector of time points where the solver should stop. Defaults to `nothing`.
@@ -53,7 +53,7 @@ Constructs a `SolverParameters` object with the specified parameters or using de
 - `solver_parameters`: A `SolverParameters` object constructed with the specified parameters.
 """
 function SolverParameters(;
-            solver::OrdinaryDiffEq.OrdinaryDiffEqAdaptiveAlgorithm = RDPK3Sp35(),
+            solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm = RDPK3Sp35(),
             reltol::F = 1e-12,
             step::F = 1.0/12.0,
             tstops::Union{Nothing,Vector{F}} = nothing,

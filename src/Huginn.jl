@@ -6,6 +6,7 @@ module Huginn
 # ##############################################
 
 using JLD2
+using OrdinaryDiffEqCore
 using OrdinaryDiffEq
 using Base: @kwdef
 using Tullio
