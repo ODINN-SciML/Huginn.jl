@@ -16,6 +16,7 @@ using CairoMakie
 using Random
 using JET
 using ForwardDiff
+using MLStyle
 using Huginn
 using Sleipnir: DummyClimate2D
 
