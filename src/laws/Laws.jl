@@ -90,7 +90,7 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
     window = inp_topo_rough.window
     glacier = simulation.glaciers[glacier_idx]
     dem = glacier.S
-    window_size = max(3, Int(round(window / glacier.Δx)))  # At least 3 for second derivative
+    window_size = max(4, Int(round(window / glacier.Δx)))  # At least 3 for second derivative
     half_window = max(1, div(window_size, 2))
     rows, cols = size(dem)
     roughness = zeros(eltype(dem), size(dem))
@@ -110,9 +110,16 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
         dxx = diff_x(dx) / glacier.Δx
         dyy = diff_y(dy) / glacier.Δy
 
+        # We compute the curvature as the spectral norm of the Hessian matrix
         # Ensure dxx and dyy have the same size for addition
         minlen = min(length(dxx), length(dyy))
-        curvature = dxx[1:minlen] .+ dyy[1:minlen]
+        # Compute mixed second derivative
+        dxy = diff_y(dx) / glacier.Δy
+        # Ensure all arrays have compatible size
+        minlen = minimum([length(dxx), length(dyy), length(dxy)])
+        t = dxx[1:minlen] .+ dyy[1:minlen]
+        d = dxx[1:minlen] .* dyy[1:minlen] .- dxy[1:minlen].^2
+        curvature = (t .+ sqrt.(t.^2 .- 4 .* d)) ./ 2
         val = std(curvature)
         # Double check that no NaNs are added due to border effects
         roughness[i, j] = isnan(val) ? zero(eltype(dem)) : val 
@@ -202,12 +209,14 @@ function SyntheticC(params::Sleipnir.Parameters; inputs = (; CPDD=iCPDD(), topo_
             # β controls the steepness of the sigmoid, ϵ avoids division by zero
             Cmin = params.physical.minC
             Cmax = params.physical.maxC
-            β = 1.0      # Steepness parameter for sigmoid
-            ϵ = 1e-6     # Small value to avoid division by zeros
+            # Parameters
+            α = 1.0   # CPDD weight
+            γ = 10.0   # topo weight
+            β = 4.0   # steepness
             norm_CPDD = normalize(inp.CPDD)
             norm_topo = normalize(inp.topo_roughness)
-            # Predict value of C based a sigmoid function
-            x = @. norm_CPDD / (norm_topo + ϵ)
+            # 2D logistic surface
+            x = α .* norm_CPDD .- γ .* norm_topo
             sigmoid = @. 1.0 / (1.0 + exp(-β * (x - 1.0)))  # Center sigmoid at x=1 for flexibility
             # If the provided C values are a matrix, reduce matrix size to match operations
             cache .= Cmin .+ (Cmax - Cmin) .* inn1(sigmoid)
