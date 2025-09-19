@@ -167,3 +167,49 @@ Returns a view of the input array `A` excluding the last row and the last column
 - A view of the input array `A` that includes all elements except the last row and the last column.
 """
 @views inn1(A) = A[1:end-1,1:end-1]
+
+"""
+    d2dx(f::Matrix{T}, i::Int, j::Int, Δx::Float64) where T <: Real
+
+Compute the second central difference in the x-direction at (i,j).
+"""
+function d2dx(f::Matrix{T}, i::Int, j::Int, Δx::Float64) where T <: Real
+    return (f[i, j+1] - 2f[i, j] + f[i, j-1]) / (Δx^2)
+end
+
+"""
+    d2dy(f::Matrix{T}, i::Int, j::Int, Δy::Float64) where T <: Real
+
+Compute the second central difference in the y-direction at (i,j).
+"""
+function d2dy(f::Matrix{T}, i::Int, j::Int, Δy::Float64) where T <: Real
+    return (f[i+1, j] - 2f[i, j] + f[i-1, j]) / (Δy^2)
+end
+
+"""
+    d2dxy(f::Matrix{T}, i::Int, j::Int, Δx::Float64, Δy::Float64) where T <: Real
+
+Compute the mixed second central difference (∂²f/∂x∂y) at (i,j).
+"""
+function d2dxy(f::Matrix{T}, i::Int, j::Int, Δx::Float64, Δy::Float64) where T <: Real
+    return (f[i+1, j+1] - f[i+1, j-1] - f[i-1, j+1] + f[i-1, j-1]) / (4 * Δx * Δy)
+end
+
+"""
+    project_curvatures(H, eₚ, eₛ)
+
+Project the Hessian matrix `H` onto the principal directions `eₚ` and `eₛ` to compute the principal curvatures.
+
+# Arguments
+- `H`: Hessian matrix (2x2).
+- `eₚ`: Principal direction vector 1 (2x1).
+- `eₛ`: Principal direction vector 2 (2x1). 
+# Returns
+- `Kₚ`: Curvature in the direction of `eₚ`.
+- `Kₛ`: Curvature in the direction of `eₛ`.
+"""
+function project_curvatures(H, eₚ, eₛ)
+    Kₚ = eₚ' * H * eₚ
+    Kₛ = eₛ' * H * eₛ
+    return Kₚ, Kₛ
+end

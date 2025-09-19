@@ -79,10 +79,11 @@ It is computed as the standard deviation of the elevation of the glacier's DEM.
 """
 struct iTopoRough{F<:AbstractFloat} <: AbstractInput 
     window::F
-    iTopoRough{F}(window::F = 200.0) where {F<:AbstractFloat} = new{F}(window)
+    curvature_type::Symbol
+    iTopoRough{F}(window::F = 200.0, curvature_type::Symbol = :scalar) where {F<:AbstractFloat} = new{F}(window, curvature_type)
 end
 
-iTopoRough(; window::F = 200.0) where {F<:AbstractFloat} = iTopoRough{F}(window)
+iTopoRough(; window::F = 200.0, curvature_type::Symbol = :scalar) where {F<:AbstractFloat} = iTopoRough{F}(window, curvature_type)
 
 default_name(::iTopoRough) = :topographic_roughness  
 
@@ -90,7 +91,7 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
     window = inp_topo_rough.window
     glacier = simulation.glaciers[glacier_idx]
     dem = glacier.S
-    window_size = max(4, Int(round(window / glacier.Δx)))  # At least 3 for second derivative
+    window_size = max(4, Int(round(window / glacier.Δx)))  # At least 4 for second derivative
     half_window = max(1, div(window_size, 2))
     rows, cols = size(dem)
     roughness = zeros(eltype(dem), size(dem))
@@ -102,29 +103,67 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
         cmax = min(cols, j + half_window)
         window_dem = dem[rmin:rmax, cmin:cmax]
 
-        # Compute local slope (first derivative)
-        dx = diff_x(window_dem) / glacier.Δx
-        dy = diff_y(window_dem) / glacier.Δy
+        if inp_topo_rough.curvature_type == :variability
+            # --- slope direction at central point ---
+            dx_c = diff_x(window_dem)[div(end,2)] / glacier.Δx
+            dy_c = diff_y(window_dem)[:, div(end,2)][div(end,2)] / glacier.Δy
+            slope_vec = [dx_c, dy_c]
+            nrm = norm(slope_vec)
+            if nrm ≈ 0
+                eₚ = [1.0, 0.0]   # arbitrary downslope direction
+            else
+                eₚ = slope_vec / nrm   # downslope unit vector
+            end
+            eₛ = [-eₚ[2], eₚ[1]]      # cross-slope unit vector
 
-        # Compute local curvature (second derivative)
-        dxx = diff_x(dx) / glacier.Δx
-        dyy = diff_y(dy) / glacier.Δy
+            # --- compute curvature field inside the window ---
+            Kₚ = Float64[]
+            Kₛ = Float64[]
+            wrows, wcols = size(window_dem)
+            for wi in 2:(wrows-1), wj in 2:(wcols-1)   # avoid borders
 
-        # We compute the curvature as the spectral norm of the Hessian matrix
-        # Ensure dxx and dyy have the same size for addition
-        minlen = min(length(dxx), length(dyy))
-        # Compute mixed second derivative
-        dxy = diff_y(dx) / glacier.Δy
-        # Ensure all arrays have compatible size
-        minlen = minimum([length(dxx), length(dyy), length(dxy)])
-        t = dxx[1:minlen] .+ dyy[1:minlen]
-        d = dxx[1:minlen] .* dyy[1:minlen] .- dxy[1:minlen].^2
-        curvature = (t .+ sqrt.(t.^2 .- 4 .* d)) ./ 2
-        val = std(curvature)
-        # Double check that no NaNs are added due to border effects
-        roughness[i, j] = isnan(val) ? zero(eltype(dem)) : val 
+                # second derivatives using central difference utils
+                dxx = d2dx(window_dem, wi, wj, glacier.Δx)
+                dyy = d2dy(window_dem, wi, wj, glacier.Δy)
+                dxy = d2dxy(window_dem, wi, wj, glacier.Δx, glacier.Δy)
+
+                # Hessian
+                H = [dxx dxy; dxy dyy]
+
+                # project Hessian along slope directions
+                Kₚᵢ, Kₛᵢ = project_curvatures(H, eₚ, eₛ)
+                push!(Kₚ, Kₚᵢ)   # curvature parallel to slope
+                push!(Kₛ, Kₛᵢ)   # curvature cross-slope
+            end
+
+            # --- define roughness as variability in both directions ---
+            val = sqrt(std(Kₚ)^2 + std(Kₛ)^2)
+            roughness[i,j] = isnan(val) ? 0.0 : val
+
+        elseif inp_topo_rough.curvature_type == :scalar
+            # Gradient (slope direction)
+            dx = diff_x(window_dem) / glacier.Δx
+            dy = diff_y(window_dem) / glacier.Δy
+            gx, gy = mean(dx), mean(dy)   # average slope in window
+            gvec = [gx, gy]
+            gmag = norm(gvec) + eps()     # avoid div0
+            ŝ = gvec / gmag               # downslope unit vector
+            n̂ = [-ŝ[2], ŝ[1]]            # cross-slope unit vector
+
+            # Hessian
+            dxx = diff_x(dx) / glacier.Δx
+            dyy = diff_y(dy) / glacier.Δy
+            dxy = diff_y(dx) / glacier.Δy
+            H = [mean(dxx) mean(dxy); mean(dxy) mean(dyy)]
+
+            # Projected curvatures
+            Kₚ, Kₛ = project_curvatures(H, ŝ, n̂)
+
+            val = sqrt(Kₚ^2 + Kₛ^2)   # or std over window
+            roughness[i,j] = isnan(val) ? 0 : val
+        end
     end
-    
+
     return roughness
 end
 
