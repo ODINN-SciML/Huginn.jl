@@ -229,7 +229,7 @@ function generate_ground_truth(
     Huginn.run!(prediction)
 
     # Create new glaciers with the thickness and velocity data
-    return thickness_velocity_data(prediction, tstops), prediction
+    return thickness_velocity_data(prediction, tstops)
 end
 
 
@@ -270,8 +270,8 @@ function generate_ground_truth!(
 ) where {G <: Sleipnir.AbstractGlacier, F <: AbstractFloat}
 
     # We update the current prediction to include the newly generated glaciers
-    glaciers, prediction = generate_ground_truth(glaciers, params, model, tstops)
-    prediction.glaciers = glaciers
+    glaciers = generate_ground_truth(glaciers, params, model, tstops)
+    prediction = Huginn.Prediction(model, glaciers, params)
 
     # We return the prediction object so that it can be used later
     return prediction

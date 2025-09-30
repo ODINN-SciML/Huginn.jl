@@ -104,7 +104,7 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
         window_dem = dem[rmin:rmax, cmin:cmax]
 
         if inp_topo_rough.curvature_type == :variability
-            # --- slope direction at central point ---
+            # Slope direction at central point
             dx_c = diff_x(window_dem)[div(end,2)] / glacier.Δx
             dy_c = diff_y(window_dem)[:, div(end,2)][div(end,2)] / glacier.Δy
             slope_vec = [dx_c, dy_c]
@@ -116,7 +116,7 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
             end
             eₛ = [-eₚ[2], eₚ[1]]      # cross-slope unit vector
 
-            # --- compute curvature field inside the window ---
+            # Compute curvature field inside the window 
             Kₚ = Float64[]
             Kₛ = Float64[]
             wrows, wcols = size(window_dem)
@@ -136,7 +136,7 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
                 push!(Kₛ, Kₛᵢ)   # curvature cross-slope
             end
 
-            # --- define roughness as variability in both directions ---
+            # Define roughness as variability in both directions
             val = sqrt(std(Kₚ)^2 + std(Kₛ)^2)
             roughness[i,j] = isnan(val) ? 0.0 : val
 
