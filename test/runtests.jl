@@ -10,6 +10,7 @@ end
 using Test
 using JLD2
 using Plots
+using Dates
 using Infiltrator
 using OrdinaryDiffEq
 using CairoMakie
@@ -24,6 +25,7 @@ include("params_construction.jl")
 include("halfar.jl")
 include("PDE_solve.jl")
 include("mass_conservation.jl")
+include("laws.jl")
 include("plotting.jl")
 
 # Activate to avoid GKS backend Plot issues in the JupyterHub
@@ -61,6 +63,22 @@ end
 @testset "Mass Conservation" begin
     @testset "Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
     @testset "Non Flat Bed" unit_mass_nonflatbed_test(; rtol=1.0e-7)
+end
+
+@testset "Laws" begin
+    @testset "Constructors" begin 
+        laws_constructor_default()
+        laws_constructor_specified()
+    end
+
+    @testset "Law Inputs" begin
+        test_iTopoRough()
+        test_iCPDD() 
+    end   
+
+    @testset "Laws" begin
+        test_SyntheticC()
+    end
 end
 
 @testset "Glacier Plotting" plot_analysis_flow_parameters_test()

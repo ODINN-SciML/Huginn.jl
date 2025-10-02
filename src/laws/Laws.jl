@@ -26,12 +26,12 @@ end
 Input that represents the cumulative positive degree days (PDD) over the last time window `window`.
 It is computed by summing the daily PDD values from `t - window` to `t` using the glacier's climate data.
 """
-struct iCPDD{I<:Integer} <: AbstractInput
-    window::I
-    iCPDD{I}(window::I = 7) where {I<:Integer} = new{I}(window)
+struct iCPDD{P<:Period} <: AbstractInput
+    window::P
+    iCPDD{P}(window::P = 7) where {P<:Period} = new{P}(window)
 end
 
-iCPDD(; window::I = 7) where {I<:Integer} = iCPDD{typeof(window)}(window)
+iCPDD(; window::P = Week(1)) where {P<:Period} = iCPDD{typeof(window)}(window)
 
 default_name(::iCPDD) = :CPDD  
 
@@ -39,7 +39,7 @@ function get_input(cpdd::iCPDD, simulation, glacier_idx, t)
     window = cpdd.window  
     glacier = simulation.glaciers[glacier_idx]  
     # We trim only the time period between `t` and `t - x`, where `x` is the PDD time window defined in the physical parameters.  
-    period = (partial_year(Day, t) - Day(window)):Day(1):partial_year(Day, t)  
+    period = (partial_year(Day, t) - window):Day(1):partial_year(Day, t)  
     get_cumulative_climate!(glacier.climate, period)  
     # Convert climate dataset to 2D based on the glacier's DEM  
     climate_2D_step = downscale_2D_climate(glacier.climate.climate_step, glacier.S, glacier.Coords)  
