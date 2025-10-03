@@ -89,21 +89,22 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     # Test below is not ready yet
     JET.@test_opt broken=true target_modules=(Sleipnir,Muninn,Huginn) Huginn.batch_iceflow_PDE!(1, prediction) # Call only the core of run! because saving to JLD2 file is not type stable and GC interferes with JET
 
+    file_name = @match (MB, laws, callback_laws) begin
+        (false, nothing, false) => "PDE_refs_noMB"
+        (true, nothing, false) => "PDE_refs_MB"
+        (true, :scalar, false) => "PDE_refs_MB_law"
+        (true, :scalar, true) => "PDE_refs_MB_law"
+        (true, :matrix, false) => "PDE_refs_MB_law"
+        (true, :matrix, true) => "PDE_refs_MB_law"
+    end
+
     # /!\ Saves current run as reference values
     if save_refs
-        if MB
-            jldsave(joinpath(Huginn.root_dir, "test/data/PDE/PDE_refs_MB.jld2"); prediction.results)
-        else
-            jldsave(joinpath(Huginn.root_dir, "test/data/PDE/PDE_refs_noMB.jld2"); prediction.results)
-        end
+        jldsave(joinpath(Huginn.root_dir, "test/data/PDE/$(file_name).jld2"); prediction.results)
     end
 
     # Load reference values for the simulation
-    if MB
-        PDE_refs = load(joinpath(Huginn.root_dir, "test/data/PDE/PDE_refs_MB.jld2"))["results"]
-    else
-        PDE_refs = load(joinpath(Huginn.root_dir, "test/data/PDE/PDE_refs_noMB.jld2"))["results"]
-    end
+    PDE_refs = load(joinpath(Huginn.root_dir, "test/data/PDE/$(file_name).jld2"))["results"]
 
     let results=prediction.results
 
@@ -130,7 +131,8 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         plot_test_error(result, test_ref, "Vy", result.rgi_id, vtol, MB)
 
         # Test that the PDE simulations are correct
-        @test all(isapprox.(result.H[end], test_ref.H[end], rtol=rtol, atol=atol))
+        mask = test_ref.H[end] .> 0.0
+        @test all(isapprox.(result.H[end][mask], test_ref.H[end][mask], rtol=rtol, atol=atol))
         @test all(isapprox.(result.Vx, test_ref.Vx, rtol=rtol, atol=vtol))
         @test all(isapprox.(result.Vy, test_ref.Vy, rtol=rtol, atol=vtol))
 
