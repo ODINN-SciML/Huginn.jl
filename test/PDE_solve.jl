@@ -48,14 +48,14 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         # dumb law that gives the default value of A as a 0-dimensional array
         Law{Array{Sleipnir.Float, 0}}(;
             f! = (A, sim, glacier_idx, t, θ) -> A .= sim.glaciers[glacier_idx].A,
-            init_cache = (sim, glacier_idx, θ) -> zeros(),
+            init_cache = (sim, glacier_idx, θ; scalar=true) -> zeros(),
             callback_freq = callback_laws ? 1/12 : nothing
         )
     elseif laws == :matrix
         # dumb law that gives the default value of A as a constant matrix
         Law{Matrix{Sleipnir.Float}}(;
             f! = (A, sim, glacier_idx, t, θ) -> A .= sim.glaciers[glacier_idx].A,
-            init_cache = function (sim, glacier_idx, θ)
+            init_cache = function (sim, glacier_idx, θ; scalar=false)
                 (;nx, ny) = sim.glaciers[glacier_idx]
                 return zeros(nx - 1, ny - 1)
             end,
