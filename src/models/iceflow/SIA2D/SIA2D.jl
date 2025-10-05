@@ -406,75 +406,75 @@ function Base.show(io::IO, model::SIA2Dmodel)
     colorn = :yellow
     colorY = :blue
     colorΓ = :cyan
-    print("SIA2D iceflow equation")
-    print("  = ∇("); printstyled("D";color=colorD); print(" ∇S)")
-    print("  with "); printstyled("D";color=colorD); print(" = "); printstyled("U";color=colorU);println(" H̄")
+    print(io, "SIA2D iceflow equation")
+    print(io, "  = ∇("); printstyled(io, "D";color=colorD); print(io, " ∇S)")
+    print(io, "  with "); printstyled(io, "D";color=colorD); print(io, " = "); printstyled(io, "U";color=colorU);println(io, " H̄")
     inp = []
     if model.U_is_provided
-        print("  and "); printstyled("U";color=colorU); print(": "); println(model.U)
+        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, ": "); println(io, model.U)
         push!(inp, inputs(model.U))
     elseif model.Y_is_provided
-        print("  and "); printstyled("U";color=colorU); print(" = (")
+        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = (")
 
         # Sliding part
-        printstyled("C";color=colorC);print(" (ρg)^");printstyled("n";color=colorn);print(" + ")
+        printstyled(io, "C";color=colorC);print(io, " (ρg)^");printstyled(io, "n";color=colorn);print(io, " + ")
         # Creeping part
-        printstyled("Y";color=colorY);print(" ")
-        printstyled("Γ";color=colorΓ);print(" H̄)")
+        printstyled(io, "Y";color=colorY);print(io, " ")
+        printstyled(io, "Γ";color=colorΓ);print(io, " H̄)")
         # Non linear part
-        print(" H̄^")
+        print(io, " H̄^")
         if isnothing(model.n_H)
-            printstyled("n";color=colorn)
+            printstyled(io, "n";color=colorn)
         else
-            print("n_H")
+            print(io, "n_H")
         end
-        print(" ∇S^(")
+        print(io, " ∇S^(")
         if isnothing(model.n_∇S)
-            printstyled("n";color=colorn); print("-1)")
+            printstyled(io, "n";color=colorn); print(io, "-1)")
         else
-            print("n_∇S-1)")
+            print(io, "n_∇S-1)")
         end
-        println()
+        println(io)
 
-        printstyled("      Γ";color=colorΓ);print(" = 2");print(" (ρg)^"); printstyled("n";color=colorn)
-        print(" /(");printstyled("n";color=colorn);println("+2)")
+        printstyled(io, "      Γ";color=colorΓ);print(io, " = 2");print(io, " (ρg)^"); printstyled(io, "n";color=colorn)
+        print(io, " /(");printstyled(io, "n";color=colorn);println(io, "+2)")
 
-        printstyled("      Y: ";color=colorY); println(model.Y)
-        printstyled("      C: ";color=colorC); println(model.C)
-        printstyled("      n: ";color=colorn); println(model.n)
+        printstyled(io, "      Y: ";color=colorY); println(io, model.Y)
+        printstyled(io, "      C: ";color=colorC); println(io, model.C)
+        printstyled(io, "      n: ";color=colorn); println(io, model.n)
         if !isnothing(model.n_H)
-            println("      n_H = $(model.n_H)")
+            println(io, "      n_H = $(model.n_H)")
         end
         if !isnothing(model.n_∇S)
-            println("      n_∇S = $(model.n_∇S)")
+            println(io, "      n_∇S = $(model.n_∇S)")
         end
         push!(inp, inputs(model.Y))
         push!(inp, inputs(model.C))
         push!(inp, inputs(model.n))
     else
-        print("  and "); printstyled("U";color=colorU); print(" = (")
+        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = (")
         # Sliding part
-        printstyled("C";color=colorC);print(" (ρg)^");printstyled("n";color=colorn);print(" + ")
+        printstyled(io, "C";color=colorC);print(io, " (ρg)^");printstyled(io, "n";color=colorn);print(io, " + ")
         # Creeping part
-        printstyled("Γ";color=colorΓ);print(" H̄)")
+        printstyled(io, "Γ";color=colorΓ);print(io, " H̄)")
         # Non linear part
-        print(" H̄^");printstyled("n";color=colorn);print(" ∇S^(");printstyled("n";color=colorn);println("-1)")
+        print(io, " H̄^");printstyled(io, "n";color=colorn);print(io, " ∇S^(");printstyled(io, "n";color=colorn);println(io, "-1)")
 
-        printstyled("      Γ";color=colorΓ);print(" = 2");printstyled("A";color=colorA);print(" (ρg)^"); printstyled("n";color=colorn)
-        print(" /(");printstyled("n";color=colorn);println("+2)")
+        printstyled(io, "      Γ";color=colorΓ);print(io, " = 2");printstyled(io, "A";color=colorA);print(io, " (ρg)^"); printstyled(io, "n";color=colorn)
+        print(io, " /(");printstyled(io, "n";color=colorn);println(io, "+2)")
 
-        printstyled("      A: ";color=colorA); println(model.A)
-        printstyled("      C: ";color=colorC); println(model.C)
-        printstyled("      n: ";color=colorn); println(model.n)
+        printstyled(io, "      A: ";color=colorA); println(io, model.A)
+        printstyled(io, "      C: ";color=colorC); println(io, model.C)
+        printstyled(io, "      n: ";color=colorn); println(io, model.n)
         push!(inp, inputs(model.A))
         push!(inp, inputs(model.C))
         push!(inp, inputs(model.n))
     end
     inp = merge(inp...)
     if length(inp)>0
-        println("  where")
+        println(io, "  where")
         for (k,v) in pairs(inp)
-            println("      $(k) => $(default_name(v))")
+            println(io, "      $(k) => $(default_name(v))")
         end
     end
 end
