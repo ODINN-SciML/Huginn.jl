@@ -80,10 +80,17 @@ It is computed as the standard deviation of the elevation of the glacier's DEM.
 struct iTopoRough{F<:AbstractFloat} <: AbstractInput 
     window::F
     curvature_type::Symbol
-    iTopoRough{F}(window::F = 200.0, curvature_type::Symbol = :scalar) where {F<:AbstractFloat} = new{F}(window, curvature_type)
+    direction::Symbol
+    function iTopoRough{F}(window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow) where {F<:AbstractFloat}
+        valid_directions = (:flow, :cross_flow, :both)
+        if !(direction in valid_directions)
+            error("Invalid direction: $direction. Must be one of $(valid_directions).")
+        end
+        new{F}(window, curvature_type, direction)
+    end
 end
 
-iTopoRough(; window::F = 200.0, curvature_type::Symbol = :scalar) where {F<:AbstractFloat} = iTopoRough{F}(window, curvature_type)
+iTopoRough(; window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow) where {F<:AbstractFloat} = iTopoRough{F}(window, curvature_type, direction)
 
 default_name(::iTopoRough) = :topographic_roughness  
 
@@ -136,8 +143,14 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
                 push!(Kₛ, Kₛᵢ)   # curvature cross-slope
             end
 
-            # Define roughness as variability in both directions
-            val = sqrt(std(Kₚ)^2 + std(Kₛ)^2)
+            # Define roughness as variability depending on the directions
+            if inp_topo_rough.direction == :flow
+                val = std(Kₚ)
+            elseif inp_topo_rough.direction == :cross_flow
+                val = std(Kₛ)
+            elseif inp_topo_rough.direction == :both
+                val = sqrt(std(Kₚ)^2 + std(Kₛ)^2)
+            end
             roughness[i,j] = isnan(val) ? 0.0 : val
 
         elseif inp_topo_rough.curvature_type == :scalar
@@ -159,7 +172,13 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
             # Projected curvatures
             Kₚ, Kₛ = project_curvatures(H, ŝ, n̂)
 
-            val = sqrt(Kₚ^2 + Kₛ^2)   # or std over window
+            if inp_topo_rough.direction == :flow
+                val = Kₚ   # or std over window
+            elseif inp_topo_rough.direction == :cross_flow
+                val = Kₛ   # or std over window
+            elseif inp_topo_rough.direction == :both
+                val = sqrt(Kₚ^2 + Kₛ^2)
+            end
             roughness[i,j] = isnan(val) ? 0 : val
         end
     end

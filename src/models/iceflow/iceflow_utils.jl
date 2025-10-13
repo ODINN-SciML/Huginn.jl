@@ -198,7 +198,7 @@ end
 """
     project_curvatures(H, eₚ, eₛ)
 
-Project the Hessian matrix `H` onto the principal directions `eₚ` and `eₛ` to compute the principal curvatures.
+Computes the scalar second derivative of the surface in a specific direction.
 
 # Arguments
 - `H`: Hessian matrix (2x2).

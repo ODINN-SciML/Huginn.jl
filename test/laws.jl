@@ -92,6 +92,10 @@ function test_iTopoRough()
     topo_rough = iTopoRough(window=200.0)
     roughness = get_input(topo_rough, simulation, 1, 2010.0)
     @test size(roughness) == size(glaciers[1].S)
+
+    topo_rough = iTopoRough(window=400.0, curvature_type=:variability, direction=:flow)
+    roughness = get_input(topo_rough, simulation, 1, 2010.0)
+    @test size(roughness) == size(glaciers[1].S) 
     @test all(roughness .>= 0)
 end
 
