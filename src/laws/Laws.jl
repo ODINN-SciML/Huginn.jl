@@ -1,4 +1,4 @@
-import Sleipnir: get_input, default_name
+import Sleipnir: get_input, default_name, prepare_vjp_law
 
 export InpTemp, InpH̄, Inp∇S
 export ConstantA, CuffeyPaterson
@@ -15,6 +15,10 @@ function get_input(::InpTemp, simulation, glacier_idx, t)
     glacier = simulation.glaciers[glacier_idx]
     return mean(glacier.climate.longterm_temps)
 end
+function Base.zero(::InpTemp, simulation, glacier_idx)
+    glacier = simulation.glaciers[glacier_idx]
+    return zero(glacier.climate.longterm_temps)
+end
 
 """
     InpH̄ <: AbstractInput
@@ -27,6 +31,10 @@ struct InpH̄ <: AbstractInput end
 default_name(::InpH̄) = :H_dual_grid
 function get_input(::InpH̄, simulation, glacier_idx, t)
     return simulation.cache.iceflow.H̄
+end
+function Base.zero(::InpH̄, simulation, glacier_idx)
+    (; nx, ny) = simulation.glaciers[glacier_idx]
+    return zeros(nx-1, ny-1)
 end
 
 """
@@ -41,6 +49,10 @@ default_name(::Inp∇S) = :∇S
 function get_input(::Inp∇S, simulation, glacier_idx, t)
     return simulation.cache.iceflow.∇S
 end
+function Base.zero(::Inp∇S, simulation, glacier_idx)
+    (; nx, ny) = simulation.glaciers[glacier_idx]
+    return zeros(nx-1, ny-1)
+end
 
 """
     ConstantA(A::F) where {F <: AbstractFloat}
@@ -51,8 +63,8 @@ Law that represents a constant A in the SIA.
 - `A::F`: Rheology factor A.
 """
 function ConstantA(A::F) where {F <: AbstractFloat}
-    return ConstantLaw{Array{Float64, 0}}(function (simulation, glacier_idx, θ)
-            return fill(A)
+    return ConstantLaw{FloatCacheNoVJP}(function (simulation, glacier_idx, θ)
+            return FloatCacheNoVJP(fill(A))
         end,
     )
 end
@@ -84,15 +96,20 @@ then evaluated at a given temperature in the law.
 function CuffeyPaterson()
     A = polyA_PatersonCuffey()
     A_law = let A = A
-        Law{Array{Float64, 0}}(;
+        Law{FloatCacheNoVJP}(;
             inputs = (; T=InpTemp()),
             f! = function (cache, inp, θ)
-                cache .= A.(inp.T)
+                cache.value .= A.(inp.T)
             end,
             init_cache = function (simulation, glacier_idx, θ)
-                return zeros()
+                return FloatCacheNoVJP(zeros())
             end,
         )
     end
     return A_law
 end
+
+
+prepare_vjp_law(simulation, law::ConstantLaw, law_cache, θ, glacier_idx) = nothing
+prepare_vjp_law(simulation, law::NullLaw, law_cache, θ, glacier_idx) = nothing
+prepare_vjp_law(simulation::Prediction, law::Law, law_cache, θ, glacier_idx) = nothing

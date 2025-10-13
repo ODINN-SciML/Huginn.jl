@@ -75,19 +75,19 @@ function SIA2D!(
 
     if SIA2D_model.U_is_provided
         # Compute D from U
-        D .= U .* H̄
+        D .= U.value .* H̄
     elseif SIA2D_model.Y_is_provided
         # Compute D from Y, H and the exponent defined in target
-        n_H = SIA2D_model.n_H_is_provided ? SIA2D_cache.n_H : n
-        n_∇S = SIA2D_model.n_∇S_is_provided ? SIA2D_cache.n_∇S : n
-        gravity_term = (ρ * g).^n
-        Γ_no_A = @. 2.0 * gravity_term / (n + 2)
-        D .= (C .* gravity_term .+ Y .* Γ_no_A .* H̄) .* H̄.^(n_H .+ 1) .* ∇S.^(n_∇S .- 1)
+        n_H = SIA2D_model.n_H_is_provided ? SIA2D_cache.n_H : n.value
+        n_∇S = SIA2D_model.n_∇S_is_provided ? SIA2D_cache.n_∇S : n.value
+        gravity_term = (ρ * g).^n.value
+        Γ_no_A = @. 2.0 * gravity_term / (n.value + 2)
+        D .= (C.value .* gravity_term .+ Y.value .* Γ_no_A .* H̄) .* H̄.^(n_H .+ 1) .* ∇S.^(n_∇S .- 1)
     else
         # Compute D from A, C and n
-        gravity_term = (ρ * g).^n
-        @. Γ = 2.0 * A * gravity_term / (n + 2) # 1 / m^3 s
-        @. D = (C * gravity_term + Γ * H̄) * H̄^(n + 1) * ∇S ^ (n - 1)
+        gravity_term = (ρ * g).^n.value
+        @. Γ.value = 2.0 * A.value * gravity_term / (n.value + 2) # 1 / m^3 s
+        @. D = (C.value * gravity_term + Γ.value * H̄) * H̄^(n.value + 1) * ∇S ^ (n.value - 1)
     end
 
     # Compute flux components
@@ -176,6 +176,29 @@ function apply_all_non_callback_laws!(
         end
     end
 end
+
+"""
+    precompute_all_VJPs_laws!(
+        SIA2D_model::SIA2Dmodel,
+        SIA2D_cache::SIA2DCache,
+        simulation::Prediction,
+        glacier_idx::Integer,
+        t::Real,
+        θ,
+    )
+
+Function that does nothing and its existence is just to support
+multiple dispatch. The implementation that is useful is available
+in ODINN when simulation is a `FunctionalInversion` object.
+"""
+precompute_all_VJPs_laws!(
+    SIA2D_model::SIA2Dmodel,
+    SIA2D_cache::SIA2DCache,
+    simulation::Prediction,
+    glacier_idx::Integer,
+    t::Real,
+    θ,
+) = nothing
 
 """
     avg_surface_V!(simulation::SIM, t::R, θ) where {SIM <: Simulation, R <: Real}
@@ -279,18 +302,18 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM, t::R, θ) where {SIM <: 
 
     D = if iceflow_model.U_is_provided
         # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        U
+        U.value
     elseif iceflow_model.Y_is_provided
         # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n
-        n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n
-        gravity_term = (ρ * g).^n
-        Γ_no_A = @. 2.0 * gravity_term / (n + 2)
-        (C .* gravity_term .+ Y .* Γ_no_A .* H̄) .* H̄.^n_H .* ∇S.^(n_∇S .- 1)
+        n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
+        n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
+        gravity_term = (ρ * g).^n.value
+        Γ_no_A = @. 2.0 * gravity_term / (n.value + 2)
+        (C.value .* gravity_term .+ Y.value .* Γ_no_A .* H̄) .* H̄.^n_H .* ∇S.^(n_∇S .- 1)
     else
-        gravity_term = (ρ * g).^n
-        @. Γꜛ = 2.0 * A * gravity_term / (n+1) # surface stress (not average)  # 1 / m^3 s
-        @. (C * (n+2) * gravity_term + Γꜛ) * H̄^(n + 1) * ∇S .^ (n - 1)
+        gravity_term = (ρ * g).^n.value
+        @. Γꜛ.value = 2.0 * A.value * gravity_term / (n.value+1) # surface stress (not average)  # 1 / m^3 s
+        @. (C.value * (n.value+2) * gravity_term + Γꜛ.value) * H̄^(n.value + 1) * ∇S .^ (n.value - 1)
     end
 
     # Compute averaged surface velocities
@@ -361,18 +384,18 @@ function surface_V(
 
     D = if iceflow_model.U_is_provided
         # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        U
+        U.value
     elseif iceflow_model.Y_is_provided
         # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n
-        n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n
-        gravity_term = (ρ * g).^n
-        Γ_no_A = @. 2.0 * gravity_term / (n + 2)
-        (C .* gravity_term .+ Y .* Γ_no_A .* H̄) .* H̄.^n_H .* ∇S.^(n_∇S .- 1)
+        n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
+        n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
+        gravity_term = (ρ * g).^n.value
+        Γ_no_A = @. 2.0 * gravity_term / (n.value + 2)
+        (C.value .* gravity_term .+ Y.value .* Γ_no_A .* H̄) .* H̄.^n_H .* ∇S.^(n_∇S .- 1)
     else
-        gravity_term = (ρ * g).^n
-        Γꜛ = @. 2.0 * A * gravity_term / (n+1) # surface stress (not average)  # 1 / m^3 s
-        (C .* (n.+2) .* gravity_term .+ Γꜛ) .* H̄.^(n .+ 1) .* ∇S .^ (n .- 1)
+        gravity_term = (ρ * g).^n.value
+        Γꜛ = @. 2.0 * A.value * gravity_term / (n.value+1) # surface stress (not average)  # 1 / m^3 s
+        (C.value .* (n.value.+2) .* gravity_term .+ Γꜛ) .* H̄.^(n.value .+ 1) .* ∇S .^ (n.value .- 1)
     end
 
     # Compute averaged surface velocities

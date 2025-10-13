@@ -46,18 +46,18 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         nothing
     elseif laws == :scalar
         # dumb law that gives the default value of A as a 0-dimensional array
-        Law{Array{Sleipnir.Float, 0}}(;
-            f! = (A, sim, glacier_idx, t, θ) -> A .= sim.glaciers[glacier_idx].A,
-            init_cache = (sim, glacier_idx, θ) -> zeros(),
+        Law{FloatCacheNoVJP}(;
+            f! = (A, sim, glacier_idx, t, θ) -> A.value .= sim.glaciers[glacier_idx].A,
+            init_cache = (sim, glacier_idx, θ) -> FloatCacheNoVJP(zeros()),
             callback_freq = callback_laws ? 1/12 : nothing
         )
     elseif laws == :matrix
         # dumb law that gives the default value of A as a constant matrix
-        Law{Matrix{Sleipnir.Float}}(;
-            f! = (A, sim, glacier_idx, t, θ) -> A .= sim.glaciers[glacier_idx].A,
+        Law{MatrixCacheNoVJP}(;
+            f! = (A, sim, glacier_idx, t, θ) -> A.value .= sim.glaciers[glacier_idx].A,
             init_cache = function (sim, glacier_idx, θ)
                 (;nx, ny) = sim.glaciers[glacier_idx]
-                return zeros(nx - 1, ny - 1)
+                return MatrixCacheNoVJP(zeros(nx - 1, ny - 1))
             end,
             callback_freq = callback_laws ? 1/12 : nothing
         )
@@ -173,8 +173,8 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     # fake simulation
     simulation = (;model, glaciers)
 
-    cache = init_cache(model, simulation, glacier_idx, params)
-    JET.@test_opt init_cache(model, simulation, glacier_idx, params)
+    cache = init_cache(model, simulation, glacier_idx, nothing)
+    JET.@test_opt init_cache(model, simulation, glacier_idx, nothing)
 
     t = 2015.0
 

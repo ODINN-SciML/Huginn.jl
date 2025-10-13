@@ -108,31 +108,33 @@ This struct stores the laws used to compute these three parameters during a simu
             U_is_provided,
             n_H_is_provided,
             n_∇S_is_provided,
-            !is_callback_law(A) && !(A isa ConstantLaw) && !(A isa NullLaw),
-            !is_callback_law(C) && !(C isa ConstantLaw) && !(C isa NullLaw),
-            !is_callback_law(n) && !(n isa ConstantLaw) && !(n isa NullLaw),
-            !is_callback_law(Y) && !(Y isa ConstantLaw) && !(Y isa NullLaw),
-            !is_callback_law(U) && !(U isa ConstantLaw) && !(U isa NullLaw),
+            apply_law_in_model(A),
+            apply_law_in_model(C),
+            apply_law_in_model(n),
+            apply_law_in_model(Y),
+            apply_law_in_model(U),
         )
     end
 end
 
-const _default_A_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
-    (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].A)
+const _default_A_law = ConstantLaw{FloatCacheNoVJP}(
+    (simulation, glacier_idx, θ) -> FloatCacheNoVJP(fill(simulation.glaciers[glacier_idx].A))
 )
 
-const _default_C_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
-    (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].C)
+const _default_C_law = ConstantLaw{FloatCacheNoVJP}(
+    (simulation, glacier_idx, θ) -> FloatCacheNoVJP(fill(simulation.glaciers[glacier_idx].C))
 )
 
-const _default_n_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
-    (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].n)
+const _default_n_law = ConstantLaw{FloatCacheNoVJP}(
+    (simulation, glacier_idx, θ) -> FloatCacheNoVJP(fill(simulation.glaciers[glacier_idx].n))
 )
 
 SIA2Dmodel(params::Sleipnir.Parameters; A = nothing, C = nothing, n = nothing, Y = nothing, U = nothing, n_H = nothing, n_∇S = nothing) = SIA2Dmodel(A, C, n, Y, U, n_H, n_∇S)
 
 """
-    struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, Y_CACHE, U_CACHE, ∂A∂θ_CACHE, ∂Y∂θ_CACHE, ∂U∂θ_CACHE} <: SIAmodel
+    SIA2DCache{
+        R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, n_H_CACHE, n_∇S_CACHE, Y_CACHE, U_CACHE
+    } <: SIAmodel
 
 Store and preallocated all variables needed for running the 2D Shallow Ice Approximation (SIA) model efficiently.
 
@@ -142,9 +144,6 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 - `A_CACHE`, `C_CACHE`, `n_CACHE`: Types used for caching `A`, `C`, and `n`, which can be scalars, vectors, or matrices.
 - `Y_CACHE`: Type used for caching `Y` which is a matrix.
 - `U_CACHE`: Type used for caching `U` which is a matrix.
-- `∂A∂θ_CACHE`: Type used for caching `∂A∂θ` in the VJP computation which is a scalar.
-- `∂Y∂θ_CACHE`: Type used for caching `∂Y∂θ` in the VJP computation which is a scalar.
-- `∂U∂θ_CACHE`: Type used for caching `∂U∂θ` in the VJP computation which is a scalar.
 
 # Fields
 - `A::A_CACHE`: Flow rate factor.
@@ -154,12 +153,6 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 - `C::C_CACHE`: Sliding coefficient.
 - `Y::Y_CACHE`: Hybrid diffusivity.
 - `U::U_CACHE`: Diffusive velocity.
-- `∂A∂H::A_CACHE`: Buffer for VJP computation.
-- `∂A∂θ::∂A∂θ_CACHE`: Buffer for VJP computation.
-- `∂Y∂H::Y_CACHE`: Buffer for VJP computation.
-- `∂Y∂θ::∂Y∂θ_CACHE`: Buffer for VJP computation.
-- `∂U∂H::U_CACHE`: Buffer for VJP computation.
-- `∂U∂θ::∂U∂θ_CACHE`: Buffer for VJP computation.
 - `H₀::Matrix{R}`: Initial ice thickness.
 - `H::Matrix{R}`: Ice thickness.
 - `H̄::Matrix{R}`: Averaged ice thickness.
@@ -186,21 +179,22 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 - `MB_mask::BitMatrix`: Boolean mask for applying the mass balance.
 - `MB_total::Matrix{R}`: Total mass balance field.
 - `glacier_idx::I`: Index of the glacier for use in simulations with multiple glaciers.
+- `A_prep_vjps`, `C_prep_vjps`, `n_prep_vjps`, `Y_prep_vjps` and `U_prep_vjps`: Structs
+    that contain the prepared VJP functions for the adjoint computation and for the
+    different laws. Useful mainly when the user does not provide the VJPs and they are
+    computed using DifferentiationInterface.jl which requires to store precompiled
+    functions. When no gradient is computed, these structs are `nothing`.
 """
-@kwdef struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, Y_CACHE, U_CACHE, ∂A∂θ_CACHE, ∂Y∂θ_CACHE, ∂U∂θ_CACHE} <: SIAmodel
+@kwdef struct SIA2DCache{
+    R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, n_H_CACHE, n_∇S_CACHE, Y_CACHE, U_CACHE
+} <: SIAmodel
     A::A_CACHE
     n::n_CACHE
-    n_H::n_CACHE
-    n_∇S::n_CACHE
+    n_H::n_H_CACHE
+    n_∇S::n_∇S_CACHE
     C::C_CACHE
     Y::Y_CACHE
     U::U_CACHE
-    ∂A∂H::A_CACHE
-    ∂A∂θ::∂A∂θ_CACHE
-    ∂Y∂H::Y_CACHE
-    ∂Y∂θ::∂Y∂θ_CACHE
-    ∂U∂H::U_CACHE
-    ∂U∂θ::∂U∂θ_CACHE
     H₀::Matrix{R}
     H::Matrix{R}
     H̄::Matrix{R}
@@ -227,6 +221,11 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
     MB_mask::BitMatrix
     MB_total::Matrix{R}
     glacier_idx::I
+    A_prep_vjps
+    C_prep_vjps
+    n_prep_vjps
+    Y_prep_vjps
+    U_prep_vjps
 end
 
 function cache_type(sia2d_model::SIA2Dmodel)
@@ -239,11 +238,10 @@ function cache_type(sia2d_model::SIA2Dmodel)
         A_CACHE,
         cache_type(sia2d_model.C),
         cache_type(sia2d_model.n),
+        typeof(sia2d_model.n_H),
+        typeof(sia2d_model.n_∇S),
         Y_CACHE,
         U_CACHE,
-        Array{eltype(A_CACHE), 0},
-        Array{eltype(Y_CACHE), 0},
-        Array{eltype(U_CACHE), 0},
     }
 end
 
@@ -252,7 +250,7 @@ function init_cache(
     iceflow_model::SIA2Dmodel,
     glacier::AbstractGlacier,
     glacier_idx::I,
-    θ
+    θ,
 ) where {IF <: IceflowModel, I <: Integer}
 
 Initialize iceflow model data structures to enable in-place mutation.
@@ -267,7 +265,7 @@ function init_cache(
     model::SIA2Dmodel,
     simulation,
     glacier_idx::Int,
-    θ
+    θ,
 )
     glacier = simulation.glaciers[glacier_idx]
 
@@ -280,19 +278,15 @@ function init_cache(
     Y = init_cache(model.Y, simulation, glacier_idx, θ)
     U = init_cache(model.U, simulation, glacier_idx, θ)
 
-    n_H = fill(model.n_H, size(n))
-    n_∇S = fill(model.n_∇S, size(n))
-
-    # Buffer for VJP computation, they are used when the law needs either to be evaluated or differentiated
-    ∂A∂H = similar(A)
-    ∂Y∂H = similar(Y)
-    ∂U∂H = similar(U)
-    # Needs to be a scalar as it may be used with a backward interpolation which evaluates the backward element wise
-    ∂A∂θ = similar(A, ())
-    ∂Y∂θ = similar(Y, ())
-    ∂U∂θ = similar(U, ())
-
+    n_H = model.n_H
+    n_∇S = model.n_∇S
     Γ = similar(A)
+
+    A_prep_vjps = prepare_vjp_law(simulation, model.A, A, θ, glacier_idx)
+    C_prep_vjps = prepare_vjp_law(simulation, model.C, C, θ, glacier_idx)
+    n_prep_vjps = prepare_vjp_law(simulation, model.n, n, θ, glacier_idx)
+    Y_prep_vjps = prepare_vjp_law(simulation, model.Y, Y, θ, glacier_idx)
+    U_prep_vjps = prepare_vjp_law(simulation, model.U, U, θ, glacier_idx)
 
     return SIA2DCache(;
         A,
@@ -302,12 +296,6 @@ function init_cache(
         C,
         Y,
         U,
-        ∂A∂H,
-        ∂A∂θ,
-        ∂Y∂H,
-        ∂Y∂θ,
-        ∂U∂H,
-        ∂U∂θ,
         Γ,
         H₀ = deepcopy(glacier.H₀),
         H = deepcopy(glacier.H₀),
@@ -334,6 +322,11 @@ function init_cache(
         MB_mask = falses(nx,ny),
         MB_total = zeros(F,nx,ny),
         glacier_idx = Sleipnir.Int(glacier_idx),
+        A_prep_vjps,
+        C_prep_vjps,
+        n_prep_vjps,
+        Y_prep_vjps,
+        U_prep_vjps,
     )
 end
 
