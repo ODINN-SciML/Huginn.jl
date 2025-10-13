@@ -278,51 +278,6 @@ function generate_ground_truth!(
     return prediction
 end
 
-
-"""
-    generate_ground_truth!(
-        glaciers::Vector{G},
-        params::Sleipnir.Parameters,
-        model::Sleipnir.Model,
-        tstops::Vector{F},
-    ) where {G <: Sleipnir.AbstractGlacier, F <: AbstractFloat}
-
-Wrapper for `generate_ground_truth` that also updates the `glaciers` field of the `Prediction` object.
-
-# Arguments
-- `glaciers::Vector{G}`: A vector of glacier objects of type `G`, where `G` is a subtype of `Sleipnir.AbstractGlacier`.
-- `params::Sleipnir.Parameters`: Simulation parameters.
-- `model::Sleipnir.Model`: The model to use for the simulation.
-- `tstops::Vector{F}`: A vector of time steps at which the simulation will be evaluated.
-
-# Description
-This function calls `generate_ground_truth` to generate ground truth data for the glaciers using the provided laws, parameters, model, and time steps. In addition, it updates the `glaciers` field of the `Prediction` object with the newly generated glaciers containing the ground truth data.
-
-# Example
-```julia
-glaciers = [glacier1, glacier2] # dummy example
-params = Sleipnir.Parameters(...) # to be filled
-model = Sleipnir.Model(...) # to be filled
-tstops = 0.0:1.0:10.0
-
-prediction = generate_ground_truth!(glaciers, params, model, tstops)
-```
-"""
-function generate_ground_truth!(
-    glaciers::Vector{G},
-    params::Sleipnir.Parameters,
-    model::Sleipnir.Model,
-    tstops::Vector{F},
-) where {G <: Sleipnir.AbstractGlacier, F <: AbstractFloat}
-
-    # We update the current prediction to include the newly generated glaciers
-    glaciers = generate_ground_truth(glaciers, params, model, tstops)
-    prediction = Huginn.Prediction(model, glaciers, params)
-
-    # We return the prediction object so that it can be used later
-    return prediction
-end
-
 """
     apply_MB_mask!(H, ifm::SIA2DCache)
 
