@@ -167,3 +167,6 @@ Returns a view of the input array `A` excluding the last row and the last column
 - A view of the input array `A` that includes all elements except the last row and the last column.
 """
 @views inn1(A) = A[1:end-1,1:end-1]
+
+
+include("SIA2D/SIA2D_utils.jl")

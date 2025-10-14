@@ -15,7 +15,6 @@ An abstract type representing the Shallow Ice Approximation (SIA) models. This t
 """
 abstract type SIAmodel <: IceflowModel end
 
-include("iceflow_utils.jl")
 include("SIA2D/SIA2D.jl")
 
 """

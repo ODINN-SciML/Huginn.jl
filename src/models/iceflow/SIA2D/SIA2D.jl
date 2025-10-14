@@ -50,8 +50,8 @@ This struct stores the laws used to compute these three parameters during a simu
     n::nLAW = nothing
     Y::YLAW = nothing
     U::ULAW = nothing
-    n_H::F = nothing
-    n_∇S::F = nothing
+    n_H::Array{F, 0} = nothing
+    n_∇S::Array{F, 0} = nothing
     Y_is_provided::Bool = false
     U_is_provided::Bool = false
     n_H_is_provided::Bool = false
@@ -99,8 +99,8 @@ This struct stores the laws used to compute these three parameters during a simu
             @assert isnothing(n_∇S) "When Y law is not used, n_∇S must be set to nothing."
         end
 
-        n_H = something(n_H, 1.)
-        n_∇S = something(n_∇S, 1.)
+        n_H = fill(something(n_H, 1.))
+        n_∇S = fill(something(n_∇S, 1.))
 
         new{Sleipnir.Float, typeof(A), typeof(C), typeof(n), typeof(Y), typeof(U)}(
             A, C, n, Y, U, n_H, n_∇S,
@@ -471,6 +471,3 @@ function Base.show(io::IO, model::SIA2Dmodel)
         end
     end
 end
-
-
-include("SIA2D_utils.jl")
