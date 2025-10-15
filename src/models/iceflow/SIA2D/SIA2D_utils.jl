@@ -1,4 +1,4 @@
-import Sleipnir: apply_all_non_callback_laws!
+import Sleipnir: apply_all_non_callback_laws!, apply_all_callback_laws!
 
 """
     SIA2D!(
@@ -172,6 +172,65 @@ function apply_all_non_callback_laws!(
             apply_law!(SIA2D_model.C, SIA2D_cache.C, simulation, glacier_idx, t, θ)
         end
         if SIA2D_model.apply_n_in_SIA
+            apply_law!(SIA2D_model.n, SIA2D_cache.n, simulation, glacier_idx, t, θ)
+        end
+    end
+end
+
+"""
+    apply_all_callback_laws!(
+        SIA2D_model::SIA2Dmodel,
+        SIA2D_cache::SIA2DCache,
+        simulation,
+        glacier_idx::Integer,
+        t::Real,
+        θ,
+    )
+
+Applies the different laws required by the SIA2D glacier model for a given glacier and simulation state.
+If `U_is_provided` is `true` in `SIA2D_model` and `U` is a callback law, it applies the law for `U` only.
+Otherwise if `Y_is_provided` and `Y` is a callback law, it applies the law for `Y` only.
+Finally, if `U_is_provided` and `Y_is_provided` are false, the function checks and applies the laws for `A`, `C`, and `n`, if they are defined as "callback" laws (i.e., handled as callbacks by the ODE solver).
+Results are written in-place to the cache for subsequent use in the simulation step.
+
+# Arguments
+- `SIA2D_model`: The model object containing the laws (`A`, `C`, `n`, `Y` and `U`).
+- `SIA2D_cache`: A cache object to store the evaluated values of the laws (`A`, `C`, `n`, `Y` and `U`) for the current step.
+- `simulation`: The simulation object.
+- `glacier_idx::Integer`: Index of the glacier being simulated, used to select data for multi-glacier simulations.
+- `t::Real`: Current simulation time.
+- `θ`: Parameters of the laws to be used in the SIA. Can be `nothing` when no learnable laws are used.
+
+# Notes
+- The function mutates the contents of `SIA2D_cache`.
+- Only "callback" laws are applied.
+- This function is typically used in the manual adjoint and in the tests where only portions of the code are applied and we need to apply all the laws used in the iceflow model.
+"""
+function apply_all_callback_laws!(
+    SIA2D_model::SIA2Dmodel,
+    SIA2D_cache::SIA2DCache,
+    simulation,
+    glacier_idx::Integer,
+    t::Real,
+    θ,
+)
+    # Compute A, C, n, Y or U
+    if SIA2D_model.U_is_provided
+        if !SIA2D_model.apply_U_in_SIA
+            apply_law!(SIA2D_model.U, SIA2D_cache.U, simulation, glacier_idx, t, θ)
+        end
+    elseif SIA2D_model.Y_is_provided
+        if !SIA2D_model.apply_Y_in_SIA
+            apply_law!(SIA2D_model.Y, SIA2D_cache.Y, simulation, glacier_idx, t, θ)
+        end
+    else
+        if !SIA2D_model.apply_A_in_SIA
+            apply_law!(SIA2D_model.A, SIA2D_cache.A, simulation, glacier_idx, t, θ)
+        end
+        if !SIA2D_model.apply_C_in_SIA
+            apply_law!(SIA2D_model.C, SIA2D_cache.C, simulation, glacier_idx, t, θ)
+        end
+        if !SIA2D_model.apply_n_in_SIA
             apply_law!(SIA2D_model.n, SIA2D_cache.n, simulation, glacier_idx, t, θ)
         end
     end

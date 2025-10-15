@@ -1,4 +1,4 @@
-using DiffEqCallbacks: PeriodicCallback
+using DiffEqCallbacks: PeriodicCallback, PresetTimeCallback
 import Sleipnir: init_cache, cache_type
 
 export SIA2Dmodel, SIA2DCache
@@ -331,19 +331,37 @@ function init_cache(
 end
 
 """
-    build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ) -> CallbackSet
+    build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx::Real, θ, tspan) -> CallbackSet
 
 Return a `CallbackSet` that updates the cached values of `A`, `C`, `n` and `U` at provided time intervals.
 
-Each law can optionally specify a callback frequency. If such a frequency is set (via `callback_freq`),
-the update is done using a `PeriodicCallback`. Otherwise, no callback is used for that component.
+Each law can optionally specify a callback frequency via `callback_freq`.
+- If `callback_freq > 0`, a `PeriodicCallback` is used to update the corresponding component at regular intervals.
+- If `callback_freq == 0`, a `PresetTimeCallback` is used to trigger the update only at the initial time
+(taken from `tspan[1]`).
+- If no callback is specified for a component, a dummy `CallbackSet` is returned.
+
+Arguments:
+- `model::SIA2Dmodel`: The ice flow model definition.
+- `cache::SIA2DCache`: Model cache for efficient component access and updates.
+- `glacier_idx::Real`: Index of the glacier in the simulation.
+- `θ`: Optional parameter for law evaluation.
+- `tspan`: Tuple or floats specifying the simulation time span. Used to determine initial callback time when `freq == 0`.
+
+Returns:
+- A `CallbackSet` containing all the callbacks for periodic or preset updates of model components.
 """
-function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
+function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx::Real, θ, tspan)
+    tstopsPresetCb = [tspan[1]]
     A_cb = if is_callback_law(model.A)
         A_affect! = build_affect(model.A, cache.A, glacier_idx, θ)
         freq = callback_freq(model.A)
 
-        PeriodicCallback(A_affect!, freq; initial_affect = true)
+        if freq>0
+            PeriodicCallback(A_affect!, freq; initial_affect = true)
+        else
+            PresetTimeCallback(tstopsPresetCb, A_affect!)
+        end
     else
         CallbackSet()
     end
@@ -352,7 +370,11 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         C_affect! = build_affect(model.C, cache.C, glacier_idx, θ)
         freq = callback_freq(model.C)
 
-        PeriodicCallback(C_affect!, freq; initial_affect = true)
+        if freq>0
+            PeriodicCallback(C_affect!, freq; initial_affect = true)
+        else
+            PresetTimeCallback(tstopsPresetCb, C_affect!)
+        end
     else
         CallbackSet()
     end
@@ -361,7 +383,11 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         n_affect! = build_affect(model.n, cache.n, glacier_idx, θ)
         freq = callback_freq(model.n)
 
-        PeriodicCallback(n_affect!, freq; initial_affect = true)
+        if freq>0
+            PeriodicCallback(n_affect!, freq; initial_affect = true)
+        else
+            PresetTimeCallback(tstopsPresetCb, n_affect!)
+        end
     else
         CallbackSet()
     end
@@ -370,7 +396,11 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         Y_affect! = build_affect(model.Y, cache.Y, glacier_idx, θ)
         freq = callback_freq(model.Y)
 
-        PeriodicCallback(Y_affect!, freq; initial_affect = true)
+        if freq>0
+            PeriodicCallback(Y_affect!, freq; initial_affect = true)
+        else
+            PresetTimeCallback(tstopsPresetCb, Y_affect!)
+        end
     else
         CallbackSet()
     end
@@ -379,7 +409,11 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         U_affect! = build_affect(model.U, cache.U, glacier_idx, θ)
         freq = callback_freq(model.U)
 
-        PeriodicCallback(U_affect!, freq; initial_affect = true)
+        if freq>0
+            PeriodicCallback(U_affect!, freq; initial_affect = true)
+        else
+            PresetTimeCallback(tstopsPresetCb, U_affect!)
+        end
     else
         CallbackSet()
     end
@@ -387,7 +421,7 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
     return CallbackSet(A_cb, C_cb, n_cb, Y_cb, U_cb)
 end
 
-build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx) = build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, nothing)
+build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx::Real, tspan) = build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, nothing, tspan)
 
 
 # Display setup
