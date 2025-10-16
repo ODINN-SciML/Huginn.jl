@@ -174,7 +174,7 @@ Returns a view of the input array `A` excluding the last row and the last column
 Compute the second central difference in the x-direction at (i,j).
 """
 function d2dx(f::Matrix{T}, i::Int, j::Int, Δx::Float64) where T <: Real
-    return (f[i, j+1] - 2f[i, j] + f[i, j-1]) / (Δx^2)
+    return (f[i+1, j] - 2f[i, j] + f[i-1, j]) / (Δx^2)
 end
 
 """
@@ -183,7 +183,7 @@ end
 Compute the second central difference in the y-direction at (i,j).
 """
 function d2dy(f::Matrix{T}, i::Int, j::Int, Δy::Float64) where T <: Real
-    return (f[i+1, j] - 2f[i, j] + f[i-1, j]) / (Δy^2)
+    return (f[i, j+1] - 2f[i, j] + f[i, j-1]) / (Δy^2)  
 end
 
 """

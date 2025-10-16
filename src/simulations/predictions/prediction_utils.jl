@@ -1,4 +1,4 @@
-export run!, generate_ground_truth, generate_ground_truth!, apply_MB_mask!
+export run!, generate_ground_truth, generate_ground_truth_prediction, apply_MB_mask!
 
 """
     run!(simulation::Prediction)
@@ -235,7 +235,7 @@ end
 
 
 """
-    generate_ground_truth!(
+    generate_ground_truth_prediction(
         glaciers::Vector{G},
         params::Sleipnir.Parameters,
         model::Sleipnir.Model,
@@ -260,10 +260,10 @@ params = Sleipnir.Parameters(...) # to be filled
 model = Sleipnir.Model(...) # to be filled
 tstops = 0.0:1.0:10.0
 
-prediction = generate_ground_truth!(glaciers, params, model, tstops)
+prediction = generate_ground_truth_prediction(glaciers, params, model, tstops)
 ```
 """
-function generate_ground_truth!(
+function generate_ground_truth_prediction(
     glaciers::Vector{G},
     params::Sleipnir.Parameters,
     model::Sleipnir.Model,

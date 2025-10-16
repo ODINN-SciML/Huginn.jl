@@ -38,7 +38,7 @@ default_name(::iCPDD) = :CPDD
 function get_input(cpdd::iCPDD, simulation, glacier_idx, t)  
     window = cpdd.window  
     glacier = simulation.glaciers[glacier_idx]  
-    # We trim only the time period between `t` and `t - x`, where `x` is the PDD time window defined in the physical parameters.  
+    # We trim only the time period between `t` and `t - x`, where `x` is the PDD time window defined in the input attributes. 
     period = (partial_year(Day, t) - window):Day(1):partial_year(Day, t)  
     get_cumulative_climate!(glacier.climate, period)  
     # Convert climate dataset to 2D based on the glacier's DEM  
@@ -75,14 +75,24 @@ end
 
 """
 Input that represents the topographic roughness of the glacier.
-It is computed as the standard deviation of the elevation of the glacier's DEM.
+It is computed as the curvature of the glacier bed (or surface) over a specified window size. The curvature can be calculated in different directions (flow, cross-flow, or both)
+and using different curvature types (scalar or variability).
 """
 struct iTopoRough{F<:AbstractFloat} <: AbstractInput 
     window::F
     curvature_type::Symbol
     direction::Symbol
-    function iTopoRough{F}(window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow) where {F<:AbstractFloat}
+    position::Symbol
+    function iTopoRough{F}(window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow, position::Symbol = :bed) where {F<:AbstractFloat}
         valid_directions = (:flow, :cross_flow, :both)
+        valid_curvature_types = (:scalar, :variability)
+        valid_positions = (:bed, :surface)
+        if !(curvature_type in valid_curvature_types)
+            error("Invalid curvature_type: $curvature_type. Must be one of $(valid_curvature_types).")
+        end
+        if !(position in valid_positions)
+            error("Invalid position: $position. Must be one of $(valid_positions).")
+        end
         if !(direction in valid_directions)
             error("Invalid direction: $direction. Must be one of $(valid_directions).")
         end
@@ -90,14 +100,19 @@ struct iTopoRough{F<:AbstractFloat} <: AbstractInput
     end
 end
 
-iTopoRough(; window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow) where {F<:AbstractFloat} = iTopoRough{F}(window, curvature_type, direction)
+iTopoRough(; window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow, position::Symbol = :bed) where {F<:AbstractFloat} = iTopoRough{F}(window, curvature_type, direction, position)
 
 default_name(::iTopoRough) = :topographic_roughness  
 
 function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
     window = inp_topo_rough.window
     glacier = simulation.glaciers[glacier_idx]
-    dem = glacier.S
+    # Select DEM based on position attribute
+    if inp_topo_rough.position == :bed
+        dem = glacier.B
+    elseif inp_topo_rough.position == :surface
+        dem = glacier.B .+ glacier.H
+    end
     window_size = max(4, Int(round(window / glacier.Δx)))  # At least 4 for second derivative
     half_window = max(1, div(window_size, 2))
     rows, cols = size(dem)
@@ -112,8 +127,8 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
 
         if inp_topo_rough.curvature_type == :variability
             # Slope direction at central point
-            dx_c = diff_x(window_dem)[div(end,2)] / glacier.Δx
-            dy_c = diff_y(window_dem)[:, div(end,2)][div(end,2)] / glacier.Δy
+            dx_c = diff_x(window_dem)[div(end,2), div(end,2)] / glacier.Δx  
+            dy_c = diff_y(window_dem)[div(end,2), div(end,2)] / glacier.Δy 
             slope_vec = [dx_c, dy_c]
             nrm = norm(slope_vec)
             if nrm ≈ 0
@@ -160,7 +175,7 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
             gx, gy = mean(dx), mean(dy)   # average slope in window
             gvec = [gx, gy]
             gmag = norm(gvec) + eps()     # avoid div0
-            ŝ = gvec / gmag               # downslope unit vector
+            ŝ = gvec / gmag               # upslope unit vector
             n̂ = [-ŝ[2], ŝ[1]]            # cross-slope unit vector
 
             # Hessian
