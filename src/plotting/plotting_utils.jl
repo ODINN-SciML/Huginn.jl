@@ -126,8 +126,8 @@ function generate_result(placeholder_sim::SIM, A, n) where {SIM <: Simulation}
 
     iceflow_model = SIA2Dmodel(
         placeholder_sim.parameters;
-        A = ConstantLaw{FloatCacheNoVJP}(Returns(FloatCacheNoVJP(A))),
-        n = ConstantLaw{FloatCacheNoVJP}(Returns(FloatCacheNoVJP(n))),
+        A = ConstantLaw{ScalarCacheNoVJP}(Returns(ScalarCacheNoVJP(A))),
+        n = ConstantLaw{ScalarCacheNoVJP}(Returns(ScalarCacheNoVJP(n))),
     )
 
     model = Model(;

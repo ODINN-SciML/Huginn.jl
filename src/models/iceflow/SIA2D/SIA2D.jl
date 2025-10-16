@@ -117,16 +117,16 @@ This struct stores the laws used to compute these three parameters during a simu
     end
 end
 
-const _default_A_law = ConstantLaw{FloatCacheNoVJP}(
-    (simulation, glacier_idx, θ) -> FloatCacheNoVJP(fill(simulation.glaciers[glacier_idx].A))
+const _default_A_law = ConstantLaw{ScalarCacheNoVJP}(
+    (simulation, glacier_idx, θ) -> ScalarCacheNoVJP(fill(simulation.glaciers[glacier_idx].A))
 )
 
-const _default_C_law = ConstantLaw{FloatCacheNoVJP}(
-    (simulation, glacier_idx, θ) -> FloatCacheNoVJP(fill(simulation.glaciers[glacier_idx].C))
+const _default_C_law = ConstantLaw{ScalarCacheNoVJP}(
+    (simulation, glacier_idx, θ) -> ScalarCacheNoVJP(fill(simulation.glaciers[glacier_idx].C))
 )
 
-const _default_n_law = ConstantLaw{FloatCacheNoVJP}(
-    (simulation, glacier_idx, θ) -> FloatCacheNoVJP(fill(simulation.glaciers[glacier_idx].n))
+const _default_n_law = ConstantLaw{ScalarCacheNoVJP}(
+    (simulation, glacier_idx, θ) -> ScalarCacheNoVJP(fill(simulation.glaciers[glacier_idx].n))
 )
 
 SIA2Dmodel(params::Sleipnir.Parameters; A = nothing, C = nothing, n = nothing, Y = nothing, U = nothing, n_H = nothing, n_∇S = nothing) = SIA2Dmodel(A, C, n, Y, U, n_H, n_∇S)

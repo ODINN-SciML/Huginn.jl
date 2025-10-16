@@ -18,7 +18,7 @@ using JET
 using ForwardDiff
 using MLStyle
 using Huginn
-using Sleipnir: DummyClimate2D, FloatCacheNoVJP, MatrixCacheNoVJP
+using Sleipnir: DummyClimate2D, ScalarCacheNoVJP, MatrixCacheNoVJP
 
 include("utils_test.jl")
 include("params_construction.jl")

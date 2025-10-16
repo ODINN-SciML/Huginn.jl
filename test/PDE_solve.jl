@@ -46,9 +46,9 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         nothing
     elseif laws == :scalar
         # dumb law that gives the default value of A as a 0-dimensional array
-        Law{FloatCacheNoVJP}(;
+        Law{ScalarCacheNoVJP}(;
             f! = (A, sim, glacier_idx, t, θ) -> A.value .= sim.glaciers[glacier_idx].A,
-            init_cache = (sim, glacier_idx, θ) -> FloatCacheNoVJP(zeros()),
+            init_cache = (sim, glacier_idx, θ) -> ScalarCacheNoVJP(zeros()),
             callback_freq = callback_laws ? 1/12 : nothing
         )
     elseif laws == :matrix

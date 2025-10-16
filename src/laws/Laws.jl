@@ -63,8 +63,8 @@ Law that represents a constant A in the SIA.
 - `A::F`: Rheology factor A.
 """
 function ConstantA(A::F) where {F <: AbstractFloat}
-    return ConstantLaw{FloatCacheNoVJP}(function (simulation, glacier_idx, θ)
-            return FloatCacheNoVJP(fill(A))
+    return ConstantLaw{ScalarCacheNoVJP}(function (simulation, glacier_idx, θ)
+            return ScalarCacheNoVJP(fill(A))
         end,
     )
 end
@@ -96,13 +96,13 @@ then evaluated at a given temperature in the law.
 function CuffeyPaterson()
     A = polyA_PatersonCuffey()
     A_law = let A = A
-        Law{FloatCacheNoVJP}(;
+        Law{ScalarCacheNoVJP}(;
             inputs = (; T=InpTemp()),
             f! = function (cache, inp, θ)
                 cache.value .= A.(inp.T)
             end,
             init_cache = function (simulation, glacier_idx, θ)
-                return FloatCacheNoVJP(zeros())
+                return ScalarCacheNoVJP(zeros())
             end,
         )
     end
