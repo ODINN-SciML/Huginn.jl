@@ -182,8 +182,8 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 - `A_prep_vjps`, `C_prep_vjps`, `n_prep_vjps`, `Y_prep_vjps` and `U_prep_vjps`: Structs
     that contain the prepared VJP functions for the adjoint computation and for the
     different laws. Useful mainly when the user does not provide the VJPs and they are
-    computed using DifferentiationInterface.jl which requires to store precompiled
-    functions. When no gradient is computed, these structs are `nothing`.
+    automatically inferred using DifferentiationInterface.jl which requires to store
+    precompiled functions. When no gradient is computed, these structs are `nothing`.
 """
 @kwdef struct SIA2DCache{
     R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, n_H_CACHE, n_∇S_CACHE, Y_CACHE, U_CACHE
