@@ -62,7 +62,12 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     cb_MB = PeriodicCallback(mb_action!, step; initial_affect=false)
 
     # Create iceflow law callback
-    cb_iceflow = build_callback(model.iceflow, simulation.cache.iceflow, glacier_idx)
+    cb_iceflow = build_callback(
+        model.iceflow,
+        simulation.cache.iceflow,
+        glacier_idx,
+        params.simulation.tspan,
+    )
 
     cb = CallbackSet(cb_MB, cb_iceflow)
 
