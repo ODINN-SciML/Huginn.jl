@@ -96,7 +96,7 @@ struct iTopoRough{F<:AbstractFloat} <: AbstractInput
         if !(direction in valid_directions)
             error("Invalid direction: $direction. Must be one of $(valid_directions).")
         end
-        new{F}(window, curvature_type, direction)
+        new{F}(window, curvature_type, direction, position)
     end
 end
 
