@@ -18,8 +18,8 @@ import Pkg
 using Distributed
 using ProgressMeter
 using Printf
-using Statistics
-using Polynomials
+using Statistics, LinearAlgebra, Polynomials
+using Dates
 
 ### ODINN.jl dependencies ###
 using Reexport
