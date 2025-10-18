@@ -101,7 +101,7 @@ function CuffeyPaterson()
             f! = function (cache, inp, θ)
                 cache.value .= A.(inp.T)
             end,
-            init_cache = function (simulation, glacier_idx, θ)
+            init_cache = function (simulation, glacier_idx, θ; scalar=false)
                 return ScalarCacheNoVJP(zeros())
             end,
         )
