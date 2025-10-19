@@ -18,9 +18,9 @@ params = Huginn.Parameters(simulation = SimulationParameters(use_MB=MB,
                     )
 
 if MB
-    model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
 else
-    model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
 end
 
 # We retrieve some glaciers for the simulation
