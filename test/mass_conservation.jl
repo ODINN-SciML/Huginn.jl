@@ -46,7 +46,7 @@ function unit_mass_test(;
                             physical=PhysicalParameters(),
                             solver=SolverParameters(reltol=1e-12))
 
-    model = Huginn.Model(iceflow = SIA2Dmodel(parameters), mass_balance = nothing)
+    model = Model(iceflow = SIA2Dmodel(parameters), mass_balance = nothing)
 
     # Surface
     S = B + H₀

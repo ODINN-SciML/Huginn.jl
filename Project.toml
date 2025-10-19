@@ -1,7 +1,7 @@
 name = "Huginn"
 uuid = "9cb796e9-d0ea-421b-b37d-eb97bc1add55"
 authors = ["Jordi Bolibar <jordi.bolibar@gmail.com>", "Facundo Sapienza <sapienza@stanford.edu>", "Alban Gossard <alban.paul.gossard@gmail.com>", "Mathieu Le Séac'h"]
-version = "0.11.0"
+version = "0.11.1"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
@@ -11,6 +11,7 @@ DiffEqCallbacks = "459566f4-90b8-5000-8ac3-15dfb0a30def"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Infiltrator = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
@@ -29,15 +30,14 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Sleipnir = "f5e6c550-199f-11ee-3608-394420200519"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Tullio = "bc48ee85-29a4-5162-ae0b-a64e1601d4bc"
-Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
 BenchmarkTools = "1"
-CairoMakie = "0.11, 0.12"
-DiffEqCallbacks = "4.8.0"
-ForwardDiff = "1.0.1"
+CairoMakie = "0.15"
+DiffEqCallbacks = "4"
+ForwardDiff = "1"
 Infiltrator = "1.8"
-JET = "0.9.18"
+JET = "0.9, 0.10"
 JLD2 = "0.4, 0.5, 0.6"
 MLStyle = "0.4"
 Muninn = "0.8"
@@ -49,16 +49,14 @@ Polynomials = "2, 3, 4"
 ProgressMeter = "1"
 Reexport = "1"
 Revise = "3"
-Sleipnir = "0.11.0"
+Sleipnir = "0.11.1"
 Statistics = "1"
 Tullio = "0.3"
-Unitful = "=1.24"
 julia = "1.10"
 
 [extras]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
-JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "JET", "ForwardDiff"]
+test = ["ForwardDiff", "Test"]
