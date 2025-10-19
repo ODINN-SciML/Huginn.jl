@@ -48,7 +48,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         # dumb law that gives the default value of A as a 0-dimensional array
         Law{ScalarCacheNoVJP}(;
             f! = (A, sim, glacier_idx, t, θ) -> A.value .= sim.glaciers[glacier_idx].A,
-            init_cache = (sim, glacier_idx, θ; scalar=false) -> ScalarCacheNoVJP(zeros()),
+            init_cache = (sim, glacier_idx, θ; scalar=true) -> ScalarCacheNoVJP(zeros()),
             callback_freq = callback_laws ? 1/12 : nothing
         )
     elseif laws == :matrix
@@ -71,8 +71,8 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     iceflow = SIA2Dmodel(params; A = A_law, C = C_law)
     JET.@test_opt SIA2Dmodel(params; A = A_law, C = C_law)
 
-    model = Huginn.Model(;iceflow, mass_balance)
-    JET.@test_opt Huginn.Model(;iceflow, mass_balance)
+    model = Model(;iceflow, mass_balance)
+    JET.@test_opt Model(;iceflow, mass_balance)
 
     # We retrieve some glaciers for the simulation
     glaciers = initialize_glaciers(rgi_ids, params)
@@ -160,8 +160,8 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
         ),
         solver = SolverParameters(reltol=1e-8)
     )
-    model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
-    JET.@test_opt Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    JET.@test_opt Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
 
     glacier_idx = 1
 
@@ -216,7 +216,7 @@ function ground_truth_generation()
             save_everystep=true,
         ),
     )
-    model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
     glaciers = initialize_glaciers(rgi_ids, params)
     tstops = collect(tspan[1]:δt:tspan[2])
     generate_ground_truth(glaciers, params, model, tstops)

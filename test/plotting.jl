@@ -19,7 +19,7 @@ function plot_analysis_flow_parameters_test()
         solver = SolverParameters(reltol=1e-8)
     )
 
-    model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
     rgi_ids = ["RGI60-11.01450"]
     glaciers = initialize_glaciers(rgi_ids, params)
 
