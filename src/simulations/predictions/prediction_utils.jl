@@ -213,8 +213,8 @@ It returns a new vector of glaciers with updated `thicknessData` field.
 # Example
 ```julia
 glaciers = [glacier1, glacier2] # dummy example
-params = Parameters(...) # to be filled
-model = Model(...) # to be filled
+params = Huginn.Parameters(...) # to be filled
+model = Huginn.Model(...) # to be filled
 tstops = 0.0:1.0:10.0
 
 glaciers = generate_ground_truth(glaciers, params, model, tstops)
@@ -261,8 +261,8 @@ This function calls `generate_ground_truth` to generate ground truth data for th
 # Example
 ```julia
 glaciers = [glacier1, glacier2] # dummy example
-params = Parameters(...) # to be filled
-model = Model(...) # to be filled
+params = Huginn.Parameters(...) # to be filled
+model = Huginn.Model(...) # to be filled
 tstops = 0.0:1.0:10.0
 
 prediction = generate_ground_truth_prediction(glaciers, params, model, tstops)

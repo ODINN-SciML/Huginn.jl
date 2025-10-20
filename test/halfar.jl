@@ -130,7 +130,7 @@ function unit_halfar_test(;
     δt = Δt / 10
 
     # Get parameters for a simulation
-    parameters = Huginn.Parameters(
+    parameters = Parameters(
         simulation=SimulationParameters(
             tspan = (t₀, t₁),
             use_MB = use_MB,

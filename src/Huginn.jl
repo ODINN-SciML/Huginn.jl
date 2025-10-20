@@ -20,7 +20,6 @@ using ProgressMeter
 using Printf
 using Statistics, LinearAlgebra, Polynomials
 using Dates
-import Sleipnir: Parameters
 
 ### ODINN.jl dependencies ###
 using Reexport

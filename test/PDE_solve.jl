@@ -17,7 +17,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     # Filter out glaciers that are not used to avoid having references that depend on all the glaciers processed in Gungnir
     rgi_paths = Dict(k => rgi_paths[k] for k in rgi_ids)
 
-    params = Huginn.Parameters(
+    params = Parameters(
         simulation = SimulationParameters(
             use_MB = MB,
             use_velocities = false,
@@ -28,7 +28,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         ),
         solver = SolverParameters(reltol=1e-12)
     )
-    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Huginn.Parameters(
+    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Parameters(
         simulation = SimulationParameters(
             use_MB = MB,
             use_velocities = false,
@@ -149,7 +149,7 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     # Filter out glaciers that are not used to avoid having references that depend on all the glaciers processed in Gungnir
     rgi_paths = Dict(k => rgi_paths[k] for k in rgi_ids)
 
-    params = Huginn.Parameters(
+    params = Parameters(
         simulation = SimulationParameters(
             use_MB = true,
             use_velocities = false,
@@ -202,7 +202,7 @@ function ground_truth_generation()
     rgi_ids = ["RGI60-11.03638", "RGI60-11.01450"]
     tspan = (2010.0, 2012.0)
     δt = 1/12
-    params = Huginn.Parameters(
+    params = Parameters(
         simulation = SimulationParameters(
             use_MB = true,
             use_velocities = false,

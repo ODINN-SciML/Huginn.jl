@@ -19,7 +19,7 @@ function get_input(::iTemp, simulation, glacier_idx, t)
     glacier = simulation.glaciers[glacier_idx]
     return mean(glacier.climate.longterm_temps)
 end
-function Base.zero(::InpTemp, simulation, glacier_idx)
+function Base.zero(::iTemp, simulation, glacier_idx)
     glacier = simulation.glaciers[glacier_idx]
     return zero(glacier.climate.longterm_temps)
 end
@@ -32,7 +32,7 @@ It is computed by summing the daily PDD values from `t - window` to `t` using th
 """
 struct iCPDD{P<:Period} <: AbstractInput
     window::P
-    iCPDD{P}(window::P = 7) where {P<:Period} = new{P}(window)
+    iCPDD{P}(window::P = Day(7)) where {P<:Period} = new{P}(window)
 end
 
 iCPDD(; window::P = Week(1)) where {P<:Period} = iCPDD{typeof(window)}(window)
@@ -63,7 +63,7 @@ default_name(::iH̄) = :H_dual_grid
 function get_input(::iH̄, simulation, glacier_idx, t)
     return simulation.cache.iceflow.H̄
 end
-function Base.zero(::InpH̄, simulation, glacier_idx)
+function Base.zero(::iH̄, simulation, glacier_idx)
     (; nx, ny) = simulation.glaciers[glacier_idx]
     return zeros(nx-1, ny-1)
 end
@@ -80,7 +80,7 @@ default_name(::i∇S) = :∇S
 function get_input(::i∇S, simulation, glacier_idx, t)
     return simulation.cache.iceflow.∇S
 end
-function Base.zero(::Inp∇S, simulation, glacier_idx)
+function Base.zero(::i∇S, simulation, glacier_idx)
     (; nx, ny) = simulation.glaciers[glacier_idx]
     return zeros(nx-1, ny-1)
 end

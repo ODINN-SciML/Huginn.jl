@@ -45,7 +45,7 @@ parameters = Huginn.Parameters(
         )
     )
 
-model = Model(
+model = Huginn.Model(
     iceflow = SIA2Dmodel(parameters),
     mass_balance = nothing
 )

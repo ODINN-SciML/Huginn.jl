@@ -19,6 +19,7 @@ using JET
 using ForwardDiff
 using MLStyle
 using Huginn
+using Huginn: Parameters, Model
 using Sleipnir: DummyClimate2D, ScalarCacheNoVJP, MatrixCacheNoVJP
 
 include("utils_test.jl")

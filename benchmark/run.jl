@@ -31,7 +31,7 @@ params = Huginn.Parameters(
     ),
     solver = SolverParameters(reltol=1e-12)
 )
-model = Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
+model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
 
 H₀ = abs.(randn(nx, ny))
 B = abs.(randn(nx, ny))
