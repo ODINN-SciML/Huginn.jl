@@ -279,7 +279,7 @@ The law is parameterized by minimum and maximum values (`Cmin`, `Cmax`) from `pa
 applies a sigmoid scaling to smoothly interpolate between these bounds.
 """
 function SyntheticC(params::Sleipnir.Parameters; inputs = (; CPDD=iCPDD(), topo_roughness=iTopoRough()))
-    C_synth_law = Law{Array{Float64, 2}}(;
+    C_synth_law = Law{MatrixCacheNoVJP}(;
         name = :SyntheticC,
         inputs = inputs,
         max_value = params.physical.maxC,
@@ -304,11 +304,11 @@ function SyntheticC(params::Sleipnir.Parameters; inputs = (; CPDD=iCPDD(), topo_
             x = α .* norm_CPDD .- γ .* norm_topo
             sigmoid = @. 1.0 / (1.0 + exp(-β * (x - 1.0)))  # Center sigmoid at x=1 for flexibility
             # If the provided C values are a matrix, reduce matrix size to match operations
-            cache .= Cmin .+ (Cmax - Cmin) .* inn1(sigmoid)
+            cache.value .= Cmin .+ (Cmax - Cmin) .* inn1(sigmoid)
         end,
         init_cache = function (simulation, glacier_idx, θ; scalar::Bool = false)
             # Initialize cache as a scalar or vector depending on the required output
-            scalar ? zeros() : zeros(size(simulation.glaciers[glacier_idx].S) .- 1)
+            scalar ? MatrixCacheNoVJP(zeros()) : MatrixCacheNoVJP(zeros(size(simulation.glaciers[glacier_idx].S) .- 1))
         end,
         callback_freq = 1/52,  # TODO: modify depending on freq from params
     )

@@ -69,11 +69,11 @@ function test_SyntheticC()
     C_syn = SyntheticC(params; inputs=law_inputs)
     # Test init_cache
     cache = C_syn.init_cache(simulation, 1, nothing)
-    @test size(cache) == size(glaciers[1].S) .- 1
+    @test size(cache.value) == size(glaciers[1].S) .- 1
     # Test f!
     apply_law!(C_syn, cache, simulation, 1, 2010.0, nothing)
-    @test all(cache .>= params.physical.minC)
-    @test all(cache .<= params.physical.maxC)
+    @test all(cache.value .>= params.physical.minC)
+    @test all(cache.value .<= params.physical.maxC)
 end
 
 function test_iTopoRough()
