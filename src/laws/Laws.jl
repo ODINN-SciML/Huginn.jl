@@ -261,7 +261,7 @@ function CuffeyPaterson()
             f! = function (cache, inp, θ)
                 cache.value .= A.(inp.T)
             end,
-            init_cache = function (simulation, glacier_idx, θ; scalar::Bool = true)
+            init_cache = function (simulation, glacier_idx, θ)
                 return ScalarCacheNoVJP(zeros())
             end,
         )
@@ -306,9 +306,8 @@ function SyntheticC(params::Sleipnir.Parameters; inputs = (; CPDD=iCPDD(), topo_
             # If the provided C values are a matrix, reduce matrix size to match operations
             cache.value .= Cmin .+ (Cmax - Cmin) .* inn1(sigmoid)
         end,
-        init_cache = function (simulation, glacier_idx, θ; scalar::Bool = false)
-            # Initialize cache as a scalar or vector depending on the required output
-            scalar ? MatrixCacheNoVJP(zeros()) : MatrixCacheNoVJP(zeros(size(simulation.glaciers[glacier_idx].S) .- 1))
+        init_cache = function (simulation, glacier_idx, θ)
+            MatrixCacheNoVJP(zeros(size(simulation.glaciers[glacier_idx].S) .- 1))
         end,
         callback_freq = 1/52,  # TODO: modify depending on freq from params
     )
