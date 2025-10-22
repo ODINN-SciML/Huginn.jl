@@ -65,11 +65,8 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         throw("laws keyword should be either nothing, :scalar, or :matrix")
     end
 
-    # for now C is not used in SIA2D
-    C_law = nothing
-
-    iceflow = SIA2Dmodel(params; A = A_law, C = C_law)
-    JET.@test_opt SIA2Dmodel(params; A = A_law, C = C_law)
+    iceflow = SIA2Dmodel(params; A = A_law)
+    JET.@test_opt SIA2Dmodel(params; A = A_law)
 
     model = Model(;iceflow, mass_balance)
     JET.@test_opt Model(;iceflow, mass_balance)

@@ -438,8 +438,10 @@ function Base.show(io::IO, model::SIA2Dmodel)
     print(io, "  with "); printstyled(io, "D";color=colorD); print(io, " = "); printstyled(io, "U";color=colorU);println(io, " H̄")
     inp = []
     if model.U_is_provided
-        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, ": "); println(io, model.U)
-        push!(inp, inputs(model.U))
+        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, ": "); print(io, model.U)
+        if inputs_defined(model.U)
+            push!(inp, inputs(model.U))
+        end
     elseif model.Y_is_provided
         print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = (")
 
@@ -466,18 +468,24 @@ function Base.show(io::IO, model::SIA2Dmodel)
         printstyled(io, "      Γ";color=colorΓ);print(io, " = 2");print(io, " (ρg)^"); printstyled(io, "n";color=colorn)
         print(io, " /(");printstyled(io, "n";color=colorn);println(io, "+2)")
 
-        printstyled(io, "      Y: ";color=colorY); println(io, model.Y)
-        printstyled(io, "      C: ";color=colorC); println(io, model.C)
-        printstyled(io, "      n: ";color=colorn); println(io, model.n)
+        printstyled(io, "      Y: ";color=colorY); print(io, model.Y)
+        printstyled(io, "      C: ";color=colorC); print(io, model.C)
+        printstyled(io, "      n: ";color=colorn); print(io, model.n)
         if !isnothing(model.n_H)
             println(io, "      n_H = $(model.n_H)")
         end
         if !isnothing(model.n_∇S)
             println(io, "      n_∇S = $(model.n_∇S)")
         end
-        push!(inp, inputs(model.Y))
-        push!(inp, inputs(model.C))
-        push!(inp, inputs(model.n))
+        if inputs_defined(model.Y)
+            push!(inp, inputs(model.Y))
+        end
+        if inputs_defined(model.C)
+            push!(inp, inputs(model.C))
+        end
+        if inputs_defined(model.n)
+            push!(inp, inputs(model.n))
+        end
     else
         print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = (")
         # Sliding part
@@ -490,12 +498,18 @@ function Base.show(io::IO, model::SIA2Dmodel)
         printstyled(io, "      Γ";color=colorΓ);print(io, " = 2");printstyled(io, "A";color=colorA);print(io, " (ρg)^"); printstyled(io, "n";color=colorn)
         print(io, " /(");printstyled(io, "n";color=colorn);println(io, "+2)")
 
-        printstyled(io, "      A: ";color=colorA); println(io, model.A)
-        printstyled(io, "      C: ";color=colorC); println(io, model.C)
-        printstyled(io, "      n: ";color=colorn); println(io, model.n)
-        push!(inp, inputs(model.A))
-        push!(inp, inputs(model.C))
-        push!(inp, inputs(model.n))
+        printstyled(io, "      A: ";color=colorA); print(io, model.A)
+        printstyled(io, "      C: ";color=colorC); print(io, model.C)
+        printstyled(io, "      n: ";color=colorn); print(io, model.n)
+        if inputs_defined(model.A)
+            push!(inp, inputs(model.A))
+        end
+        if inputs_defined(model.C)
+            push!(inp, inputs(model.C))
+        end
+        if inputs_defined(model.n)
+            push!(inp, inputs(model.n))
+        end
     end
     inp = merge(inp...)
     if length(inp)>0
