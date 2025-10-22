@@ -56,8 +56,6 @@ function test_SyntheticC()
     # Dummy structs for simulation and glacier
     rgi_ids = ["RGI60-11.03638"]
     rgi_paths = get_rgi_paths()
-    # Filter out glaciers that are not used to avoid having references that depend on all the glaciers processed in Gungnir
-    rgi_paths = Dict(k => rgi_paths[k] for k in rgi_ids)
     params = Parameters(simulation=SimulationParameters(test_mode=true, 
                                     use_velocities=false, 
                                     rgi_paths=rgi_paths))
@@ -80,8 +78,6 @@ function test_iTopoRough()
     # Dummy structs for simulation and glacier
     rgi_ids = ["RGI60-11.03638"]
     rgi_paths = get_rgi_paths()
-    # Filter out glaciers that are not used to avoid having references that depend on all the glaciers processed in Gungnir
-    rgi_paths = Dict(k => rgi_paths[k] for k in rgi_ids)
     params = Parameters(simulation=SimulationParameters(test_mode=true, 
                                     use_velocities=false, 
                                     rgi_paths=rgi_paths))
@@ -91,11 +87,17 @@ function test_iTopoRough()
 
     topo_rough = iTopoRough(window=200.0)
     roughness = get_input(topo_rough, simulation, 1, 2010.0)
+    zero_roughness = zero(topo_rough, simulation, 1)
     @test size(roughness) == size(glaciers[1].S)
+    @test typeof(zero_roughness) == typeof(roughness)
+    @test size(zero_roughness) == size(roughness)
 
     topo_rough = iTopoRough(window=400.0, curvature_type=:variability, direction=:flow)
     roughness = get_input(topo_rough, simulation, 1, 2010.0)
-    @test size(roughness) == size(glaciers[1].S) 
+    zero_roughness = zero(topo_rough, simulation, 1)
+    @test size(roughness) == size(glaciers[1].S)
+    @test typeof(zero_roughness) == typeof(roughness)
+    @test size(zero_roughness) == size(roughness)
     @test all(roughness .>= 0)
 end
 
@@ -103,8 +105,6 @@ function test_iCPDD()
     # Dummy structs for simulation and glacier
     rgi_ids = ["RGI60-11.03638"]
     rgi_paths = get_rgi_paths()
-    # Filter out glaciers that are not used to avoid having references that depend on all the glaciers processed in Gungnir
-    rgi_paths = Dict(k => rgi_paths[k] for k in rgi_ids)
     params = Parameters(simulation=SimulationParameters(test_mode=true, 
                                     use_velocities=false, 
                                     rgi_paths=rgi_paths))
@@ -114,6 +114,9 @@ function test_iCPDD()
 
     cpdd = iCPDD(window=Week(1))
     pdd = get_input(cpdd, simulation, 1, 2010.0)
+    zero_pdd = zero(cpdd, simulation, 1)
     @test size(pdd) == size(glaciers[1].S)
+    @test typeof(zero_pdd) == typeof(pdd)
+    @test size(zero_pdd) == size(pdd)
     @test all(pdd .>= 0.0)
 end

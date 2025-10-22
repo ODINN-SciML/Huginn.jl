@@ -48,8 +48,12 @@ function get_input(cpdd::iCPDD, simulation, glacier_idx, t)
     # Convert climate dataset to 2D based on the glacier's DEM  
     climate_2D_step = downscale_2D_climate(glacier.climate.climate_step, glacier.S, glacier.Coords)  
 
-    return climate_2D_step.PDD  
-end  
+    return climate_2D_step.PDD
+end
+function Base.zero(::iCPDD, simulation, glacier_idx)
+    (; nx, ny) = simulation.glaciers[glacier_idx]
+    return zeros(nx, ny)
+end
 
 """
     iH̄ <: AbstractInput
@@ -211,6 +215,10 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
     end
 
     return roughness
+end
+function Base.zero(::iTopoRough, simulation, glacier_idx)
+    (; nx, ny) = simulation.glaciers[glacier_idx]
+    return zeros(nx, ny)
 end
 
 """

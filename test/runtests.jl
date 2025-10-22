@@ -68,15 +68,15 @@ end
 end
 
 @testset "Laws" begin
-    @testset "Constructors" begin 
+    @testset "Constructors" begin
         laws_constructor_default()
         laws_constructor_specified()
     end
 
     @testset "Law Inputs" begin
         test_iTopoRough()
-        test_iCPDD() 
-    end   
+        test_iCPDD()
+    end
 
     @testset "Laws" begin
         test_SyntheticC()
