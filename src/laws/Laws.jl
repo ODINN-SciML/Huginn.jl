@@ -32,12 +32,11 @@ It is computed by summing the daily PDD values from `t - window` to `t` using th
 """
 struct iCPDD{P<:Period} <: AbstractInput
     window::P
-    iCPDD{P}(window::P = Day(7)) where {P<:Period} = new{P}(window)
+    function iCPDD(; window::P = Week(1)) where {P<:Period}
+        new{typeof(window)}(window)
+    end
 end
-
-iCPDD(; window::P = Week(1)) where {P<:Period} = iCPDD{typeof(window)}(window)
-
-default_name(::iCPDD) = :CPDD  
+default_name(::iCPDD) = :CPDD
 
 function get_input(cpdd::iCPDD, simulation, glacier_idx, t)  
     window = cpdd.window  
@@ -94,12 +93,12 @@ Input that represents the topographic roughness of the glacier.
 It is computed as the curvature of the glacier bed (or surface) over a specified window size. The curvature can be calculated in different directions (flow, cross-flow, or both)
 and using different curvature types (scalar or variability).
 """
-struct iTopoRough{F<:AbstractFloat} <: AbstractInput 
+struct iTopoRough{F<:AbstractFloat} <: AbstractInput
     window::F
     curvature_type::Symbol
     direction::Symbol
     position::Symbol
-    function iTopoRough{F}(window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow, position::Symbol = :bed) where {F<:AbstractFloat}
+    function iTopoRough(; window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow, position::Symbol = :bed) where {F<:AbstractFloat}
         valid_directions = (:flow, :cross_flow, :both)
         valid_curvature_types = (:scalar, :variability)
         valid_positions = (:bed, :surface)
@@ -115,10 +114,7 @@ struct iTopoRough{F<:AbstractFloat} <: AbstractInput
         new{F}(window, curvature_type, direction, position)
     end
 end
-
-iTopoRough(; window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow, position::Symbol = :bed) where {F<:AbstractFloat} = iTopoRough{F}(window, curvature_type, direction, position)
-
-default_name(::iTopoRough) = :topographic_roughness  
+default_name(::iTopoRough) = :topographic_roughness
 
 function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
     window = inp_topo_rough.window
