@@ -49,7 +49,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         Law{ScalarCacheNoVJP}(;
             f! = (A, sim, glacier_idx, t, θ) -> A.value .= sim.glaciers[glacier_idx].A,
             init_cache = (sim, glacier_idx, θ) -> ScalarCacheNoVJP(zeros()),
-            callback_freq = callback_laws ? 1/12 : nothing
+            callback_freq = callback_laws ? Month(1) : nothing
         )
     elseif laws == :matrix
         # dumb law that gives the default value of A as a constant matrix
@@ -59,7 +59,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
                 (;nx, ny) = sim.glaciers[glacier_idx]
                 return MatrixCacheNoVJP(zeros(nx - 1, ny - 1))
             end,
-            callback_freq = callback_laws ? 1/12 : nothing
+            callback_freq = callback_laws ? Month(1) : nothing
         )
     else
         throw("laws keyword should be either nothing, :scalar, or :matrix")

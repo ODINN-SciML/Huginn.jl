@@ -313,7 +313,7 @@ function SyntheticC(params::Sleipnir.Parameters; inputs = (; CPDD=iCPDD(), topo_
         init_cache = function (simulation, glacier_idx, θ)
             MatrixCacheNoVJP(zeros(size(simulation.glaciers[glacier_idx].S) .- 1))
         end,
-        callback_freq = 1/52,  # TODO: modify depending on freq from params
+        callback_freq = Week(1),  # TODO: modify depending on freq from params
     )
     return C_synth_law
 end
