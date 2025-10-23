@@ -20,7 +20,6 @@ using ProgressMeter
 using Printf
 using Statistics, LinearAlgebra, Polynomials
 using Dates
-import Sleipnir: Parameters
 
 ### ODINN.jl dependencies ###
 using Reexport
@@ -52,6 +51,11 @@ include("models/solutions/halfar.jl")
 
 # Parameterizations
 include("laws/Laws.jl")
+
+# All the utils functions
+include("simulations/predictions/prediction_utils.jl")
+include("models/iceflow/iceflow_utils.jl")
+include("laws/laws_utils.jl")
 
 # Everything related to plotting
 include("plotting/plotting_utils.jl")

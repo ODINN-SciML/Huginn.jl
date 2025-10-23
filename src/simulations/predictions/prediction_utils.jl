@@ -62,7 +62,12 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     cb_MB = PeriodicCallback(mb_action!, step; initial_affect=false)
 
     # Create iceflow law callback
-    cb_iceflow = build_callback(model.iceflow, simulation.cache.iceflow, glacier_idx)
+    cb_iceflow = build_callback(
+        model.iceflow,
+        simulation.cache.iceflow,
+        glacier_idx,
+        params.simulation.tspan,
+    )
 
     cb = CallbackSet(cb_MB, cb_iceflow)
 
@@ -208,8 +213,8 @@ It returns a new vector of glaciers with updated `thicknessData` field.
 # Example
 ```julia
 glaciers = [glacier1, glacier2] # dummy example
-params = Parameters(...) # to be filled
-model = Model(...) # to be filled
+params = Huginn.Parameters(...) # to be filled
+model = Huginn.Model(...) # to be filled
 tstops = 0.0:1.0:10.0
 
 glaciers = generate_ground_truth(glaciers, params, model, tstops)
@@ -226,8 +231,8 @@ function generate_ground_truth(
     @assert t₀ <= minimum(tstops)
     @assert t₁ >= maximum(tstops)
 
-    prediction = Huginn.Prediction(model, glaciers, params)
-    Huginn.run!(prediction)
+    prediction = Prediction(model, glaciers, params)
+    run!(prediction)
 
     # Create new glaciers with the thickness and velocity data
     return thickness_velocity_data(prediction, tstops)
@@ -256,8 +261,8 @@ This function calls `generate_ground_truth` to generate ground truth data for th
 # Example
 ```julia
 glaciers = [glacier1, glacier2] # dummy example
-params = Parameters(...) # to be filled
-model = Model(...) # to be filled
+params = Huginn.Parameters(...) # to be filled
+model = Huginn.Model(...) # to be filled
 tstops = 0.0:1.0:10.0
 
 prediction = generate_ground_truth_prediction(glaciers, params, model, tstops)
@@ -272,7 +277,7 @@ function generate_ground_truth_prediction(
 
     # We update the current prediction to include the newly generated glaciers
     glaciers = generate_ground_truth(glaciers, params, model, tstops)
-    prediction = Huginn.Prediction(model, glaciers, params)
+    prediction = Prediction(model, glaciers, params)
 
     # We return the prediction object so that it can be used later
     return prediction

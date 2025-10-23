@@ -7,7 +7,7 @@ function plot_analysis_flow_parameters_test()
 
     rgi_paths = get_rgi_paths()
 
-    params = Huginn.Parameters(
+    params = Parameters(
         simulation = SimulationParameters(
             use_MB=true,
             tspan=(2010.0, 2015.0),

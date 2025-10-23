@@ -19,7 +19,8 @@ using JET
 using ForwardDiff
 using MLStyle
 using Huginn
-using Sleipnir: DummyClimate2D
+using Huginn: Parameters, Model
+using Sleipnir: DummyClimate2D, ScalarCacheNoVJP, MatrixCacheNoVJP
 
 include("utils_test.jl")
 include("params_construction.jl")
@@ -67,15 +68,15 @@ end
 end
 
 @testset "Laws" begin
-    @testset "Constructors" begin 
+    @testset "Constructors" begin
         laws_constructor_default()
         laws_constructor_specified()
     end
 
     @testset "Law Inputs" begin
         test_iTopoRough()
-        test_iCPDD() 
-    end   
+        test_iCPDD()
+    end
 
     @testset "Laws" begin
         test_SyntheticC()

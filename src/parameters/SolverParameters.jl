@@ -1,4 +1,4 @@
-export SolverParameters, Parameters
+export SolverParameters
 
 """
 A mutable struct that holds parameters for the solver.
