@@ -167,3 +167,13 @@ Returns a view of the input array `A` excluding the last row and the last column
 - A view of the input array `A` that includes all elements except the last row and the last column.
 """
 @views inn1(A) = A[1:end-1,1:end-1]
+
+"""
+"""
+function ∇slope(S::Matrix{T}, Δx::T, Δy::T) where T <: Real
+    dSdx = diff_x(S) / Δx
+    dSdy = diff_y(S) / Δy
+    ∇Sx = avg_y(dSdx)
+    ∇Sy = avg_x(dSdy)
+    return (∇Sx.^2 .+ ∇Sy.^2).^(1/2)
+end
