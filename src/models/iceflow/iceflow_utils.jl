@@ -215,3 +215,13 @@ function project_curvatures(H, eₚ, eₛ)
 end
 
 include("SIA2D/SIA2D_utils.jl")
+
+"""
+"""
+function ∇slope(S::Matrix{T}, Δx::T, Δy::T) where T <: Real
+    dSdx = diff_x(S) / Δx
+    dSdy = diff_y(S) / Δy
+    ∇Sx = avg_y(dSdx)
+    ∇Sy = avg_x(dSdy)
+    return (∇Sx.^2 .+ ∇Sy.^2).^(1/2)
+end
