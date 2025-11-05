@@ -72,7 +72,6 @@ Fails if any error exceeds tolerance thresholds.
 - `dometol::Float64=0.20`: Maximum allowed dome height error [m].
 - `distance_to_border::Int=3`: Distance (in grid cells) from ice margin to exclude from error computation.
 - `save_plot::Bool=false`: If `true`, saves diagnostic plots comparing analytical and simulated solutions.
-- `inplace::Bool=true`: If `true`, runs the model using in-place updates (`run!`), otherwise uses a non-mutating solver (`run₀`).
 
 # Outputs
 - Returns `nothing`, but throws `@test` failures if errors exceed tolerance.
@@ -108,8 +107,7 @@ function unit_halfar_test(;
     masstol = 2e-4,
     dometol = 0.20,
     distance_to_border = 3,
-    save_plot = false,
-    inplace = true
+    save_plot = false
     )
 
     if use_MB
@@ -132,10 +130,9 @@ function unit_halfar_test(;
     δt = Δt / 10
 
     # Get parameters for a simulation
-    parameters = Huginn.Parameters(
+    parameters = Parameters(
         simulation=SimulationParameters(
             tspan = (t₀, t₁),
-            multiprocessing = false,
             use_MB = use_MB,
             step = δt,
             use_iceflow = true,
@@ -154,7 +151,7 @@ function unit_halfar_test(;
         )
 
     @assert !use_MB "Need to find way to pass MB"
-    model = Huginn.Model(
+    model = Model(
         iceflow = SIA2Dmodel(parameters),
         mass_balance = nothing
     )
@@ -197,11 +194,7 @@ function unit_halfar_test(;
 
     prediction = Prediction(model, glaciers, parameters)
 
-    if inplace
-        run!(prediction)
-    else
-        run₀(prediction)
-    end
+    run!(prediction)
 
     abs_errors = Float64[]
     rel_errors = Float64[]
@@ -258,10 +251,9 @@ end
 
 Multiple tests using Halfar solution.
 """
-function halfar_test()#; rtol, atol, inplace, distance_to_border)
+function halfar_test()#; rtol, atol, distance_to_border)
     # Default test as introduced in experiment B in Bueler et. al (2005)
     unit_halfar_test()
-    unit_halfar_test(inplace = false)
     # Mass balance
     # unit_halfar_test(use_MB = true)
     # Changing A

@@ -1,4 +1,4 @@
-export Model, IceflowModel
+export IceflowModel
 
 # Abstract type as a parent type for ice flow models
 """
@@ -15,24 +15,6 @@ An abstract type representing the Shallow Ice Approximation (SIA) models. This t
 """
 abstract type SIAmodel <: IceflowModel end
 
-include("iceflow_utils.jl")
+Model = Sleipnir.Model
+
 include("SIA2D/SIA2D.jl")
-
-"""
-    Model(;
-        iceflow::Union{IFM, Nothing},
-        mass_balance::Union{MBM, Nothing}
-    ) where {IFM <: IceflowModel, MBM <: MBmodel}
-
-Initialize Model at Huginn level (no machine learning model).
-
-"""
-function Model(;
-    iceflow::Union{IFM, Nothing},
-    mass_balance::Union{MBM, Nothing}
-) where {IFM <: IceflowModel, MBM <: MBmodel}
-
-    model = Sleipnir.Model{typeof(iceflow), typeof(mass_balance), Nothing}(iceflow, mass_balance, nothing)
-
-    return model
-end

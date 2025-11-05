@@ -10,20 +10,24 @@ end
 using Test
 using JLD2
 using Plots
+using Dates
 using Infiltrator
 using OrdinaryDiffEq
 using CairoMakie
 using Random
 using JET
 using ForwardDiff
+using MLStyle
 using Huginn
-using Sleipnir: DummyClimate2D
+using Huginn: Parameters, Model
+using Sleipnir: DummyClimate2D, ScalarCacheNoVJP, MatrixCacheNoVJP
 
 include("utils_test.jl")
 include("params_construction.jl")
 include("halfar.jl")
 include("PDE_solve.jl")
 include("mass_conservation.jl")
+include("laws.jl")
 include("plotting.jl")
 
 # Activate to avoid GKS backend Plot issues in the JupyterHub
@@ -45,6 +49,8 @@ ENV["GKSwstype"]="nul"
     @testset "w/  MB w/  matrix callback laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:matrix, callback_laws=true)
 end
 
+@testset "Ground truth generation" ground_truth_generation()
+
 @testset "Run TI models in-place" TI_run_test!(false; rtol=1e-5, atol=1e-5)
 
 @testset "Solver parameters construction" begin
@@ -59,6 +65,22 @@ end
 @testset "Mass Conservation" begin
     @testset "Flat Bed" unit_mass_flatbed_test(; rtol=1.0e-7)
     @testset "Non Flat Bed" unit_mass_nonflatbed_test(; rtol=1.0e-7)
+end
+
+@testset "Laws" begin
+    @testset "Constructors" begin
+        laws_constructor_default()
+        laws_constructor_specified()
+    end
+
+    @testset "Law Inputs" begin
+        test_iTopoRough()
+        test_iCPDD()
+    end
+
+    @testset "Laws" begin
+        test_SyntheticC()
+    end
 end
 
 @testset "Glacier Plotting" plot_analysis_flow_parameters_test()
