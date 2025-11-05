@@ -44,9 +44,3 @@ Create a `Prediction` object using the given model, glaciers, and parameters.
 - `Prediction`: A `Prediction` object based on the input values.
 """
 Prediction(model::Sleipnir.Model, glaciers::Vector{G}, parameters::Sleipnir.Parameters) where {G <: Sleipnir.AbstractGlacier} = Prediction(model, glaciers, parameters, Results[])
-
-###############################################
-################### UTILS #####################
-###############################################
-
-include("prediction_utils.jl")

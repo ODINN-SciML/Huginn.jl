@@ -1,4 +1,4 @@
-export SolverParameters, Parameters
+export SolverParameters
 
 """
 A mutable struct that holds parameters for the solver.
@@ -114,7 +114,7 @@ Defines the times to stop for the DiscreteCallback given a step and a timespan.
 
 """
 function define_callback_steps(tspan::Tuple{F, F}, step::F) where {F <: AbstractFloat}
-    tstops = range(tspan[1], tspan[2], step = step)
+    tstops = collect(range(tspan[1], tspan[2], step = step))
     if tstops[end] !== tspan[2]
         push!(tstops, tspan[2])
     end

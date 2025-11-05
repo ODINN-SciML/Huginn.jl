@@ -17,7 +17,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
     # Filter out glaciers that are not used to avoid having references that depend on all the glaciers processed in Gungnir
     rgi_paths = Dict(k => rgi_paths[k] for k in rgi_ids)
 
-    params = Huginn.Parameters(
+    params = Parameters(
         simulation = SimulationParameters(
             use_MB = MB,
             use_velocities = false,
@@ -28,7 +28,7 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         ),
         solver = SolverParameters(reltol=1e-12)
     )
-    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Huginn.Parameters(
+    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Parameters(
         simulation = SimulationParameters(
             use_MB = MB,
             use_velocities = false,
@@ -46,33 +46,30 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         nothing
     elseif laws == :scalar
         # dumb law that gives the default value of A as a 0-dimensional array
-        Law{Array{Sleipnir.Float, 0}}(;
-            f! = (A, sim, glacier_idx, t, θ) -> A .= sim.glaciers[glacier_idx].A,
-            init_cache = (sim, glacier_idx, θ; scalar=true) -> zeros(),
-            callback_freq = callback_laws ? 1/12 : nothing
+        Law{ScalarCacheNoVJP}(;
+            f! = (A, sim, glacier_idx, t, θ) -> A.value .= sim.glaciers[glacier_idx].A,
+            init_cache = (sim, glacier_idx, θ) -> ScalarCacheNoVJP(zeros()),
+            callback_freq = callback_laws ? Month(1) : nothing
         )
     elseif laws == :matrix
         # dumb law that gives the default value of A as a constant matrix
-        Law{Matrix{Sleipnir.Float}}(;
-            f! = (A, sim, glacier_idx, t, θ) -> A .= sim.glaciers[glacier_idx].A,
-            init_cache = function (sim, glacier_idx, θ; scalar=false)
+        Law{MatrixCacheNoVJP}(;
+            f! = (A, sim, glacier_idx, t, θ) -> A.value .= sim.glaciers[glacier_idx].A,
+            init_cache = function (sim, glacier_idx, θ)
                 (;nx, ny) = sim.glaciers[glacier_idx]
-                return zeros(nx - 1, ny - 1)
+                return MatrixCacheNoVJP(zeros(nx - 1, ny - 1))
             end,
-            callback_freq = callback_laws ? 1/12 : nothing
+            callback_freq = callback_laws ? Month(1) : nothing
         )
     else
         throw("laws keyword should be either nothing, :scalar, or :matrix")
     end
 
-    # for now C is not used in SIA2D
-    C_law = nothing
+    iceflow = SIA2Dmodel(params; A = A_law)
+    JET.@test_opt SIA2Dmodel(params; A = A_law)
 
-    iceflow = SIA2Dmodel(params; A = A_law, C = C_law)
-    JET.@test_opt SIA2Dmodel(params; A = A_law, C = C_law)
-
-    model = Huginn.Model(;iceflow, mass_balance)
-    JET.@test_opt Huginn.Model(;iceflow, mass_balance)
+    model = Model(;iceflow, mass_balance)
+    JET.@test_opt Model(;iceflow, mass_balance)
 
     # We retrieve some glaciers for the simulation
     glaciers = initialize_glaciers(rgi_ids, params)
@@ -149,7 +146,7 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     # Filter out glaciers that are not used to avoid having references that depend on all the glaciers processed in Gungnir
     rgi_paths = Dict(k => rgi_paths[k] for k in rgi_ids)
 
-    params = Huginn.Parameters(
+    params = Parameters(
         simulation = SimulationParameters(
             use_MB = true,
             use_velocities = false,
@@ -160,8 +157,8 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
         ),
         solver = SolverParameters(reltol=1e-8)
     )
-    model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
-    JET.@test_opt Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    JET.@test_opt Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
 
     glacier_idx = 1
 
@@ -173,8 +170,8 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     # fake simulation
     simulation = (;model, glaciers)
 
-    cache = init_cache(model, simulation, glacier_idx, params)
-    JET.@test_opt init_cache(model, simulation, glacier_idx, params)
+    cache = init_cache(model, simulation, glacier_idx, nothing)
+    JET.@test_opt init_cache(model, simulation, glacier_idx, nothing)
 
     t = 2015.0
 
@@ -202,7 +199,7 @@ function ground_truth_generation()
     rgi_ids = ["RGI60-11.03638", "RGI60-11.01450"]
     tspan = (2010.0, 2012.0)
     δt = 1/12
-    params = Huginn.Parameters(
+    params = Parameters(
         simulation = SimulationParameters(
             use_MB = true,
             use_velocities = false,
@@ -216,7 +213,7 @@ function ground_truth_generation()
             save_everystep=true,
         ),
     )
-    model = Huginn.Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
     glaciers = initialize_glaciers(rgi_ids, params)
     tstops = collect(tspan[1]:δt:tspan[2])
     generate_ground_truth(glaciers, params, model, tstops)

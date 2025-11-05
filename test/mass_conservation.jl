@@ -40,13 +40,13 @@ function unit_mass_test(;
 ) where {F <: AbstractFloat}
 
     # Get parameters for a simulation
-    parameters = Huginn.Parameters(simulation=SimulationParameters(tspan=(0.0, t_sim),
+    parameters = Parameters(simulation=SimulationParameters(tspan=(0.0, t_sim),
                                                             use_MB=false,
                                                             use_iceflow=true),
                             physical=PhysicalParameters(),
                             solver=SolverParameters(reltol=1e-12))
 
-    model = Huginn.Model(iceflow = SIA2Dmodel(parameters), mass_balance = nothing)
+    model = Model(iceflow = SIA2Dmodel(parameters), mass_balance = nothing)
 
     # Surface
     S = B + H₀

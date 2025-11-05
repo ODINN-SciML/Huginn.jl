@@ -19,6 +19,10 @@ function get_input(::iTemp, simulation, glacier_idx, t)
     glacier = simulation.glaciers[glacier_idx]
     return mean(glacier.climate.longterm_temps)
 end
+function Base.zero(::iTemp, simulation, glacier_idx)
+    glacier = simulation.glaciers[glacier_idx]
+    return zero(glacier.climate.longterm_temps)
+end
 
 """
     iCPDD <: AbstractInput
@@ -28,12 +32,11 @@ It is computed by summing the daily PDD values from `t - window` to `t` using th
 """
 struct iCPDD{P<:Period} <: AbstractInput
     window::P
-    iCPDD{P}(window::P = 7) where {P<:Period} = new{P}(window)
+    function iCPDD(; window::P = Week(1)) where {P<:Period}
+        new{typeof(window)}(window)
+    end
 end
-
-iCPDD(; window::P = Week(1)) where {P<:Period} = iCPDD{typeof(window)}(window)
-
-default_name(::iCPDD) = :CPDD  
+default_name(::iCPDD) = :CPDD
 
 function get_input(cpdd::iCPDD, simulation, glacier_idx, t)  
     window = cpdd.window  
@@ -44,8 +47,12 @@ function get_input(cpdd::iCPDD, simulation, glacier_idx, t)
     # Convert climate dataset to 2D based on the glacier's DEM  
     climate_2D_step = downscale_2D_climate(glacier.climate.climate_step, glacier.S, glacier.Coords)  
 
-    return climate_2D_step.PDD  
-end  
+    return climate_2D_step.PDD
+end
+function Base.zero(::iCPDD, simulation, glacier_idx)
+    (; nx, ny) = simulation.glaciers[glacier_idx]
+    return zeros(nx, ny)
+end
 
 """
     iH̄ <: AbstractInput
@@ -58,6 +65,10 @@ struct iH̄ <: AbstractInput end
 default_name(::iH̄) = :H_dual_grid
 function get_input(::iH̄, simulation, glacier_idx, t)
     return simulation.cache.iceflow.H̄
+end
+function Base.zero(::iH̄, simulation, glacier_idx)
+    (; nx, ny) = simulation.glaciers[glacier_idx]
+    return zeros(nx-1, ny-1)
 end
 
 """
@@ -76,6 +87,10 @@ default_name(::i∇S) = :∇S
 function get_input(::i∇S, simulation, glacier_idx, t)
     return simulation.cache.iceflow.∇S
 end
+function Base.zero(::i∇S, simulation, glacier_idx)
+    (; nx, ny) = simulation.glaciers[glacier_idx]
+    return zeros(nx-1, ny-1)
+end
 
 """
     iTopoRough{F<:AbstractFloat} <: AbstractInput
@@ -84,12 +99,12 @@ Input that represents the topographic roughness of the glacier.
 It is computed as the curvature of the glacier bed (or surface) over a specified window size. The curvature can be calculated in different directions (flow, cross-flow, or both)
 and using different curvature types (scalar or variability).
 """
-struct iTopoRough{F<:AbstractFloat} <: AbstractInput 
+struct iTopoRough{F<:AbstractFloat} <: AbstractInput
     window::F
     curvature_type::Symbol
     direction::Symbol
     position::Symbol
-    function iTopoRough{F}(window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow, position::Symbol = :bed) where {F<:AbstractFloat}
+    function iTopoRough(; window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow, position::Symbol = :bed) where {F<:AbstractFloat}
         valid_directions = (:flow, :cross_flow, :both)
         valid_curvature_types = (:scalar, :variability)
         valid_positions = (:bed, :surface)
@@ -105,10 +120,7 @@ struct iTopoRough{F<:AbstractFloat} <: AbstractInput
         new{F}(window, curvature_type, direction, position)
     end
 end
-
-iTopoRough(; window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow, position::Symbol = :bed) where {F<:AbstractFloat} = iTopoRough{F}(window, curvature_type, direction, position)
-
-default_name(::iTopoRough) = :topographic_roughness  
+default_name(::iTopoRough) = :topographic_roughness
 
 function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
     window = inp_topo_rough.window
@@ -206,6 +218,10 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
 
     return roughness
 end
+function Base.zero(::iTopoRough, simulation, glacier_idx)
+    (; nx, ny) = simulation.glaciers[glacier_idx]
+    return zeros(nx, ny)
+end
 
 ########################
 ######### LAWS #########
@@ -221,8 +237,8 @@ Law that represents a constant A in the SIA.
 - `A::F`: Rheology factor A.
 """
 function ConstantA(A::F) where {F <: AbstractFloat}
-    return ConstantLaw{Array{Float64, 0}}(function (simulation, glacier_idx, θ)
-            return fill(A)
+    return ConstantLaw{ScalarCacheNoVJP}(function (simulation, glacier_idx, θ)
+            return ScalarCacheNoVJP(fill(A))
         end,
     )
 end
@@ -254,14 +270,14 @@ then evaluated at a given temperature in the law.
 function CuffeyPaterson()
     A = polyA_PatersonCuffey()
     A_law = let A = A
-        Law{Array{Float64, 0}}(;
+        Law{ScalarCacheNoVJP}(;
             name = :CuffeyPaterson,
             inputs = (; T=iTemp()),
             f! = function (cache, inp, θ)
-                cache .= A.(inp.T)
+                cache.value .= A.(inp.T)
             end,
-            init_cache = function (simulation, glacier_idx, θ; scalar::Bool = true)
-                return zeros()
+            init_cache = function (simulation, glacier_idx, θ)
+                return ScalarCacheNoVJP(zeros())
             end,
         )
     end
@@ -278,7 +294,7 @@ The law is parameterized by minimum and maximum values (`Cmin`, `Cmax`) from `pa
 applies a sigmoid scaling to smoothly interpolate between these bounds.
 """
 function SyntheticC(params::Sleipnir.Parameters; inputs = (; CPDD=iCPDD(), topo_roughness=iTopoRough()))
-    C_synth_law = Law{Array{Float64, 2}}(;
+    C_synth_law = Law{MatrixCacheNoVJP}(;
         name = :SyntheticC,
         inputs = inputs,
         max_value = params.physical.maxC,
@@ -303,13 +319,12 @@ function SyntheticC(params::Sleipnir.Parameters; inputs = (; CPDD=iCPDD(), topo_
             x = α .* norm_CPDD .- γ .* norm_topo
             sigmoid = @. 1.0 / (1.0 + exp(-β * (x - 1.0)))  # Center sigmoid at x=1 for flexibility
             # If the provided C values are a matrix, reduce matrix size to match operations
-            cache .= Cmin .+ (Cmax - Cmin) .* inn1(sigmoid)
+            cache.value .= Cmin .+ (Cmax - Cmin) .* inn1(sigmoid)
         end,
-        init_cache = function (simulation, glacier_idx, θ; scalar::Bool = false)
-            # Initialize cache as a scalar or vector depending on the required output
-            scalar ? zeros() : zeros(size(simulation.glaciers[glacier_idx].S) .- 1)
+        init_cache = function (simulation, glacier_idx, θ)
+            MatrixCacheNoVJP(zeros(size(simulation.glaciers[glacier_idx].S) .- 1))
         end,
-        callback_freq = 1/52,  # TODO: modify depending on freq from params
+        callback_freq = Week(1),  # TODO: modify depending on freq from params
     )
     return C_synth_law
 end

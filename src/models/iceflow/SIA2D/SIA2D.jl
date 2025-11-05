@@ -1,4 +1,4 @@
-using DiffEqCallbacks: PeriodicCallback
+using DiffEqCallbacks: PeriodicCallback, PresetTimeCallback
 import Sleipnir: init_cache, cache_type
 
 export SIA2Dmodel, SIA2DCache
@@ -50,8 +50,8 @@ This struct stores the laws used to compute these three parameters during a simu
     n::nLAW = nothing
     Y::YLAW = nothing
     U::ULAW = nothing
-    n_H::F = nothing
-    n_∇S::F = nothing
+    n_H::Array{F, 0} = nothing
+    n_∇S::Array{F, 0} = nothing
     Y_is_provided::Bool = false
     U_is_provided::Bool = false
     n_H_is_provided::Bool = false
@@ -99,8 +99,8 @@ This struct stores the laws used to compute these three parameters during a simu
             @assert isnothing(n_∇S) "When Y law is not used, n_∇S must be set to nothing."
         end
 
-        n_H = something(n_H, 1.)
-        n_∇S = something(n_∇S, 1.)
+        n_H = fill(something(n_H, 1.))
+        n_∇S = fill(something(n_∇S, 1.))
 
         new{Sleipnir.Float, typeof(A), typeof(C), typeof(n), typeof(Y), typeof(U)}(
             A, C, n, Y, U, n_H, n_∇S,
@@ -108,31 +108,33 @@ This struct stores the laws used to compute these three parameters during a simu
             U_is_provided,
             n_H_is_provided,
             n_∇S_is_provided,
-            !is_callback_law(A) && !(A isa ConstantLaw) && !(A isa NullLaw),
-            !is_callback_law(C) && !(C isa ConstantLaw) && !(C isa NullLaw),
-            !is_callback_law(n) && !(n isa ConstantLaw) && !(n isa NullLaw),
-            !is_callback_law(Y) && !(Y isa ConstantLaw) && !(Y isa NullLaw),
-            !is_callback_law(U) && !(U isa ConstantLaw) && !(U isa NullLaw),
+            apply_law_in_model(A),
+            apply_law_in_model(C),
+            apply_law_in_model(n),
+            apply_law_in_model(Y),
+            apply_law_in_model(U),
         )
     end
 end
 
-const _default_A_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
-    (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].A)
+const _default_A_law = ConstantLaw{ScalarCacheNoVJP}(
+    (simulation, glacier_idx, θ) -> ScalarCacheNoVJP(fill(simulation.glaciers[glacier_idx].A))
 )
 
-const _default_C_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
-    (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].C)
+const _default_C_law = ConstantLaw{ScalarCacheNoVJP}(
+    (simulation, glacier_idx, θ) -> ScalarCacheNoVJP(fill(simulation.glaciers[glacier_idx].C))
 )
 
-const _default_n_law = ConstantLaw{Array{Sleipnir.Float, 0}}(
-    (simulation, glacier_idx, θ) -> fill(simulation.glaciers[glacier_idx].n)
+const _default_n_law = ConstantLaw{ScalarCacheNoVJP}(
+    (simulation, glacier_idx, θ) -> ScalarCacheNoVJP(fill(simulation.glaciers[glacier_idx].n))
 )
 
 SIA2Dmodel(params::Sleipnir.Parameters; A = nothing, C = nothing, n = nothing, Y = nothing, U = nothing, n_H = nothing, n_∇S = nothing) = SIA2Dmodel(A, C, n, Y, U, n_H, n_∇S)
 
 """
-    struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, Y_CACHE, U_CACHE, ∂A∂θ_CACHE, ∂Y∂θ_CACHE, ∂U∂θ_CACHE} <: SIAmodel
+    SIA2DCache{
+        R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, n_H_CACHE, n_∇S_CACHE, Y_CACHE, U_CACHE
+    } <: SIAmodel
 
 Store and preallocated all variables needed for running the 2D Shallow Ice Approximation (SIA) model efficiently.
 
@@ -142,9 +144,6 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 - `A_CACHE`, `C_CACHE`, `n_CACHE`: Types used for caching `A`, `C`, and `n`, which can be scalars, vectors, or matrices.
 - `Y_CACHE`: Type used for caching `Y` which is a matrix.
 - `U_CACHE`: Type used for caching `U` which is a matrix.
-- `∂A∂θ_CACHE`: Type used for caching `∂A∂θ` in the VJP computation which is a scalar.
-- `∂Y∂θ_CACHE`: Type used for caching `∂Y∂θ` in the VJP computation which is a scalar.
-- `∂U∂θ_CACHE`: Type used for caching `∂U∂θ` in the VJP computation which is a scalar.
 
 # Fields
 - `A::A_CACHE`: Flow rate factor.
@@ -154,12 +153,6 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 - `C::C_CACHE`: Sliding coefficient.
 - `Y::Y_CACHE`: Hybrid diffusivity.
 - `U::U_CACHE`: Diffusive velocity.
-- `∂A∂H::A_CACHE`: Buffer for VJP computation.
-- `∂A∂θ::∂A∂θ_CACHE`: Buffer for VJP computation.
-- `∂Y∂H::Y_CACHE`: Buffer for VJP computation.
-- `∂Y∂θ::∂Y∂θ_CACHE`: Buffer for VJP computation.
-- `∂U∂H::U_CACHE`: Buffer for VJP computation.
-- `∂U∂θ::∂U∂θ_CACHE`: Buffer for VJP computation.
 - `H₀::Matrix{R}`: Initial ice thickness.
 - `H::Matrix{R}`: Ice thickness.
 - `H̄::Matrix{R}`: Averaged ice thickness.
@@ -186,21 +179,22 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 - `MB_mask::BitMatrix`: Boolean mask for applying the mass balance.
 - `MB_total::Matrix{R}`: Total mass balance field.
 - `glacier_idx::I`: Index of the glacier for use in simulations with multiple glaciers.
+- `A_prep_vjps`, `C_prep_vjps`, `n_prep_vjps`, `Y_prep_vjps` and `U_prep_vjps`: Structs
+    that contain the prepared VJP functions for the adjoint computation and for the
+    different laws. Useful mainly when the user does not provide the VJPs and they are
+    automatically inferred using DifferentiationInterface.jl which requires to store
+    precompiled functions. When no gradient is computed, these structs are `nothing`.
 """
-@kwdef struct SIA2DCache{R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, Y_CACHE, U_CACHE, ∂A∂θ_CACHE, ∂Y∂θ_CACHE, ∂U∂θ_CACHE} <: SIAmodel
+@kwdef struct SIA2DCache{
+    R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, n_H_CACHE, n_∇S_CACHE, Y_CACHE, U_CACHE
+} <: SIAmodel
     A::A_CACHE
     n::n_CACHE
-    n_H::n_CACHE
-    n_∇S::n_CACHE
+    n_H::n_H_CACHE
+    n_∇S::n_∇S_CACHE
     C::C_CACHE
     Y::Y_CACHE
     U::U_CACHE
-    ∂A∂H::A_CACHE
-    ∂A∂θ::∂A∂θ_CACHE
-    ∂Y∂H::Y_CACHE
-    ∂Y∂θ::∂Y∂θ_CACHE
-    ∂U∂H::U_CACHE
-    ∂U∂θ::∂U∂θ_CACHE
     H₀::Matrix{R}
     H::Matrix{R}
     H̄::Matrix{R}
@@ -227,6 +221,11 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
     MB_mask::BitMatrix
     MB_total::Matrix{R}
     glacier_idx::I
+    A_prep_vjps
+    C_prep_vjps
+    n_prep_vjps
+    Y_prep_vjps
+    U_prep_vjps
 end
 
 function cache_type(sia2d_model::SIA2Dmodel)
@@ -239,11 +238,10 @@ function cache_type(sia2d_model::SIA2Dmodel)
         A_CACHE,
         cache_type(sia2d_model.C),
         cache_type(sia2d_model.n),
+        typeof(sia2d_model.n_H),
+        typeof(sia2d_model.n_∇S),
         Y_CACHE,
         U_CACHE,
-        Array{eltype(A_CACHE), 0},
-        Array{eltype(Y_CACHE), 0},
-        Array{eltype(U_CACHE), 0},
     }
 end
 
@@ -252,7 +250,7 @@ function init_cache(
     iceflow_model::SIA2Dmodel,
     glacier::AbstractGlacier,
     glacier_idx::I,
-    θ
+    θ,
 ) where {IF <: IceflowModel, I <: Integer}
 
 Initialize iceflow model data structures to enable in-place mutation.
@@ -267,7 +265,7 @@ function init_cache(
     model::SIA2Dmodel,
     simulation,
     glacier_idx::Int,
-    θ
+    θ,
 )
     glacier = simulation.glaciers[glacier_idx]
 
@@ -280,19 +278,15 @@ function init_cache(
     Y = init_cache(model.Y, simulation, glacier_idx, θ)
     U = init_cache(model.U, simulation, glacier_idx, θ)
 
-    n_H = fill(model.n_H, size(n))
-    n_∇S = fill(model.n_∇S, size(n))
-
-    # Buffer for VJP computation, they are used when the law needs either to be evaluated or differentiated
-    ∂A∂H = similar(A)
-    ∂Y∂H = similar(Y)
-    ∂U∂H = similar(U)
-    # Needs to be a scalar as it may be used with a backward interpolation which evaluates the backward element wise
-    ∂A∂θ = similar(A, ())
-    ∂Y∂θ = similar(Y, ())
-    ∂U∂θ = similar(U, ())
-
+    n_H = model.n_H
+    n_∇S = model.n_∇S
     Γ = similar(A)
+
+    A_prep_vjps = prepare_vjp_law(simulation, model.A, A, θ, glacier_idx)
+    C_prep_vjps = prepare_vjp_law(simulation, model.C, C, θ, glacier_idx)
+    n_prep_vjps = prepare_vjp_law(simulation, model.n, n, θ, glacier_idx)
+    Y_prep_vjps = prepare_vjp_law(simulation, model.Y, Y, θ, glacier_idx)
+    U_prep_vjps = prepare_vjp_law(simulation, model.U, U, θ, glacier_idx)
 
     return SIA2DCache(;
         A,
@@ -302,12 +296,6 @@ function init_cache(
         C,
         Y,
         U,
-        ∂A∂H,
-        ∂A∂θ,
-        ∂Y∂H,
-        ∂Y∂θ,
-        ∂U∂H,
-        ∂U∂θ,
         Γ,
         H₀ = deepcopy(glacier.H₀),
         H = deepcopy(glacier.H₀),
@@ -334,23 +322,46 @@ function init_cache(
         MB_mask = falses(nx,ny),
         MB_total = zeros(F,nx,ny),
         glacier_idx = Sleipnir.Int(glacier_idx),
+        A_prep_vjps,
+        C_prep_vjps,
+        n_prep_vjps,
+        Y_prep_vjps,
+        U_prep_vjps,
     )
 end
 
 """
-    build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ) -> CallbackSet
+    build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx::Real, θ, tspan) -> CallbackSet
 
 Return a `CallbackSet` that updates the cached values of `A`, `C`, `n` and `U` at provided time intervals.
 
-Each law can optionally specify a callback frequency. If such a frequency is set (via `callback_freq`),
-the update is done using a `PeriodicCallback`. Otherwise, no callback is used for that component.
+Each law can optionally specify a callback frequency via `callback_freq`.
+- If `callback_freq > 0`, a `PeriodicCallback` is used to update the corresponding component at regular intervals.
+- If `callback_freq == 0`, a `PresetTimeCallback` is used to trigger the update only at the initial time
+(taken from `tspan[1]`).
+- If no callback is specified for a component, a dummy `CallbackSet` is returned.
+
+Arguments:
+- `model::SIA2Dmodel`: The ice flow model definition.
+- `cache::SIA2DCache`: Model cache for efficient component access and updates.
+- `glacier_idx::Real`: Index of the glacier in the simulation.
+- `θ`: Optional parameter for law evaluation.
+- `tspan`: Tuple or floats specifying the simulation time span. Used to determine initial callback time when `freq == 0`.
+
+Returns:
+- A `CallbackSet` containing all the callbacks for periodic or preset updates of model components.
 """
-function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
+function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx::Real, θ, tspan)
+    tstopsPresetCb = [tspan[1]]
     A_cb = if is_callback_law(model.A)
         A_affect! = build_affect(model.A, cache.A, glacier_idx, θ)
         freq = callback_freq(model.A)
 
-        PeriodicCallback(A_affect!, freq; initial_affect = true)
+        if freq>0
+            PeriodicCallback(A_affect!, freq; initial_affect = true)
+        else
+            PresetTimeCallback(tstopsPresetCb, A_affect!)
+        end
     else
         CallbackSet()
     end
@@ -359,7 +370,11 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         C_affect! = build_affect(model.C, cache.C, glacier_idx, θ)
         freq = callback_freq(model.C)
 
-        PeriodicCallback(C_affect!, freq; initial_affect = true)
+        if freq>0
+            PeriodicCallback(C_affect!, freq; initial_affect = true)
+        else
+            PresetTimeCallback(tstopsPresetCb, C_affect!)
+        end
     else
         CallbackSet()
     end
@@ -368,7 +383,11 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         n_affect! = build_affect(model.n, cache.n, glacier_idx, θ)
         freq = callback_freq(model.n)
 
-        PeriodicCallback(n_affect!, freq; initial_affect = true)
+        if freq>0
+            PeriodicCallback(n_affect!, freq; initial_affect = true)
+        else
+            PresetTimeCallback(tstopsPresetCb, n_affect!)
+        end
     else
         CallbackSet()
     end
@@ -377,7 +396,11 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         Y_affect! = build_affect(model.Y, cache.Y, glacier_idx, θ)
         freq = callback_freq(model.Y)
 
-        PeriodicCallback(Y_affect!, freq; initial_affect = true)
+        if freq>0
+            PeriodicCallback(Y_affect!, freq; initial_affect = true)
+        else
+            PresetTimeCallback(tstopsPresetCb, Y_affect!)
+        end
     else
         CallbackSet()
     end
@@ -386,7 +409,11 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
         U_affect! = build_affect(model.U, cache.U, glacier_idx, θ)
         freq = callback_freq(model.U)
 
-        PeriodicCallback(U_affect!, freq; initial_affect = true)
+        if freq>0
+            PeriodicCallback(U_affect!, freq; initial_affect = true)
+        else
+            PresetTimeCallback(tstopsPresetCb, U_affect!)
+        end
     else
         CallbackSet()
     end
@@ -394,7 +421,7 @@ function build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, θ)
     return CallbackSet(A_cb, C_cb, n_cb, Y_cb, U_cb)
 end
 
-build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx) = build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, nothing)
+build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx::Real, tspan) = build_callback(model::SIA2Dmodel, cache::SIA2DCache, glacier_idx, nothing, tspan)
 
 
 # Display setup
@@ -411,8 +438,10 @@ function Base.show(io::IO, model::SIA2Dmodel)
     print(io, "  with "); printstyled(io, "D";color=colorD); print(io, " = "); printstyled(io, "U";color=colorU);println(io, " H̄")
     inp = []
     if model.U_is_provided
-        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, ": "); println(io, model.U)
-        push!(inp, inputs(model.U))
+        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, ": "); print(io, model.U)
+        if inputs_defined(model.U)
+            push!(inp, inputs(model.U))
+        end
     elseif model.Y_is_provided
         print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = (")
 
@@ -439,18 +468,24 @@ function Base.show(io::IO, model::SIA2Dmodel)
         printstyled(io, "      Γ";color=colorΓ);print(io, " = 2");print(io, " (ρg)^"); printstyled(io, "n";color=colorn)
         print(io, " /(");printstyled(io, "n";color=colorn);println(io, "+2)")
 
-        printstyled(io, "      Y: ";color=colorY); println(io, model.Y)
-        printstyled(io, "      C: ";color=colorC); println(io, model.C)
-        printstyled(io, "      n: ";color=colorn); println(io, model.n)
+        printstyled(io, "      Y: ";color=colorY); print(io, model.Y)
+        printstyled(io, "      C: ";color=colorC); print(io, model.C)
+        printstyled(io, "      n: ";color=colorn); print(io, model.n)
         if !isnothing(model.n_H)
             println(io, "      n_H = $(model.n_H)")
         end
         if !isnothing(model.n_∇S)
             println(io, "      n_∇S = $(model.n_∇S)")
         end
-        push!(inp, inputs(model.Y))
-        push!(inp, inputs(model.C))
-        push!(inp, inputs(model.n))
+        if inputs_defined(model.Y)
+            push!(inp, inputs(model.Y))
+        end
+        if inputs_defined(model.C)
+            push!(inp, inputs(model.C))
+        end
+        if inputs_defined(model.n)
+            push!(inp, inputs(model.n))
+        end
     else
         print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = (")
         # Sliding part
@@ -463,12 +498,18 @@ function Base.show(io::IO, model::SIA2Dmodel)
         printstyled(io, "      Γ";color=colorΓ);print(io, " = 2");printstyled(io, "A";color=colorA);print(io, " (ρg)^"); printstyled(io, "n";color=colorn)
         print(io, " /(");printstyled(io, "n";color=colorn);println(io, "+2)")
 
-        printstyled(io, "      A: ";color=colorA); println(io, model.A)
-        printstyled(io, "      C: ";color=colorC); println(io, model.C)
-        printstyled(io, "      n: ";color=colorn); println(io, model.n)
-        push!(inp, inputs(model.A))
-        push!(inp, inputs(model.C))
-        push!(inp, inputs(model.n))
+        printstyled(io, "      A: ";color=colorA); print(io, model.A)
+        printstyled(io, "      C: ";color=colorC); print(io, model.C)
+        printstyled(io, "      n: ";color=colorn); print(io, model.n)
+        if inputs_defined(model.A)
+            push!(inp, inputs(model.A))
+        end
+        if inputs_defined(model.C)
+            push!(inp, inputs(model.C))
+        end
+        if inputs_defined(model.n)
+            push!(inp, inputs(model.n))
+        end
     end
     inp = merge(inp...)
     if length(inp)>0
@@ -478,6 +519,3 @@ function Base.show(io::IO, model::SIA2Dmodel)
         end
     end
 end
-
-
-include("SIA2D_utils.jl")

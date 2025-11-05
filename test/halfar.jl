@@ -130,7 +130,7 @@ function unit_halfar_test(;
     δt = Δt / 10
 
     # Get parameters for a simulation
-    parameters = Huginn.Parameters(
+    parameters = Parameters(
         simulation=SimulationParameters(
             tspan = (t₀, t₁),
             use_MB = use_MB,
@@ -151,7 +151,7 @@ function unit_halfar_test(;
         )
 
     @assert !use_MB "Need to find way to pass MB"
-    model = Huginn.Model(
+    model = Model(
         iceflow = SIA2Dmodel(parameters),
         mass_balance = nothing
     )

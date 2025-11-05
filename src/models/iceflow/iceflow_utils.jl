@@ -213,3 +213,5 @@ function project_curvatures(H, eₚ, eₛ)
     Kₛ = eₛ' * H * eₛ
     return Kₚ, Kₛ
 end
+
+include("SIA2D/SIA2D_utils.jl")
