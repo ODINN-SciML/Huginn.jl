@@ -11,7 +11,7 @@ export ConstantA, CuffeyPaterson, SyntheticC
     iTemp <: AbstractInput
 
 Input that represents the long term air temperature of a glacier.
-It is computed using the OGGM data over a period predefined in Gungnir.
+It is computed using the OGGM climate data over a period predefined in Gungnir (i.e. around 30 years).
 """
 struct iTemp <: AbstractInput end
 default_name(::iTemp) = :long_term_temperature
@@ -61,11 +61,15 @@ function get_input(::iH̄, simulation, glacier_idx, t)
 end
 
 """
+    i∇S <: AbstractInput
+
 Input that represents the surface slope in the SIA.
 It is computed using the bedrock elevation and the ice thickness solution H. The
 spatial differences are averaged over the opposite axis:
+```julia
 S = B + H
 ∇S = (avg_y(diff_x(S) / Δx).^2 .+ avg_x(diff_y(S) / Δy).^2).^(1/2)
+```
 """
 struct i∇S <: AbstractInput end
 default_name(::i∇S) = :∇S
@@ -74,6 +78,8 @@ function get_input(::i∇S, simulation, glacier_idx, t)
 end
 
 """
+    iTopoRough{F<:AbstractFloat} <: AbstractInput
+
 Input that represents the topographic roughness of the glacier.
 It is computed as the curvature of the glacier bed (or surface) over a specified window size. The curvature can be calculated in different directions (flow, cross-flow, or both)
 and using different curvature types (scalar or variability).
@@ -200,6 +206,11 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
 
     return roughness
 end
+
+########################
+######### LAWS #########
+########################
+
 
 """
     ConstantA(A::F) where {F <: AbstractFloat}
