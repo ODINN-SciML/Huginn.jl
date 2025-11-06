@@ -43,10 +43,11 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     simulation.cache = init_cache(model, simulation, glacier_idx, nothing)
     cache = simulation.cache
 
-    # Create mass balance callback
-    mb_tstops = define_callback_steps(params.simulation.tspan, step)
-    params.solver.tstops = mb_tstops
+    # Define tstops
+    tstops = define_callback_steps(params.simulation.tspan, step)
+    tstops = unique(vcat(tstops, params.solver.tstops)) # Merge time steps controlled by `step` with the user provided time steps
 
+    # Create mass balance callback
     mb_action! = let model = model, cache = cache, glacier = glacier, step = step
         function (integrator)
             if params.simulation.use_MB
@@ -73,36 +74,38 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
 
     # Run iceflow PDE for this glacier
     du = params.simulation.use_iceflow ? SIA2D_PDE! : noSIA2D!
-    results = simulate_iceflow_PDE!(simulation, cb, du)
+    results = simulate_iceflow_PDE!(simulation, cb, du, tstops)
 
     return results
 end
 
 """
-    function simulate_iceflow_PDE!(
+    simulate_iceflow_PDE!(
         simulation::SIM,
-        cb::DiscreteCallback,
-        du
-    ) where {SIM <: Simulation}
+        cb::SciMLBase.DECallback,
+        du,
+        tstops::Vector{F},
+    ) where {SIM <: Simulation, F <: AbstractFloat}
 
 Make forward simulation of the iceflow PDE determined in `du` in-place and create the results.
 """
 function simulate_iceflow_PDE!(
     simulation::SIM,
     cb::SciMLBase.DECallback,
-    du
-) where {SIM <: Simulation}
+    du,
+    tstops::Vector{F},
+) where {SIM <: Simulation, F <: AbstractFloat}
     cache = simulation.cache
     params = simulation.parameters
 
     # Define problem to be solved
-    iceflow_prob = ODEProblem{true,SciMLBase.FullSpecialize}(du, cache.iceflow.H, params.simulation.tspan, simulation; tstops=params.solver.tstops)
+    iceflow_prob = ODEProblem{true,SciMLBase.FullSpecialize}(du, cache.iceflow.H, params.simulation.tspan, simulation; tstops=tstops)
 
     iceflow_sol = solve(iceflow_prob,
                         params.solver.solver,
                         callback=cb,
                         reltol=params.solver.reltol,
-                        save_everystep=params.solver.save_everystep,
+                        save_everystep=params.solver.save_everystep, # TODO: remove that parameter?
                         progress=params.solver.progress,
                         progress_steps=params.solver.progress_steps,
                         maxiters=params.solver.maxiters)
@@ -123,7 +126,7 @@ function simulate_iceflow_PDE!(
     @. cache.iceflow.S = glacier.B + cache.iceflow.H
 
     # Update simulation results
-    results = Sleipnir.create_results(simulation, glacier_idx, iceflow_sol, nothing; light=!params.solver.save_everystep, processVelocity=V_from_H)
+    results = Sleipnir.create_results(simulation, glacier_idx, iceflow_sol, tstops; light=!params.solver.save_everystep, processVelocity=V_from_H)
 
     return results
 end
