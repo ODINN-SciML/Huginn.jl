@@ -41,7 +41,6 @@ parameters = Huginn.Parameters(
     solver = SolverParameters(
         reltol = 1e-12,
         step = δt,
-        save_everystep = true
         )
     )
 
@@ -77,7 +76,7 @@ run!(prediction)
 make_thickness_video(
     prediction.results[1].H,
     glaciers[1],
-    parameters.simulation,
+    parameters,
     "./scripts/figures/Halfar_sol_video.mp4";
     framerate = 24,
     baseTitle = "Halfar solution"
@@ -90,7 +89,7 @@ Err = (prediction.results[1].H .- Hs)
 make_thickness_video(
     Err,
     glaciers[1],
-    parameters.simulation,
+    parameters,
     "./scripts/figures/Halfar_error_video.mp4";
     framerate = 24,
     baseTitle = "Halfar error",

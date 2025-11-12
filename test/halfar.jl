@@ -146,7 +146,6 @@ function unit_halfar_test(;
             reltol = 1e-12,
             # abstol = 1e-12,
             step = δt,
-            save_everystep = true
             )
         )
 

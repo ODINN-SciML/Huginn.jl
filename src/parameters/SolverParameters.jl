@@ -8,9 +8,9 @@ A mutable struct that holds parameters for the solver.
 # Fields
 - `solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm`: The algorithm used for solving differential equations.
 - `reltol::F`: The relative tolerance for the solver.
-- `step::F`: The step size that controls the frequency of the callbacks and when to store the results.
+- `step::F`: The step size that controls when to store the results.
 - `tstops::Vector{F}`: Optional vector of time points where the solver should stop to store the results.
-- `save_everystep::Bool`: Flag indicating whether to save the solution at every step.
+- `save_everystep::Bool`: Flag indicating whether to save the solution at every step computed by the solver.
 - `progress::Bool`: Flag indicating whether to show progress during the solving process.
 - `progress_steps::I`: The number of steps between progress updates.
 - `maxiters::I`: Maximum number of iterations to perform in the iceflow solver.
@@ -43,10 +43,10 @@ Constructs a `SolverParameters` object with the specified parameters or using de
 # Arguments
 - `solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm`: The ODE solver algorithm to use. Defaults to `RDPK3Sp35()`.
 - `reltol::F`: The relative tolerance for the solver. Defaults to `1e-12`.
-- `step::F`: The step size for the callbacks. These are mainly used to run the surface mass balance model. This also controls
-    at which frequency the solution should be computed and returned in the results. Defaults to `1.0/12.0` (i.e. a month).
+- `step::F`: The step size that controls at which frequency the solution should be computed and returned in the results.
+    Defaults to `1.0/12.0` (i.e. a month).
 - `tstops::Vector{Sleipnir.Float}`: Optional vector of time points where the solver should stop. Defaults to an empty vector.
-- `save_everystep::Bool`: Whether to save the solution at every step. Defaults to `false`.
+- `save_everystep::Bool`: Whether to save the solution at every step computed by the solver. Defaults to `false`.
 - `progress::Bool`: Whether to show progress during the solving process. Defaults to `true`.
 - `progress_steps::I`: The number of steps between progress updates. Defaults to `10`.
 - `maxiters::I`: Maximum number of iterations to perform in the iceflow solver. Defaults to `1e5`.
