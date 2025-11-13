@@ -190,8 +190,6 @@ function thickness_velocity_data(
         end
         velocityData = :V in store ? SurfaceVelocityData(
             date = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day,ts)),
-            date1 = Vector{Sleipnir.Dates.DateTime}([]),
-            date2 = Vector{Sleipnir.Dates.DateTime}([]),
             vx = Vx,
             vy = Vy,
             vabs = Vabs,
