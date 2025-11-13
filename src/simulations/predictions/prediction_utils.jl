@@ -35,7 +35,7 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     params = simulation.parameters
     glacier = simulation.glaciers[glacier_idx]
     step = params.solver.step
-    MBstep = params.simulation.step
+    step_MB = params.simulation.step_MB
 
     glacier_id = isnothing(glacier.rgi_id) ? "unnamed" : glacier.rgi_id
     println("Processing glacier $(glacier_id) for PDE forward simulation")
@@ -49,19 +49,19 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     tstops = unique(vcat(tstops, params.solver.tstops)) # Merge time steps controlled by `step` with the user provided time steps
 
     # Create mass balance callback
-    mb_action! = let model = model, cache = cache, glacier = glacier, MBstep = MBstep
+    mb_action! = let model = model, cache = cache, glacier = glacier, step_MB = step_MB
         function (integrator)
             if params.simulation.use_MB
                 # Compute mass balance
                 glacier.S .= glacier.B .+ integrator.u
-                MB_timestep!(cache, model, glacier, MBstep, integrator.t)
+                MB_timestep!(cache, model, glacier, step_MB, integrator.t)
                 apply_MB_mask!(integrator.u, cache.iceflow)
             end
         end
     end
-    # A simulation period is sliced in time windows that are separated by `MBstep`
+    # A simulation period is sliced in time windows that are separated by `step_MB`
     # The mass balance is applied at the end of each of the windows
-    cb_MB = PeriodicCallback(mb_action!, MBstep; initial_affect=false)
+    cb_MB = PeriodicCallback(mb_action!, step_MB; initial_affect=false)
 
     # Create iceflow law callback
     cb_iceflow = build_callback(

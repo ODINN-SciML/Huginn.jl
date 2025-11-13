@@ -134,7 +134,7 @@ function unit_halfar_test(;
         simulation=SimulationParameters(
             tspan = (t₀, t₁),
             use_MB = use_MB,
-            step = δt,
+            step_MB = δt,
             use_iceflow = true,
             working_dir = Huginn.root_dir
             ),

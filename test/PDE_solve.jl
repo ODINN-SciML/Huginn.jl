@@ -174,8 +174,8 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
 
     t = 2015.0
 
-    MB_timestep!(cache, model, glacier, params.simulation.step, t)
-    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) MB_timestep!(cache, model, glacier, params.simulation.step, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
+    MB_timestep!(cache, model, glacier, params.simulation.step_MB, t)
+    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) MB_timestep!(cache, model, glacier, params.simulation.step_MB, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
 
     apply_MB_mask!(cache.iceflow.H, cache.iceflow)
     JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) apply_MB_mask!(cache.iceflow.H, cache.iceflow)

@@ -30,7 +30,6 @@ parameters = Huginn.Parameters(
         tspan = (t₀, t₁),
         multiprocessing = false,
         use_MB = false,
-        step = δt,
         use_iceflow = true,
         working_dir = Huginn.root_dir
         ),

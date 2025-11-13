@@ -8,7 +8,7 @@ A mutable struct that holds parameters for the solver.
 # Fields
 - `solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm`: The algorithm used for solving differential equations.
 - `reltol::F`: The relative tolerance for the solver.
-- `step::F`: The step size that controls when to store the results.
+- `step::F`: The step size that controls at which frequency the results must be saved.
 - `tstops::Vector{F}`: Optional vector of time points where the solver should stop to store the results.
 - `save_everystep::Bool`: Flag indicating whether to save the solution at every step computed by the solver.
 - `progress::Bool`: Flag indicating whether to show progress during the solving process.
