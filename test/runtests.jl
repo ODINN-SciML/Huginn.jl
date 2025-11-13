@@ -36,17 +36,17 @@ ENV["GKSwstype"]="nul"
 @testset "Running all tests" begin
 
 @testset "PDE solving integration tests" begin
-    @testset "w/o MB w/o laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=false, fast=true, laws=nothing)
+    @testset "w/o MB w/o laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=false, laws=nothing)
 
-    @testset "w/  MB w/o laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=nothing)
+    @testset "w/  MB w/o laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, laws=nothing)
 
-    @testset "w/  MB w/  scalar laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:scalar, callback_laws=false)
+    @testset "w/  MB w/  scalar laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, laws=:scalar, callback_laws=false)
 
-    @testset "w/  MB w/  scalar callback laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:scalar, callback_laws=true)
+    @testset "w/  MB w/  scalar callback laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, laws=:scalar, callback_laws=true)
 
-    @testset "w/  MB w/  matrix  laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:matrix, callback_laws=false)
+    @testset "w/  MB w/  matrix  laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, laws=:matrix, callback_laws=false)
 
-    @testset "w/  MB w/  matrix callback laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, fast=true, laws=:matrix, callback_laws=true)
+    @testset "w/  MB w/  matrix callback laws" pde_solve_test(; rtol=0.01, atol=0.01, save_refs=false, MB=true, laws=:matrix, callback_laws=true)
 end
 
 @testset "Ground truth generation" ground_truth_generation()

@@ -35,6 +35,7 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     params = simulation.parameters
     glacier = simulation.glaciers[glacier_idx]
     step = params.solver.step
+    step_MB = params.simulation.step_MB
 
     glacier_id = isnothing(glacier.rgi_id) ? "unnamed" : glacier.rgi_id
     println("Processing glacier $(glacier_id) for PDE forward simulation")
@@ -43,23 +44,24 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     simulation.cache = init_cache(model, simulation, glacier_idx, nothing)
     cache = simulation.cache
 
-    # Create mass balance callback
-    mb_tstops = define_callback_steps(params.simulation.tspan, step)
-    params.solver.tstops = mb_tstops
+    # Define tstops
+    tstops = define_callback_steps(params.simulation.tspan, step)
+    tstops = unique(vcat(tstops, params.solver.tstops)) # Merge time steps controlled by `step` with the user provided time steps
 
-    mb_action! = let model = model, cache = cache, glacier = glacier, step = step
+    # Create mass balance callback
+    mb_action! = let model = model, cache = cache, glacier = glacier, step_MB = step_MB
         function (integrator)
             if params.simulation.use_MB
                 # Compute mass balance
                 glacier.S .= glacier.B .+ integrator.u
-                MB_timestep!(cache, model, glacier, step, integrator.t)
+                MB_timestep!(cache, model, glacier, step_MB, integrator.t)
                 apply_MB_mask!(integrator.u, cache.iceflow)
             end
         end
     end
-    # A simulation period is sliced in time windows that are separated by `step`
+    # A simulation period is sliced in time windows that are separated by `step_MB`
     # The mass balance is applied at the end of each of the windows
-    cb_MB = PeriodicCallback(mb_action!, step; initial_affect=false)
+    cb_MB = PeriodicCallback(mb_action!, step_MB; initial_affect=false)
 
     # Create iceflow law callback
     cb_iceflow = build_callback(
@@ -73,30 +75,32 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
 
     # Run iceflow PDE for this glacier
     du = params.simulation.use_iceflow ? SIA2D_PDE! : noSIA2D!
-    results = simulate_iceflow_PDE!(simulation, cb, du)
+    results = simulate_iceflow_PDE!(simulation, cb, du, tstops)
 
     return results
 end
 
 """
-    function simulate_iceflow_PDE!(
+    simulate_iceflow_PDE!(
         simulation::SIM,
-        cb::DiscreteCallback,
-        du
-    ) where {SIM <: Simulation}
+        cb::SciMLBase.DECallback,
+        du,
+        tstops::Vector{F},
+    ) where {SIM <: Simulation, F <: AbstractFloat}
 
 Make forward simulation of the iceflow PDE determined in `du` in-place and create the results.
 """
 function simulate_iceflow_PDE!(
     simulation::SIM,
     cb::SciMLBase.DECallback,
-    du
-) where {SIM <: Simulation}
+    du,
+    tstops::Vector{F},
+) where {SIM <: Simulation, F <: AbstractFloat}
     cache = simulation.cache
     params = simulation.parameters
 
     # Define problem to be solved
-    iceflow_prob = ODEProblem{true,SciMLBase.FullSpecialize}(du, cache.iceflow.H, params.simulation.tspan, simulation; tstops=params.solver.tstops)
+    iceflow_prob = ODEProblem{true,SciMLBase.FullSpecialize}(du, cache.iceflow.H, params.simulation.tspan, simulation; tstops=tstops)
 
     iceflow_sol = solve(iceflow_prob,
                         params.solver.solver,
@@ -123,7 +127,7 @@ function simulate_iceflow_PDE!(
     @. cache.iceflow.S = glacier.B + cache.iceflow.H
 
     # Update simulation results
-    results = Sleipnir.create_results(simulation, glacier_idx, iceflow_sol, nothing; light=!params.solver.save_everystep, processVelocity=V_from_H)
+    results = Sleipnir.create_results(simulation, glacier_idx, iceflow_sol, tstops; processVelocity=V_from_H)
 
     return results
 end
@@ -135,24 +139,37 @@ end
 
 
 """
-    thickness_velocity_data(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
+    thickness_velocity_data(
+        prediction::Prediction,
+        tstops::Vector{F};
+        store::Tuple=(:H, :V),
+    ) where {F <: AbstractFloat}
 
 Return a new vector of glaciers with the simulated thickness and ice velocity data for each of the glaciers.
 
 # Arguments
 - `prediction::Prediction`: A `Prediction` object containing the simulation results and associated glaciers.
 - `tstops::Vector{F}`: A vector of time steps (of type `F <: AbstractFloat`) at which the simulation was evaluated.
+- `store::Tuple`: Which generated simulation products to store. It can include `:H` and/or `:V`.
 
 # Description
-This function iterates over the glaciers in the `Prediction` object and generates the simulated thickness data (`H`) and corresponding time steps (`t`). I then computes the surface ice velocity data. A new vector of glaciers is created and each glacier is a copy with an updated `thicknessData` and `velocityData` fields.
+This function iterates over the glaciers in the `Prediction` object and generates the simulated data based on the
+`store` argument at corresponding time steps (`t`).
+If `store` includes `:H`, then the ice thickness is stored.
+If `store` includes `:V`, then it computes the surface ice velocity data and store it.
+A new vector of glaciers is created and each glacier is a copy with an updated `thicknessData` and `velocityData` fields.
 
 # Notes
 - The function asserts that the time steps (`ts`) in the simulation results match the provided `tstops`. If they do not match, an error is raised.
 
 # Returns
-A new vector of glaciers where each glacier is a copy of the original one with the updated `thicknessData` and `velocityData`.
+A new vector of glaciers where each glacier is a copy of the original one with the updated `thicknessData` and `velocityData` based on the values provided in `store`.
 """
-function thickness_velocity_data(prediction::Prediction, tstops::Vector{F}) where {F <: AbstractFloat}
+function thickness_velocity_data(
+    prediction::Prediction,
+    tstops::Vector{F};
+    store::Tuple=(:H, :V),
+) where {F <: AbstractFloat}
     # Store the thickness data in the glacier
     glaciers = map(1:length(prediction.glaciers)) do i
         prediction.cache = init_cache(prediction.model, prediction, i, nothing)
@@ -160,7 +177,7 @@ function thickness_velocity_data(prediction::Prediction, tstops::Vector{F}) wher
         Hs = prediction.results[i].H
         @assert ts ≈ tstops "Timestops of simulated PDE solution and the provided tstops do not match."
 
-        thicknessData = Sleipnir.ThicknessData(ts, Hs)
+        thicknessData = :H in store ? Sleipnir.ThicknessData(ts, Hs) : nothing
 
         Vx = Array{Matrix{F}, 1}()
         Vy = Array{Matrix{F}, 1}()
@@ -171,14 +188,12 @@ function thickness_velocity_data(prediction::Prediction, tstops::Vector{F}) wher
             push!(Vy, vy)
             push!(Vabs, vabs)
         end
-        velocityData = SurfaceVelocityData(
+        velocityData = :V in store ? SurfaceVelocityData(
             date = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day,ts)),
-            date1 = Vector{Sleipnir.Dates.DateTime}([]),
-            date2 = Vector{Sleipnir.Dates.DateTime}([]),
             vx = Vx,
             vy = Vy,
             vabs = Vabs,
-        )
+        ) : nothing
 
         Glacier2D(
             prediction.glaciers[i],
@@ -194,21 +209,24 @@ end
         glaciers::Vector{G},
         params::Sleipnir.Parameters,
         model::Sleipnir.Model,
-        tstops::Vector{F},
+        tstops::Vector{F};
+        store::Tuple=(:H, :V),
     ) where {G <: Sleipnir.AbstractGlacier, F <: AbstractFloat}
 
 Generate ground truth data for a glacier simulation by using the laws specified in the model and running a forward model.
-It returns a new vector of glaciers with updated `thicknessData` field.
+It returns a new vector of glaciers with updated `thicknessData` and `velocityData` fields based on the `store` argument.
 
 # Arguments
 - `glaciers::Vector{G}`: A vector of glacier objects of type `G`, where `G` is a subtype of `Sleipnir.AbstractGlacier`.
 - `params::Sleipnir.Parameters`: Simulation parameters.
 - `model::Sleipnir.Model`: The model to use for the simulation.
 - `tstops::Vector{F}`: A vector of time steps at which the simulation will be evaluated.
+- `store::Tuple`: Which generated simulation products to store. It can include `:H` and/or `:V`.
 
 # Description
 1. Runs a forward model simulation for the glaciers using the provided laws, parameters, model, and time steps.
-2. Build a new vector of glaciers and store the simulation results as ground truth in the `glaciers` struct. For each glacier it populates the `thicknessData` field.
+2. Build a new vector of glaciers and store the simulation results as ground truth in the `glaciers` struct.
+For each glacier it populates the `thicknessData` field if `store` contains `:H` and it populates `velocityData` if `store` contains `:V`.
 
 # Example
 ```julia
@@ -224,7 +242,8 @@ function generate_ground_truth(
     glaciers::Vector{G},
     params::Sleipnir.Parameters,
     model::Sleipnir.Model,
-    tstops::Vector{F},
+    tstops::Vector{F};
+    store::Tuple=(:H, :V),
 ) where {G <: Sleipnir.AbstractGlacier, F <: AbstractFloat}
     # Generate timespan from simulation
     t₀, t₁ = params.simulation.tspan
@@ -235,7 +254,7 @@ function generate_ground_truth(
     run!(prediction)
 
     # Create new glaciers with the thickness and velocity data
-    return thickness_velocity_data(prediction, tstops)
+    return thickness_velocity_data(prediction, tstops; store=store)
 end
 
 

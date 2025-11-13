@@ -248,7 +248,7 @@ end
 
 Function that does nothing and its existence is just to support
 multiple dispatch. The implementation that is useful is available
-in ODINN when simulation is a `FunctionalInversion` object.
+in ODINN when simulation is a `Inversion` object.
 """
 precompute_all_VJPs_laws!(
     SIA2D_model::SIA2Dmodel,
