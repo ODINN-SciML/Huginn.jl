@@ -1,7 +1,16 @@
 
-function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=false, fast::Bool=true, laws = nothing, callback_laws = false) where {F <: AbstractFloat}
+function pde_solve_test(;
+    rtol::F,
+    atol::F,
+    save_refs::Bool=false,
+    MB::Bool=false,
+    fast::Bool=true,
+    laws_A = nothing,
+    laws_C = nothing,
+    callback_laws = false
+    ) where {F <: AbstractFloat}
 
-    println("PDE solving with MB = $MB, laws = $laws, callback_laws = $callback_laws")
+    println("PDE solving with MB = $MB, laws_A = $laws_A, laws_C = $laws_C, callback_laws = $callback_laws")
 
     ## Retrieving gdirs and climate for the following glaciers
     ## Fast version includes less glacier to reduce computation time on GitHub CI
@@ -40,18 +49,22 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         solver = SolverParameters(reltol=1e-12)
     )
 
+    # We retrieve some glaciers for the simulation
+    glaciers = initialize_glaciers(rgi_ids, params)
+    # JET.@test_opt broken=true target_modules=(Sleipnir,Muninn,Huginn) initialize_glaciers(rgi_ids, params) # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
+
     mass_balance = isnothing(MB) ? nothing : TImodel1(params)
 
-    A_law = if isnothing(laws)
+    A_law = if isnothing(laws_A)
         nothing
-    elseif laws == :scalar
+    elseif laws_A == :scalar
         # dumb law that gives the default value of A as a 0-dimensional array
         Law{ScalarCacheNoVJP}(;
             f! = (A, sim, glacier_idx, t, θ) -> A.value .= sim.glaciers[glacier_idx].A,
             init_cache = (sim, glacier_idx, θ) -> ScalarCacheNoVJP(zeros()),
             callback_freq = callback_laws ? Month(1) : nothing
         )
-    elseif laws == :matrix
+    elseif laws_A == :matrix
         # dumb law that gives the default value of A as a constant matrix
         Law{MatrixCacheNoVJP}(;
             f! = (A, sim, glacier_idx, t, θ) -> A.value .= sim.glaciers[glacier_idx].A,
@@ -65,15 +78,28 @@ function pde_solve_test(; rtol::F, atol::F, save_refs::Bool=false, MB::Bool=fals
         throw("laws keyword should be either nothing, :scalar, or :matrix")
     end
 
-    iceflow = SIA2Dmodel(params; A = A_law)
-    JET.@test_opt SIA2Dmodel(params; A = A_law)
+    # TODO: Check right units and values for this!
+    mean_sliding_velocity = 100 # m /yr
+    mean_sliding_velocity /= (365 * 60 * 24 * 24)
+    C_base = mean_sliding_velocity / (10e5)^(glaciers[begin].p - glaciers[begin].q)
+    C_law = if isnothing(laws_C)
+        nothing
+    elseif laws_C == :scalar
+        # dumb law that gives the default value of C as a 0-dimensional array
+        Law{ScalarCacheNoVJP}(;
+            f! = (C, sim, glacier_idx, t, θ) -> C.value .= C_base,
+            init_cache = (sim, glacier_idx, θ) -> ScalarCacheNoVJP(zeros()),
+            callback_freq = callback_laws ? Month(1) : nothing
+        )
+    else
+        throw("laws keyword should be either nothing, :scalar, or :matrix")
+    end
+
+    iceflow = SIA2Dmodel(params; A = A_law, C = C_law)
+    JET.@test_opt SIA2Dmodel(params; A = A_law, C = C_law)
 
     model = Model(;iceflow, mass_balance)
     JET.@test_opt Model(;iceflow, mass_balance)
-
-    # We retrieve some glaciers for the simulation
-    glaciers = initialize_glaciers(rgi_ids, params)
-    # JET.@test_opt broken=true target_modules=(Sleipnir,Muninn,Huginn) initialize_glaciers(rgi_ids, params) # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
 
     # We create an ODINN prediction
     prediction = Prediction(model, glaciers, params)
