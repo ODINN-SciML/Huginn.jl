@@ -33,7 +33,8 @@ function pde_solve_test(;
             tspan = (2010.0, 2015.0),
             working_dir = Huginn.root_dir,
             test_mode = true,
-            rgi_paths = rgi_paths
+            rgi_paths = rgi_paths,
+            workers = 1
         ),
         solver = SolverParameters(reltol=1e-12)
     )
@@ -80,8 +81,7 @@ function pde_solve_test(;
 
     # TODO: Check right units and values for this!
     mean_sliding_velocity = 100 # m /yr
-    mean_sliding_velocity /= (365 * 60 * 24 * 24)
-    C_base = mean_sliding_velocity / (10e5)^(glaciers[begin].p - glaciers[begin].q)
+    C_base = mean_sliding_velocity * (1e5)^glaciers[begin].q / (1e5)^(glaciers[begin].p)
     C_law = if isnothing(laws_C)
         nothing
     elseif laws_C == :scalar
