@@ -75,22 +75,21 @@ function SIA2D!(
 
     if SIA2D_model.U_is_provided
         # Compute D from U
-        D .= U.value .* H̄
+        @. D = U.value * H̄
     elseif SIA2D_model.Y_is_provided
         # Compute D from Y, H and the exponent defined in target
         n_H = SIA2D_model.n_H_is_provided ? SIA2D_cache.n_H : n.value
         n_∇S = SIA2D_model.n_∇S_is_provided ? SIA2D_cache.n_∇S : n.value
         gravity_term = ρ * g
-        sliding_term = C.value .* gravity_term.^(p.value + q.value - 1) .* H̄.^(p.value - q.value + 2) .& ∇S.^(p.value - 1)
-        rheology_term = 2.0 .* gravity_term.^n_value .* Y.value .* H̄.^(n_H .+ 2) .* ∇S.^(n_∇S .- 1) ./ (n.value + 2)
-        D .= sliding_term .+ rheology_term
+        sliding_term = @. C.value * gravity_term^(p.value + q.value - 1) * H̄^(p.value - q.value + 2) * ∇S^(p.value - 1)
+        rheology_term = @. 2.0 * gravity_term^n_value * Y.value * H̄^(n_H + 2) * ∇S^(n_∇S - 1) / (n.value + 2)
+        @. D = sliding_term + rheology_term
     else
         # Compute D from A, C and n
         gravity_term = ρ * g
-        sliding_term = C.value .* gravity_term.^(p.value + q.value - 1) .* H̄^(p.value - q.value + 2) * ∇S ^ (p.value - 1)
-        rheology_term = 2.0 * A.value * gravity_term.^n.value .* H̄^(n.value + 2) * ∇S ^ (n.value - 1) / (n.value + 2)
-        # @. Γ.value = 2.0 * A.value * gravity_term / (n.value + 2) # 1 / m^3 s
-        # @. D = (C.value * gravity_term + Γ.value * H̄) * H̄^(n.value + 1) * ∇S ^ (n.value - 1)
+        sliding_term = @. C.value.* gravity_term^(p.value + q.value - 1) * H̄^(p.value - q.value + 2) * ∇S ^ (p.value - 1)
+        rheology_term = @. 2.0 * A.value * gravity_term^n.value * H̄^(n.value + 2) * ∇S ^ (n.value - 1) / (n.value + 2)
+        @infiltrate
         @. D = sliding_term + rheology_term
     end
 
@@ -178,6 +177,12 @@ function apply_all_non_callback_laws!(
         if SIA2D_model.apply_n_in_SIA
             apply_law!(SIA2D_model.n, SIA2D_cache.n, simulation, glacier_idx, t, θ)
         end
+        if SIA2D_model.apply_p_in_SIA
+            apply_law!(SIA2D_model.p, SIA2D_cache.p, simulation, glacier_idx, t, θ)
+        end
+        if SIA2D_model.apply_q_in_SIA
+            apply_law!(SIA2D_model.q, SIA2D_cache.q, simulation, glacier_idx, t, θ)
+        end
     end
 end
 
@@ -236,6 +241,12 @@ function apply_all_callback_laws!(
         end
         if !SIA2D_model.apply_n_in_SIA
             apply_law!(SIA2D_model.n, SIA2D_cache.n, simulation, glacier_idx, t, θ)
+        end
+        if !SIA2D_model.apply_p_in_SIA
+            apply_law!(SIA2D_model.p, SIA2D_cache.p, simulation, glacier_idx, t, θ)
+        end
+        if !SIA2D_model.apply_q_in_SIA
+            apply_law!(SIA2D_model.q, SIA2D_cache.q, simulation, glacier_idx, t, θ)
         end
     end
 end
