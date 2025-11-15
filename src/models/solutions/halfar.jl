@@ -59,13 +59,9 @@ H(r, t) = H₀ (t / t₀)^(-α) [1 - ((t / t₀)^(-β) (r / R₀))^((n+1)/n)]^{n
 function Halfar(
     halfar_params::HalfarParameters
     )
-
-    λ = halfar_params.λ
-    n = halfar_params.n
-    A = halfar_params.A / (365.25 * 24 * 60 * 60)
-    ρ = halfar_params.ρ
-    g = halfar_params.g
-    f = halfar_params.f
+    # Retrieve parameters
+    (; λ, n, A, ρ, g, f) = halfar_params
+    A /= 365.25 * 24 * 60 * 60
 
     Γ = 2 * A * (ρ * g)^n / (n + 2)
 
@@ -93,4 +89,46 @@ function Halfar(
     end
 
     return _halfar, t₀_years
+end
+
+"""
+    Halfar_velocity(halfar_params::HalfarParameters)
+
+Same as Halfar(halfar_params), but instead of returning a function that gives the ice
+thickness as a function of space and time, this returns the ice surface velocity according
+to the Shallow Ice Approximation.
+"""
+function Halfar_velocity(
+    halfar_params::HalfarParameters
+)
+    H, t₀ = Halfar(halfar_params)
+    # Convert to seconds
+    t₀ *= 365.25 * 24 * 60 * 60
+
+    (; λ, n, A, ρ, g, f, H₀, R₀) = halfar_params
+
+    α = (2 - (n - 1) * λ) / (5 * n + 3)
+    β = (1 + (2 * n + 1) * λ) / (5 * n + 3)
+
+    # Compute the slope
+    # This is just the analytical derivative of H(r, t) with respect to r
+    function _halfar_slope(x, y, t)
+        t *= (365.25 * 24 * 60 * 60)
+        r = (x^2 + y^2)^0.5
+        if r < 1e-2 * R₀ * (t / t₀)^β
+            return 0.0
+        elseif r < R₀ * (t / t₀)^β
+            return H₀ * (t / t₀)^(- α - β) * ((n + 1) / (2 * n + 1)) * ( (t / t₀)^(-β) * (r / R₀))^(1 / n) / (R₀ * (1 - ( (t / t₀)^(-β) * (r / R₀) )^((n + 1) / n))^((n + 1) / (2 * n + 1)) + 1e-10)
+        else
+            return 0.0
+        end
+    end
+
+    function _halfar_velocity(x, y, t)
+        r = (x^2 + y^2)^0.5
+        vabs =  2 * A * (ρ * g)^n * H(x, y, t)^(n + 1) * _halfar_slope(x, y, t)^n  / (n + 1)
+        return vabs .* [x / r, y / r]
+    end
+
+    return _halfar_velocity
 end
