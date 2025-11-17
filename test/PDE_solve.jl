@@ -34,7 +34,6 @@ function pde_solve_test(;
             working_dir = Huginn.root_dir,
             test_mode = true,
             rgi_paths = rgi_paths,
-            workers = 1
         ),
         solver = SolverParameters(reltol=1e-12)
     )
@@ -81,6 +80,7 @@ function pde_solve_test(;
 
     # Set a default value of C realistic for a given expected sliding velocity
     mean_sliding_velocity = 100 # m /yr
+    # Typical values of driving and normal stress are 10^5 Pa:
     C_base = mean_sliding_velocity * (1e5)^glaciers[begin].q / (1e5)^(glaciers[begin].p)
     C_law = if isnothing(laws_C)
         nothing
