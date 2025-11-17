@@ -79,7 +79,7 @@ function pde_solve_test(;
         throw("laws keyword should be either nothing, :scalar, or :matrix")
     end
 
-    # TODO: Check right units and values for this!
+    # Set a default value of C realistic for a given expected sliding velocity
     mean_sliding_velocity = 100 # m /yr
     C_base = mean_sliding_velocity * (1e5)^glaciers[begin].q / (1e5)^(glaciers[begin].p)
     C_law = if isnothing(laws_C)
@@ -112,13 +112,15 @@ function pde_solve_test(;
     # Test below is not ready yet
     JET.@test_opt broken=true target_modules=(Sleipnir,Muninn,Huginn) Huginn.batch_iceflow_PDE!(1, prediction) # Call only the core of run! because saving to JLD2 file is not type stable and GC interferes with JET
 
-    file_name = @match (MB, laws, callback_laws) begin
-        (false, nothing, false) => "PDE_refs_noMB"
-        (true, nothing, false) => "PDE_refs_MB"
-        (true, :scalar, false) => "PDE_refs_MB_law"
-        (true, :scalar, true) => "PDE_refs_MB_law"
-        (true, :matrix, false) => "PDE_refs_MB_law"
-        (true, :matrix, true) => "PDE_refs_MB_law"
+    file_name = @match (MB, laws_A, laws_C, callback_laws) begin
+        (false, nothing, nothing, false) => "PDE_refs_noMB"
+        (true, nothing, nothing, false) => "PDE_refs_MB"
+        (true, :scalar, nothing, false) => "PDE_refs_MB_lawA"
+        (true, :scalar, nothing, true) => "PDE_refs_MB_lawA"
+        (true, :matrix, nothing, false) => "PDE_refs_MB_lawA"
+        (true, :matrix, nothing, true) => "PDE_refs_MB_lawA"
+        (true, nothing, :scalar, false) => "PDE_refs_MB_lawC"
+        (true, nothing, :scalar, true) => "PDE_refs_MB_lawC"
     end
 
     # /!\ Saves current run as reference values
