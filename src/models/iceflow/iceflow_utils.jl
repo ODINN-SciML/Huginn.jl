@@ -219,6 +219,10 @@ end
 include("SIA2D/SIA2D_utils.jl")
 
 """
+    ∇slope(S::Matrix{T}, Δx::T, Δy::T) where T <: Real
+
+Compute the magnitude of the surface slope ∇S for a scalar field `S` defined
+on a rectilinear grid.
 """
 function ∇slope(S::Matrix{T}, Δx::T, Δy::T) where T <: Real
     dSdx = diff_x(S) / Δx
