@@ -113,7 +113,9 @@ function unit_mass_flatbed_test(; rtol)
                     H₀ = zeros((nx,ny))
                     @views H₀[floor(Int,nx/3):floor(Int,2nx/3), floor(Int,ny/3):floor(Int,2ny/3)] .= 400
                 end
-                unit_mass_test(; H₀=H₀, B=B, A=A, n=3.0, t_sim=10.0, Δx=50.0, Δy=50.0, rtol=rtol, save_plot=false)
+                @testset "shape=$(shape) nx=$(nx) A=$(A)" begin
+                    unit_mass_test(; H₀=H₀, B=B, A=A, n=3.0, t_sim=10.0, Δx=50.0, Δy=50.0, rtol=rtol, save_plot=false)
+                end
             end
         end
     end
@@ -146,7 +148,9 @@ function unit_mass_nonflatbed_test(; rtol)
                 elseif shape == "parabolic"
                     B = - 0.5 * H₀
                 end
-                unit_mass_test(; H₀=H₀, B=B, A=A, n=3.0, t_sim=10.0, Δx=50.0, Δy=50.0, rtol=rtol, save_plot=false)
+                @testset "shape=$(shape) nx=$(nx) A=$(A)" begin
+                    unit_mass_test(; H₀=H₀, B=B, A=A, n=3.0, t_sim=10.0, Δx=50.0, Δy=50.0, rtol=rtol, save_plot=false)
+                end
             end
         end
     end

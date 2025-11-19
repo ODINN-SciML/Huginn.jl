@@ -248,7 +248,7 @@ end
 
 Function that does nothing and its existence is just to support
 multiple dispatch. The implementation that is useful is available
-in ODINN when simulation is a `FunctionalInversion` object.
+in ODINN when simulation is a `Inversion` object.
 """
 precompute_all_VJPs_laws!(
     SIA2D_model::SIA2Dmodel,
@@ -361,7 +361,9 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM, t::R, θ) where {SIM <: 
 
     D = if iceflow_model.U_is_provided
         # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        U.value
+        # Shape factor relating average velocity and surface velocity
+        f = simulation.parameters.simulation.f_surface_velocity_factor
+        U.value ./ f
     elseif iceflow_model.Y_is_provided
         # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
         n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
@@ -443,7 +445,9 @@ function surface_V(
 
     D = if iceflow_model.U_is_provided
         # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        U.value
+        # Shape factor relating average velocity and surface velocity
+        f = simulation.parameters.simulation.f_surface_velocity_factor
+        U.value ./ f
     elseif iceflow_model.Y_is_provided
         # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
         n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
