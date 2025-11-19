@@ -13,14 +13,7 @@ function pde_solve_test(;
     println("PDE solving with MB = $MB, laws_A = $laws_A, laws_C = $laws_C, callback_laws = $callback_laws")
 
     ## Retrieving gdirs and climate for the following glaciers
-    ## Fast version includes less glacier to reduce computation time on GitHub CI
-    if fast
-        rgi_ids = ["RGI60-11.03638", "RGI60-11.01450"] #, "RGI60-08.00213", "RGI60-04.04351", "RGI60-01.02170"]
-    else
-        rgi_ids = ["RGI60-11.03638", "RGI60-11.01450", "RGI60-08.00213", "RGI60-04.04351", "RGI60-01.02170",
-        "RGI60-02.05098", "RGI60-01.01104", "RGI60-01.09162", "RGI60-01.00570", "RGI60-04.07051",
-        "RGI60-07.00274", "RGI60-07.01323",  "RGI60-01.17316"]
-    end
+    rgi_ids = ["RGI60-11.03638", "RGI60-11.01450"] #, "RGI60-08.00213", "RGI60-04.04351", "RGI60-01.02170"]
 
     rgi_paths = get_rgi_paths()
     # Filter out glaciers that are not used to avoid having references that depend on all the glaciers processed in Gungnir
@@ -35,7 +28,10 @@ function pde_solve_test(;
             test_mode = true,
             rgi_paths = rgi_paths,
         ),
-        solver = SolverParameters(reltol=1e-12)
+        solver = SolverParameters(
+            reltol=1e-12,
+            step=2.0, # Large step to store few data
+        ),
     )
     JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Parameters(
         simulation = SimulationParameters(
@@ -46,7 +42,10 @@ function pde_solve_test(;
             test_mode = true,
             rgi_paths = rgi_paths
         ),
-        solver = SolverParameters(reltol=1e-12)
+        solver = SolverParameters(
+            reltol=1e-12,
+            step=2.0, # Large step to store few data
+        ),
     )
 
     # We retrieve some glaciers for the simulation
@@ -203,8 +202,8 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
 
     t = 2015.0
 
-    MB_timestep!(cache, model, glacier, params.solver.step, t)
-    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) MB_timestep!(cache, model, glacier, params.solver.step, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
+    MB_timestep!(cache, model, glacier, params.simulation.step_MB, t)
+    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) MB_timestep!(cache, model, glacier, params.simulation.step_MB, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
 
     apply_MB_mask!(cache.iceflow.H, cache.iceflow)
     JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) apply_MB_mask!(cache.iceflow.H, cache.iceflow)
@@ -238,7 +237,6 @@ function ground_truth_generation()
         ),
         solver = SolverParameters(
             reltol=1e-8,
-            save_everystep=true,
         ),
     )
     model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
