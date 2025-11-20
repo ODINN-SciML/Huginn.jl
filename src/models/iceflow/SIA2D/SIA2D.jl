@@ -30,6 +30,8 @@ This struct stores the laws used to compute these three parameters during a simu
 - `A`: Law for the flow rate factor. Defaults to a constant value from the glacier.
 - `C`: Law for the sliding coefficient. Defaults similarly.
 - `n`: Law for the flow law exponent. Defaults similarly.
+- `p`: Law for the sliding law exponent (basal drag). Defaults similarly.
+- `q`: Law for the sliding law exponent (normal stress). Defaults similarly.
 - `Y`: Law for the hybrid diffusivity. Providing a law for `Y` discards the laws of `A`, `C` and `n`.
 - `U`: Law for the diffusive velocity. Defaults behavior is to disable it and in such a case it is computed from `A`, `C` and `n`. Providing a law for `U` discards the laws of `A`, `C`, `n` and `Y`.
 - `n_H::F`: The exponent to use for `H` in the SIA equation when using the Y law (hybrid diffusivity). It should be `nothing` when this law is not used.
@@ -41,6 +43,8 @@ This struct stores the laws used to compute these three parameters during a simu
 - `apply_A_in_SIA::Bool`: Whether the value of the `A` law should be computed each time the SIA is evaluated.
 - `apply_C_in_SIA::Bool`: Whether the value of the `C` law should be computed each time the SIA is evaluated.
 - `apply_n_in_SIA::Bool`: Whether the value of the `n` law should be computed each time the SIA is evaluated.
+- `apply_p_in_SIA::Bool`: Whether the value of the `p` law should be computed each time the SIA is evaluated.
+- `apply_q_in_SIA::Bool`: Whether the value of the `q` law should be computed each time the SIA is evaluated.
 - `apply_Y_in_SIA::Bool`: Whether the value of the `Y` law should be computed each time the SIA is evaluated.
 - `apply_U_in_SIA::Bool`: Whether the value of the `U` law should be computed each time the SIA is evaluated.
 """
@@ -174,7 +178,17 @@ SIA2Dmodel(
 
 """
     SIA2DCache{
-        R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, n_H_CACHE, n_∇S_CACHE, Y_CACHE, U_CACHE
+        R <: Real,
+        I <: Integer,
+        A_CACHE,
+        C_CACHE,
+        n_CACHE,
+        p_CACHE,
+        q_CACHE,
+        n_H_CACHE,
+        n_∇S_CACHE,
+        Y_CACHE,
+        U_CACHE
     } <: SIAmodel
 
 Store and preallocated all variables needed for running the 2D Shallow Ice Approximation (SIA) model efficiently.
@@ -188,10 +202,12 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 
 # Fields
 - `A::A_CACHE`: Flow rate factor.
+- `C::C_CACHE`: Sliding coefficient.
 - `n::n_CACHE`: Flow law exponent.
+- `p::n_CACHE`: Sliding law exponent.
+- `q::n_CACHE`: Sliding law exponent.
 - `n_H::n_CACHE`: Exponent used for the power of `H` when using the `Y` law.
 - `n_∇S::n_CACHE`: Exponent used for the power of `∇S` when using the `Y` law.
-- `C::C_CACHE`: Sliding coefficient.
 - `Y::Y_CACHE`: Hybrid diffusivity.
 - `U::U_CACHE`: Diffusive velocity.
 - `H₀::Matrix{R}`: Initial ice thickness.
