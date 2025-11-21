@@ -507,7 +507,7 @@ function Base.show(io::IO, model::SIA2Dmodel)
     colorC = :magenta
     colorn = :yellow
     colorp = :yellow
-    colorq = :red
+    colorq = :yellow
     colorY = :blue
     colorΓ = :cyan
     print(io, "SIA2D iceflow equation")
@@ -520,19 +520,19 @@ function Base.show(io::IO, model::SIA2Dmodel)
             push!(inp, inputs(model.U))
         end
     elseif model.Y_is_provided
-        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = (")
+        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = ")
 
         # Sliding part
-        printstyled(io, "C";color=colorC);print(io, " (ρg)^");printstyled(io, "n";color=colorn);print(io, " + ")
+        printstyled(io, "C";color=colorC);print(io, " (ρg)^(");printstyled(io, "p";color=colorp);print(io,"-");printstyled(io, "q";color=colorq);print(io, ")")
+        print(io, " H̄^(");printstyled(io, "p";color=colorp);print("-");printstyled(io, "q";color=colorq);print(io, "+1) ∇S^(");printstyled(io, "p";color=colorp);print(io, "-1)")
         # Creeping part
-        printstyled(io, "Y";color=colorY);print(io, " ")
-        printstyled(io, "Γ";color=colorΓ);print(io, " H̄)")
-        # Non linear part
-        print(io, " H̄^")
+        print(io, " + ");printstyled(io, "Y";color=colorY);print(io, " ")
+        printstyled(io, "Γ";color=colorΓ)
+        print(io, " H̄^(")
         if isnothing(model.n_H)
-            printstyled(io, "n";color=colorn)
+            printstyled(io, "n";color=colorn);print(io, "+2)")
         else
-            print(io, "n_H")
+            print(io, "n_H");print(io, "+2)")
         end
         print(io, " ∇S^(")
         if isnothing(model.n_∇S)
@@ -566,13 +566,13 @@ function Base.show(io::IO, model::SIA2Dmodel)
             push!(inp, inputs(model.n))
         end
     else
-        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = (")
+        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = ")
         # Sliding part
-        printstyled(io, "C";color=colorC);print(io, " (ρg)^");printstyled(io, "n";color=colorn);print(io, " + ")
+        printstyled(io, "C";color=colorC);print(io, " (ρg)^(");printstyled(io, "p";color=colorp);print("-");printstyled(io, "q";color=colorq);print(io, ")")
+        print(io, " H̄^(");printstyled(io, "p";color=colorp);print("-");printstyled(io, "q";color=colorq);print(io, "+1) ∇S^(");printstyled(io, "p";color=colorp);print(io, "-1)")
         # Creeping part
-        printstyled(io, "Γ";color=colorΓ);print(io, " H̄)")
-        # Non linear part
-        print(io, " H̄^");printstyled(io, "n";color=colorn);print(io, " ∇S^(");printstyled(io, "n";color=colorn);println(io, "-1)")
+        print(io, " + ");printstyled(io, "Γ";color=colorΓ)
+        print(io, " H̄^(");printstyled(io, "n";color=colorn);print(io, "+2) ∇S^(");printstyled(io, "n";color=colorn);println(io, "-1)")
 
         printstyled(io, "      Γ";color=colorΓ);print(io, " = 2");printstyled(io, "A";color=colorA);print(io, " (ρg)^"); printstyled(io, "n";color=colorn)
         print(io, " /(");printstyled(io, "n";color=colorn);println(io, "+2)")
@@ -580,6 +580,8 @@ function Base.show(io::IO, model::SIA2Dmodel)
         printstyled(io, "      A: ";color=colorA); print(io, model.A)
         printstyled(io, "      C: ";color=colorC); print(io, model.C)
         printstyled(io, "      n: ";color=colorn); print(io, model.n)
+        printstyled(io, "      p: ";color=colorp); print(io, model.p)
+        printstyled(io, "      q: ";color=colorq); print(io, model.q)
         if inputs_defined(model.A)
             push!(inp, inputs(model.A))
         end
