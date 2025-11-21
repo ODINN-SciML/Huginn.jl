@@ -71,23 +71,25 @@ function SIA2D!(
     avg!(H̄, Hclip)
 
     apply_all_non_callback_laws!(SIA2D_model, SIA2D_cache, simulation, glacier_idx, t, θ)
-    (; A, C, n, Y, U) = SIA2D_cache
+    (; A, n, C, p, q, Y, U) = SIA2D_cache
 
     if SIA2D_model.U_is_provided
         # Compute D from U
-        D .= U.value .* H̄
+        @. D = U.value * H̄
     elseif SIA2D_model.Y_is_provided
         # Compute D from Y, H and the exponent defined in target
         n_H = SIA2D_model.n_H_is_provided ? SIA2D_cache.n_H : n.value
         n_∇S = SIA2D_model.n_∇S_is_provided ? SIA2D_cache.n_∇S : n.value
-        gravity_term = (ρ * g).^n.value
-        Γ_no_A = @. 2.0 * gravity_term / (n.value + 2)
-        D .= (C.value .* gravity_term .+ Y.value .* Γ_no_A .* H̄) .* H̄.^(n_H .+ 1) .* ∇S.^(n_∇S .- 1)
+        gravity_term = ρ * g
+        sliding_term = @. C.value * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S^(p.value - 1)
+        rheology_term = @. 2.0 * gravity_term^n.value * Y.value * H̄^(n_H + 2) * ∇S^(n_∇S - 1) / (n.value + 2)
+        @. D = sliding_term + rheology_term
     else
         # Compute D from A, C and n
-        gravity_term = (ρ * g).^n.value
-        @. Γ.value = 2.0 * A.value * gravity_term / (n.value + 2) # 1 / m^3 s
-        @. D = (C.value * gravity_term + Γ.value * H̄) * H̄^(n.value + 1) * ∇S ^ (n.value - 1)
+        gravity_term = ρ * g
+        sliding_term = @. C.value.* gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S^(p.value - 1)
+        rheology_term = @. 2.0 * A.value * gravity_term^n.value * H̄^(n.value + 2) * ∇S^(n.value - 1) / (n.value + 2)
+        @. D = sliding_term + rheology_term
     end
 
     # Compute flux components
@@ -174,6 +176,12 @@ function apply_all_non_callback_laws!(
         if SIA2D_model.apply_n_in_SIA
             apply_law!(SIA2D_model.n, SIA2D_cache.n, simulation, glacier_idx, t, θ)
         end
+        if SIA2D_model.apply_p_in_SIA
+            apply_law!(SIA2D_model.p, SIA2D_cache.p, simulation, glacier_idx, t, θ)
+        end
+        if SIA2D_model.apply_q_in_SIA
+            apply_law!(SIA2D_model.q, SIA2D_cache.q, simulation, glacier_idx, t, θ)
+        end
     end
 end
 
@@ -232,6 +240,12 @@ function apply_all_callback_laws!(
         end
         if !SIA2D_model.apply_n_in_SIA
             apply_law!(SIA2D_model.n, SIA2D_cache.n, simulation, glacier_idx, t, θ)
+        end
+        if !SIA2D_model.apply_p_in_SIA
+            apply_law!(SIA2D_model.p, SIA2D_cache.p, simulation, glacier_idx, t, θ)
+        end
+        if !SIA2D_model.apply_q_in_SIA
+            apply_law!(SIA2D_model.q, SIA2D_cache.q, simulation, glacier_idx, t, θ)
         end
     end
 end
@@ -357,7 +371,7 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM, t::R, θ) where {SIM <: 
     avg!(H̄, H)
 
     apply_all_non_callback_laws!(iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
-    (; A, C, n, Y, U) = iceflow_cache
+    (; A, n, C, p, q, Y, U) = iceflow_cache
 
     D = if iceflow_model.U_is_provided
         # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
@@ -368,13 +382,15 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM, t::R, θ) where {SIM <: 
         # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
         n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
         n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
-        gravity_term = (ρ * g).^n.value
-        Γ_no_A = @. 2.0 * gravity_term / (n.value + 2)
-        (C.value .* gravity_term .+ Y.value .* Γ_no_A .* H̄) .* H̄.^n_H .* ∇S.^(n_∇S .- 1)
+        gravity_term = ρ * g
+        rheology_term = @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) / (n.value + 2)
+        sliding_term = @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        sliding_term + rheology_term
     else
-        gravity_term = (ρ * g).^n.value
-        @. Γꜛ.value = 2.0 * A.value * gravity_term / (n.value+1) # surface stress (not average)  # 1 / m^3 s
-        @. (C.value * (n.value+2) * gravity_term + Γꜛ.value) * H̄^(n.value + 1) * ∇S .^ (n.value - 1)
+        gravity_term = ρ * g
+        rheology_term = @. (2.0 * A.value * gravity_term^n.value / (n.value+1)) * H̄^(n.value + 1) * ∇S ^ (n.value - 1)
+        sliding_term = @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        sliding_term + rheology_term
     end
 
     # Compute averaged surface velocities
@@ -441,7 +457,7 @@ function surface_V(
     iceflow_cache.H̄ .= H̄
 
     apply_all_non_callback_laws!(iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
-    (; A, C, n, Y, U) = iceflow_cache
+    (; A, n, C, p, q, Y, U) = iceflow_cache
 
     D = if iceflow_model.U_is_provided
         # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
@@ -452,13 +468,15 @@ function surface_V(
         # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
         n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
         n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
-        gravity_term = (ρ * g).^n.value
-        Γ_no_A = @. 2.0 * gravity_term / (n.value + 2)
-        (C.value .* gravity_term .+ Y.value .* Γ_no_A .* H̄) .* H̄.^n_H .* ∇S.^(n_∇S .- 1)
+        gravity_term = ρ * g
+        rheology_term = @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) / (n.value + 2)
+        sliding_term = @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        sliding_term + rheology_term
     else
-        gravity_term = (ρ * g).^n.value
-        Γꜛ = @. 2.0 * A.value * gravity_term / (n.value+1) # surface stress (not average)  # 1 / m^3 s
-        (C.value .* (n.value.+2) .* gravity_term .+ Γꜛ) .* H̄.^(n.value .+ 1) .* ∇S .^ (n.value .- 1)
+        gravity_term = ρ * g
+        rheology_term = @. (2.0 * A.value * gravity_term^n.value / (n.value+1)) * H̄^(n.value + 1) * ∇S ^ (n.value - 1)
+        sliding_term = @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        sliding_term + rheology_term
     end
 
     # Compute averaged surface velocities

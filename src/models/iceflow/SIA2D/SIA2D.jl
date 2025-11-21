@@ -30,6 +30,8 @@ This struct stores the laws used to compute these three parameters during a simu
 - `A`: Law for the flow rate factor. Defaults to a constant value from the glacier.
 - `C`: Law for the sliding coefficient. Defaults similarly.
 - `n`: Law for the flow law exponent. Defaults similarly.
+- `p`: Law for the sliding law exponent (basal drag). Defaults similarly.
+- `q`: Law for the sliding law exponent (normal stress). Defaults similarly.
 - `Y`: Law for the hybrid diffusivity. Providing a law for `Y` discards the laws of `A`, `C` and `n`.
 - `U`: Law for the diffusive velocity. Defaults behavior is to disable it and in such a case it is computed from `A`, `C` and `n`. Providing a law for `U` discards the laws of `A`, `C`, `n` and `Y`.
 - `n_H::F`: The exponent to use for `H` in the SIA equation when using the Y law (hybrid diffusivity). It should be `nothing` when this law is not used.
@@ -41,13 +43,26 @@ This struct stores the laws used to compute these three parameters during a simu
 - `apply_A_in_SIA::Bool`: Whether the value of the `A` law should be computed each time the SIA is evaluated.
 - `apply_C_in_SIA::Bool`: Whether the value of the `C` law should be computed each time the SIA is evaluated.
 - `apply_n_in_SIA::Bool`: Whether the value of the `n` law should be computed each time the SIA is evaluated.
+- `apply_p_in_SIA::Bool`: Whether the value of the `p` law should be computed each time the SIA is evaluated.
+- `apply_q_in_SIA::Bool`: Whether the value of the `q` law should be computed each time the SIA is evaluated.
 - `apply_Y_in_SIA::Bool`: Whether the value of the `Y` law should be computed each time the SIA is evaluated.
 - `apply_U_in_SIA::Bool`: Whether the value of the `U` law should be computed each time the SIA is evaluated.
 """
-@kwdef struct SIA2Dmodel{F, ALAW <: AbstractLaw, CLAW <: AbstractLaw, nLAW <: AbstractLaw, YLAW <: AbstractLaw, ULAW <: AbstractLaw} <: SIAmodel
+@kwdef struct SIA2Dmodel{
+        F,
+        ALAW <: AbstractLaw,
+        CLAW <: AbstractLaw,
+        nLAW <: AbstractLaw,
+        pLAW <: AbstractLaw,
+        qLAW <: AbstractLaw,
+        YLAW <: AbstractLaw,
+        ULAW <: AbstractLaw
+        } <: SIAmodel
     A::ALAW = nothing
     C::CLAW = nothing
     n::nLAW = nothing
+    p::pLAW = nothing
+    q::qLAW = nothing
     Y::YLAW = nothing
     U::ULAW = nothing
     n_H::Array{F, 0} = nothing
@@ -59,10 +74,12 @@ This struct stores the laws used to compute these three parameters during a simu
     apply_A_in_SIA::Bool = false
     apply_C_in_SIA::Bool = false
     apply_n_in_SIA::Bool = false
+    apply_p_in_SIA::Bool = false
+    apply_q_in_SIA::Bool = false
     apply_Y_in_SIA::Bool = false
     apply_U_in_SIA::Bool = false
 
-    function SIA2Dmodel(A, C, n, Y, U, n_H, n_∇S)
+    function SIA2Dmodel(A, C, n, p, q, Y, U, n_H, n_∇S)
         Y_is_provided = !isnothing(Y)
         U_is_provided = !isnothing(U)
         n_H_is_provided = !isnothing(n_H)
@@ -76,6 +93,8 @@ This struct stores the laws used to compute these three parameters during a simu
             A = NullLaw()
             C = NullLaw()
             n = NullLaw()
+            p = NullLaw()
+            q = NullLaw()
             Y = NullLaw()
         elseif Y_is_provided
             @assert isnothing(A) "When Y law is provided, A should not be provided."
@@ -83,6 +102,8 @@ This struct stores the laws used to compute these three parameters during a simu
             A = NullLaw()
             C = something(C, _default_C_law)
             n = something(n, _default_n_law) # We need n with the hybrid diffusivity
+            p = something(p, _default_p_law)
+            q = something(q, _default_q_law)
             U = NullLaw()
         else
             @assert isnothing(Y) "When either A, C or n law are provided, Y should not be provided."
@@ -90,6 +111,8 @@ This struct stores the laws used to compute these three parameters during a simu
             A = something(A, _default_A_law)
             C = something(C, _default_C_law)
             n = something(n, _default_n_law)
+            p = something(p, _default_p_law)
+            q = something(q, _default_q_law)
             Y = NullLaw()
             U = NullLaw()
         end
@@ -102,8 +125,8 @@ This struct stores the laws used to compute these three parameters during a simu
         n_H = fill(something(n_H, 1.))
         n_∇S = fill(something(n_∇S, 1.))
 
-        new{Sleipnir.Float, typeof(A), typeof(C), typeof(n), typeof(Y), typeof(U)}(
-            A, C, n, Y, U, n_H, n_∇S,
+        new{Sleipnir.Float, typeof(A), typeof(C), typeof(n), typeof(p), typeof(q), typeof(Y), typeof(U)}(
+            A, C, n, p, q, Y, U, n_H, n_∇S,
             Y_is_provided,
             U_is_provided,
             n_H_is_provided,
@@ -111,12 +134,15 @@ This struct stores the laws used to compute these three parameters during a simu
             apply_law_in_model(A),
             apply_law_in_model(C),
             apply_law_in_model(n),
+            apply_law_in_model(p),
+            apply_law_in_model(q),
             apply_law_in_model(Y),
             apply_law_in_model(U),
         )
     end
 end
 
+# Set default of laws to be the value of the physical parameter stored in the glacier struct
 const _default_A_law = ConstantLaw{ScalarCacheNoVJP}(
     (simulation, glacier_idx, θ) -> ScalarCacheNoVJP(fill(simulation.glaciers[glacier_idx].A))
 )
@@ -129,11 +155,40 @@ const _default_n_law = ConstantLaw{ScalarCacheNoVJP}(
     (simulation, glacier_idx, θ) -> ScalarCacheNoVJP(fill(simulation.glaciers[glacier_idx].n))
 )
 
-SIA2Dmodel(params::Sleipnir.Parameters; A = nothing, C = nothing, n = nothing, Y = nothing, U = nothing, n_H = nothing, n_∇S = nothing) = SIA2Dmodel(A, C, n, Y, U, n_H, n_∇S)
+const _default_p_law = ConstantLaw{ScalarCacheNoVJP}(
+    (simulation, glacier_idx, θ) -> ScalarCacheNoVJP(fill(simulation.glaciers[glacier_idx].p))
+)
+
+const _default_q_law = ConstantLaw{ScalarCacheNoVJP}(
+    (simulation, glacier_idx, θ) -> ScalarCacheNoVJP(fill(simulation.glaciers[glacier_idx].q))
+)
+
+SIA2Dmodel(
+    params::Sleipnir.Parameters;
+    A = nothing,
+    C = nothing,
+    n = nothing,
+    p = nothing,
+    q = nothing,
+    Y = nothing,
+    U = nothing,
+    n_H = nothing,
+    n_∇S = nothing
+    ) = SIA2Dmodel(A, C, n, p, q, Y, U, n_H, n_∇S)
 
 """
     SIA2DCache{
-        R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, n_H_CACHE, n_∇S_CACHE, Y_CACHE, U_CACHE
+        R <: Real,
+        I <: Integer,
+        A_CACHE,
+        C_CACHE,
+        n_CACHE,
+        p_CACHE,
+        q_CACHE,
+        n_H_CACHE,
+        n_∇S_CACHE,
+        Y_CACHE,
+        U_CACHE
     } <: SIAmodel
 
 Store and preallocated all variables needed for running the 2D Shallow Ice Approximation (SIA) model efficiently.
@@ -147,10 +202,12 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
 
 # Fields
 - `A::A_CACHE`: Flow rate factor.
+- `C::C_CACHE`: Sliding coefficient.
 - `n::n_CACHE`: Flow law exponent.
+- `p::n_CACHE`: Sliding law exponent.
+- `q::n_CACHE`: Sliding law exponent.
 - `n_H::n_CACHE`: Exponent used for the power of `H` when using the `Y` law.
 - `n_∇S::n_CACHE`: Exponent used for the power of `∇S` when using the `Y` law.
-- `C::C_CACHE`: Sliding coefficient.
 - `Y::Y_CACHE`: Hybrid diffusivity.
 - `U::U_CACHE`: Diffusive velocity.
 - `H₀::Matrix{R}`: Initial ice thickness.
@@ -186,13 +243,25 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
     precompiled functions. When no gradient is computed, these structs are `nothing`.
 """
 @kwdef struct SIA2DCache{
-    R <: Real, I <: Integer, A_CACHE, C_CACHE, n_CACHE, n_H_CACHE, n_∇S_CACHE, Y_CACHE, U_CACHE
+    R <: Real,
+    I <: Integer,
+    A_CACHE,
+    C_CACHE,
+    n_CACHE,
+    p_CACHE,
+    q_CACHE,
+    n_H_CACHE,
+    n_∇S_CACHE,
+    Y_CACHE,
+    U_CACHE
 } <: SIAmodel
     A::A_CACHE
     n::n_CACHE
     n_H::n_H_CACHE
     n_∇S::n_∇S_CACHE
     C::C_CACHE
+    p::p_CACHE
+    q::q_CACHE
     Y::Y_CACHE
     U::U_CACHE
     H₀::Matrix{R}
@@ -238,6 +307,8 @@ function cache_type(sia2d_model::SIA2Dmodel)
         A_CACHE,
         cache_type(sia2d_model.C),
         cache_type(sia2d_model.n),
+        cache_type(sia2d_model.p),
+        cache_type(sia2d_model.q),
         typeof(sia2d_model.n_H),
         typeof(sia2d_model.n_∇S),
         Y_CACHE,
@@ -275,6 +346,8 @@ function init_cache(
     A = init_cache(model.A, simulation, glacier_idx, θ)
     C = init_cache(model.C, simulation, glacier_idx, θ)
     n = init_cache(model.n, simulation, glacier_idx, θ)
+    p = init_cache(model.p, simulation, glacier_idx, θ)
+    q = init_cache(model.q, simulation, glacier_idx, θ)
     Y = init_cache(model.Y, simulation, glacier_idx, θ)
     U = init_cache(model.U, simulation, glacier_idx, θ)
 
@@ -294,6 +367,8 @@ function init_cache(
         n_H,
         n_∇S,
         C,
+        p,
+        q,
         Y,
         U,
         Γ,
@@ -431,6 +506,8 @@ function Base.show(io::IO, model::SIA2Dmodel)
     colorA = :blue
     colorC = :magenta
     colorn = :yellow
+    colorp = :yellow
+    colorq = :yellow
     colorY = :blue
     colorΓ = :cyan
     print(io, "SIA2D iceflow equation")
@@ -443,19 +520,19 @@ function Base.show(io::IO, model::SIA2Dmodel)
             push!(inp, inputs(model.U))
         end
     elseif model.Y_is_provided
-        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = (")
+        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = ")
 
         # Sliding part
-        printstyled(io, "C";color=colorC);print(io, " (ρg)^");printstyled(io, "n";color=colorn);print(io, " + ")
+        printstyled(io, "C";color=colorC);print(io, " (ρg)^(");printstyled(io, "p";color=colorp);print(io,"-");printstyled(io, "q";color=colorq);print(io, ")")
+        print(io, " H̄^(");printstyled(io, "p";color=colorp);print("-");printstyled(io, "q";color=colorq);print(io, "+1) ∇S^(");printstyled(io, "p";color=colorp);print(io, "-1)")
         # Creeping part
-        printstyled(io, "Y";color=colorY);print(io, " ")
-        printstyled(io, "Γ";color=colorΓ);print(io, " H̄)")
-        # Non linear part
-        print(io, " H̄^")
+        print(io, " + ");printstyled(io, "Y";color=colorY);print(io, " ")
+        printstyled(io, "Γ";color=colorΓ)
+        print(io, " H̄^(")
         if isnothing(model.n_H)
-            printstyled(io, "n";color=colorn)
+            printstyled(io, "n";color=colorn);print(io, "+2)")
         else
-            print(io, "n_H")
+            print(io, "n_H");print(io, "+2)")
         end
         print(io, " ∇S^(")
         if isnothing(model.n_∇S)
@@ -471,6 +548,8 @@ function Base.show(io::IO, model::SIA2Dmodel)
         printstyled(io, "      Y: ";color=colorY); print(io, model.Y)
         printstyled(io, "      C: ";color=colorC); print(io, model.C)
         printstyled(io, "      n: ";color=colorn); print(io, model.n)
+        printstyled(io, "      p: ";color=colorp); print(io, model.p)
+        printstyled(io, "      q: ";color=colorq); print(io, model.q)
         if !isnothing(model.n_H)
             println(io, "      n_H = $(model.n_H)")
         end
@@ -487,13 +566,13 @@ function Base.show(io::IO, model::SIA2Dmodel)
             push!(inp, inputs(model.n))
         end
     else
-        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = (")
+        print(io, "  and "); printstyled(io, "U";color=colorU); print(io, " = ")
         # Sliding part
-        printstyled(io, "C";color=colorC);print(io, " (ρg)^");printstyled(io, "n";color=colorn);print(io, " + ")
+        printstyled(io, "C";color=colorC);print(io, " (ρg)^(");printstyled(io, "p";color=colorp);print("-");printstyled(io, "q";color=colorq);print(io, ")")
+        print(io, " H̄^(");printstyled(io, "p";color=colorp);print("-");printstyled(io, "q";color=colorq);print(io, "+1) ∇S^(");printstyled(io, "p";color=colorp);print(io, "-1)")
         # Creeping part
-        printstyled(io, "Γ";color=colorΓ);print(io, " H̄)")
-        # Non linear part
-        print(io, " H̄^");printstyled(io, "n";color=colorn);print(io, " ∇S^(");printstyled(io, "n";color=colorn);println(io, "-1)")
+        print(io, " + ");printstyled(io, "Γ";color=colorΓ)
+        print(io, " H̄^(");printstyled(io, "n";color=colorn);print(io, "+2) ∇S^(");printstyled(io, "n";color=colorn);println(io, "-1)")
 
         printstyled(io, "      Γ";color=colorΓ);print(io, " = 2");printstyled(io, "A";color=colorA);print(io, " (ρg)^"); printstyled(io, "n";color=colorn)
         print(io, " /(");printstyled(io, "n";color=colorn);println(io, "+2)")
@@ -501,6 +580,8 @@ function Base.show(io::IO, model::SIA2Dmodel)
         printstyled(io, "      A: ";color=colorA); print(io, model.A)
         printstyled(io, "      C: ";color=colorC); print(io, model.C)
         printstyled(io, "      n: ";color=colorn); print(io, model.n)
+        printstyled(io, "      p: ";color=colorp); print(io, model.p)
+        printstyled(io, "      q: ";color=colorq); print(io, model.q)
         if inputs_defined(model.A)
             push!(inp, inputs(model.A))
         end
