@@ -11,7 +11,7 @@ function laws_constructor_default()
     @test typeof(∇S) == i∇S
     @test typeof(topo_rough) == iTopoRough{Float64}
     # Test default law constructors
-    A_cuffey = CuffeyPaterson()
+    A_cuffey = CuffeyPaterson(scalar=true)
     @test isdefined(A_cuffey, :f)
     # For SyntheticC, need dummy params
     params = Parameters(simulation=SimulationParameters(test_mode=true))
@@ -38,7 +38,7 @@ function laws_constructor_specified()
     @test typeof(∇S) == i∇S
     @test typeof(topo_rough) == iTopoRough{Float64}
     # Test default law constructors
-    A_cuffey = CuffeyPaterson()
+    A_cuffey = CuffeyPaterson(scalar=true)
     @test isdefined(A_cuffey, :f)
     # For SyntheticC, need dummy params
     params = Parameters(simulation=SimulationParameters(test_mode=true))

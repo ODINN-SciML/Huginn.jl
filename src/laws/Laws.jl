@@ -13,15 +13,18 @@ export ConstantA, CuffeyPaterson, SyntheticC
 Input that represents the long term air temperature of a glacier.
 It is computed using the OGGM climate data over a period predefined in Gungnir (i.e. around 30 years).
 """
-struct iTemp <: AbstractInput end
-default_name(::iTemp) = :long_term_temperature
-function get_input(::iTemp, simulation, glacier_idx, t)
-    glacier = simulation.glaciers[glacier_idx]
-    return mean(glacier.climate.longterm_temps)
+@kwdef struct iTemp <: AbstractInput 
+    scalar::Bool
 end
-function Base.zero(::iTemp, simulation, glacier_idx)
+
+default_name(::iTemp) = :long_term_temperature
+function get_input(temp::iTemp, simulation, glacier_idx, t)
     glacier = simulation.glaciers[glacier_idx]
-    return zero(glacier.climate.longterm_temps)
+    return temp.scalar ? mean(glacier.climate.longterm_temps_scalar) : glacier.climate.longterm_temps_gridded
+end
+function Base.zero(temp::iTemp, simulation, glacier_idx)
+    glacier = simulation.glaciers[glacier_idx]
+    return zero(temp.scalar ? glacier.climate.longterm_temps_scalar : glacier.climate.longterm_temps_gridded)
 end
 
 """
@@ -260,26 +263,39 @@ end
 
 
 """
-    CuffeyPaterson()
+    CuffeyPaterson(; scalar::Bool = true)
 
 Create a rheology law for the flow rate factor `A`.
 The created law maps the long term air temperature to `A` using the values from
 Cuffey & Peterson through `polyA_PatersonCuffey` that returns a polynomial which is
 then evaluated at a given temperature in the law.
 """
-function CuffeyPaterson()
+function CuffeyPaterson(; scalar::Bool = true)
     A = polyA_PatersonCuffey()
     A_law = let A = A
-        Law{ScalarCacheNoVJP}(;
-            name = :CuffeyPaterson,
-            inputs = (; T=iTemp()),
-            f! = function (cache, inp, θ)
-                cache.value .= A.(inp.T)
-            end,
-            init_cache = function (simulation, glacier_idx, θ)
-                return ScalarCacheNoVJP(zeros())
-            end,
-        )
+        if scalar
+            Law{ScalarCacheNoVJP}(;
+                name = :CuffeyPaterson,
+                inputs = (; T = iTemp(scalar=scalar)),
+                f! = function (cache, inp, θ)
+                    cache.value .= A.(inp.T)
+                end,
+                init_cache = function (simulation, glacier_idx, θ)
+                    return ScalarCacheNoVJP(zeros())
+                end,
+            )
+        else
+            Law{MatrixCacheNoVJP}(;
+                name = :CuffeyPaterson,
+                inputs = (; T = iTemp(scalar=scalar)),
+                f! = function (cache, inp, θ)
+                    cache.value .= A.(inn1(inp.T))
+                end,
+                init_cache = function (simulation, glacier_idx, θ)
+                    MatrixCacheNoVJP(zeros(size(simulation.glaciers[glacier_idx].S) .- 1))
+                end,
+            )
+        end
     end
     return A_law
 end
