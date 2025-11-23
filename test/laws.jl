@@ -1,11 +1,11 @@
 function laws_constructor_default()
     # Test default constructors for law inputs
-    temp = iTemp()
+    temp = iAvgTemp()
     cpdd = iCPDD()
     h̄ = iH̄()
     ∇S = i∇S()
     topo_rough = iTopoRough()
-    @test typeof(temp) == iTemp
+    @test typeof(temp) == iAvgTemp
     @test typeof(cpdd) == iCPDD{Week}
     @test typeof(h̄) == iH̄
     @test typeof(∇S) == i∇S
@@ -27,12 +27,12 @@ end
 
 function laws_constructor_specified()
     # Test constructors with specified values for law inputs
-    temp = iTemp()
+    temp = iAvgTemp()
     cpdd = iCPDD(window=Week(1))
     h̄ = iH̄()
     ∇S = i∇S()
     topo_rough = iTopoRough(window=300.0)
-    @test typeof(temp) == iTemp
+    @test typeof(temp) == iAvgTemp
     @test typeof(cpdd) == iCPDD{Week}
     @test typeof(h̄) == iH̄
     @test typeof(∇S) == i∇S
