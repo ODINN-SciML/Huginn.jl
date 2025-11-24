@@ -299,6 +299,7 @@ function CuffeyPaterson(; scalar::Bool = true)
                 init_cache = function (simulation, glacier_idx, θ)
                     return ScalarCacheNoVJP(zeros())
                 end,
+                callback_freq = 0,
             )
         else
             Law{MatrixCacheNoVJP}(;
@@ -310,6 +311,7 @@ function CuffeyPaterson(; scalar::Bool = true)
                 init_cache = function (simulation, glacier_idx, θ)
                     MatrixCacheNoVJP(zeros(size(simulation.glaciers[glacier_idx].S) .- 1))
                 end,
+                callback_freq = 0,
             )
         end
     end
