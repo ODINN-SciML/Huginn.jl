@@ -1,6 +1,6 @@
 import Sleipnir: get_input, default_name
 
-export iAvgTemp, iTemp, iH̄, i∇S, iCPDD, iTopoRough
+export iAvgScalarTemp, iAvgGriddedTemp, iH̄, i∇S, iCPDD, iTopoRough
 export ConstantA, CuffeyPaterson, SyntheticC
 
 ########################
@@ -8,37 +8,37 @@ export ConstantA, CuffeyPaterson, SyntheticC
 ########################
 
 """
-    iAvgTemp <: AbstractInput
+    iAvgScalarTemp <: AbstractInput
 
 Input that represents the long term air temperature over the whole glacier.
 It is computed using the OGGM climate data over a period predefined in Gungnir (i.e. around 30 years).
 """
-struct iAvgTemp <: AbstractInput end
+struct iAvgScalarTemp <: AbstractInput end
 
-default_name(::iAvgTemp) = :averaged_long_term_temperature
-function get_input(temp::iAvgTemp, simulation, glacier_idx, t)
+default_name(::iAvgScalarTemp) = :averaged_long_term_temperature
+function get_input(temp::iAvgScalarTemp, simulation, glacier_idx, t)
     glacier = simulation.glaciers[glacier_idx]
     return mean(glacier.climate.longterm_temps_scalar)
 end
-function Base.zero(temp::iAvgTemp, simulation, glacier_idx)
+function Base.zero(temp::iAvgScalarTemp, simulation, glacier_idx)
     glacier = simulation.glaciers[glacier_idx]
     return zero(glacier.climate.longterm_temps_scalar)
 end
 
 """
-    iTemp <: AbstractInput
+    iAvgGriddedTemp <: AbstractInput
 
-Input that represents the long term air temperature over the the glacier grid.
+Input that represents the long term air temperature over the glacier grid.
 It is computed using the OGGM climate data over a period predefined in Gungnir (i.e. around 30 years).
 """
-struct iTemp <: AbstractInput end
+struct iAvgGriddedTemp <: AbstractInput end
 
-default_name(::iTemp) = :gridded_long_term_temperature
-function get_input(temp::iTemp, simulation, glacier_idx, t)
+default_name(::iAvgGriddedTemp) = :gridded_long_term_temperature
+function get_input(temp::iAvgGriddedTemp, simulation, glacier_idx, t)
     glacier = simulation.glaciers[glacier_idx]
     return glacier.climate.longterm_temps_gridded
 end
-function Base.zero(temp::iTemp, simulation, glacier_idx)
+function Base.zero(temp::iAvgGriddedTemp, simulation, glacier_idx)
     glacier = simulation.glaciers[glacier_idx]
     return zero(glacier.climate.longterm_temps_gridded)
 end
@@ -292,7 +292,7 @@ function CuffeyPaterson(; scalar::Bool = true)
         if scalar
             Law{ScalarCacheNoVJP}(;
                 name = :CuffeyPaterson,
-                inputs = (; T = iAvgTemp()),
+                inputs = (; T = iAvgScalarTemp()),
                 f! = function (cache, inp, θ)
                     cache.value .= A.(inp.T)
                 end,
@@ -304,7 +304,7 @@ function CuffeyPaterson(; scalar::Bool = true)
         else
             Law{MatrixCacheNoVJP}(;
                 name = :CuffeyPaterson,
-                inputs = (; T = iTemp()),
+                inputs = (; T = iAvgGriddedTemp()),
                 f! = function (cache, inp, θ)
                     cache.value .= A.(inn1(inp.T))
                 end,
