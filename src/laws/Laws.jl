@@ -49,22 +49,23 @@ end
 Input that represents the cumulative positive degree days (PDD) over the last time window `window`.
 It is computed by summing the daily PDD values from `t - window` to `t` using the glacier's climate data.
 """
-struct iCPDD{P<:Period} <: AbstractInput
+struct iCPDD{P <: Period} <: AbstractInput
     window::P
-    function iCPDD(; window::P = Week(1)) where {P<:Period}
+    function iCPDD(; window::P = Week(1)) where {P <: Period}
         new{typeof(window)}(window)
     end
 end
 default_name(::iCPDD) = :CPDD
 
-function get_input(cpdd::iCPDD, simulation, glacier_idx, t)  
-    window = cpdd.window  
-    glacier = simulation.glaciers[glacier_idx]  
+function get_input(cpdd::iCPDD, simulation, glacier_idx, t)
+    window = cpdd.window
+    glacier = simulation.glaciers[glacier_idx]
     # We trim only the time period between `t` and `t - x`, where `x` is the PDD time window defined in the input attributes. 
-    period = (partial_year(Day, t) - window):Day(1):partial_year(Day, t)  
-    get_cumulative_climate!(glacier.climate, period)  
+    period = (partial_year(Day, t) - window):Day(1):partial_year(Day, t)
+    get_cumulative_climate!(glacier.climate, period)
     # Convert climate dataset to 2D based on the glacier's DEM  
-    climate_2D_step = downscale_2D_climate(glacier.climate.climate_step, glacier.S, glacier.Coords)  
+    climate_2D_step = downscale_2D_climate(
+        glacier.climate.climate_step, glacier.S, glacier.Coords)
 
     return climate_2D_step.PDD
 end
@@ -96,9 +97,10 @@ end
 Input that represents the surface slope in the SIA.
 It is computed using the bedrock elevation and the ice thickness solution H. The
 spatial differences are averaged over the opposite axis:
+
 ```julia
 S = B + H
-∇S = (avg_y(diff_x(S) / Δx).^2 .+ avg_x(diff_y(S) / Δy).^2).^(1/2)
+∇S = (avg_y(diff_x(S) / Δx) .^ 2 .+ avg_x(diff_y(S) / Δy) .^ 2) .^ (1/2)
 ```
 """
 struct i∇S <: AbstractInput end
@@ -118,12 +120,13 @@ Input that represents the topographic roughness of the glacier.
 It is computed as the curvature of the glacier bed (or surface) over a specified window size. The curvature can be calculated in different directions (flow, cross-flow, or both)
 and using different curvature types (scalar or variability).
 """
-struct iTopoRough{F<:AbstractFloat} <: AbstractInput
+struct iTopoRough{F <: AbstractFloat} <: AbstractInput
     window::F
     curvature_type::Symbol
     direction::Symbol
     position::Symbol
-    function iTopoRough(; window::F = 200.0, curvature_type::Symbol = :scalar, direction::Symbol = :flow, position::Symbol = :bed) where {F<:AbstractFloat}
+    function iTopoRough(; window::F = 200.0, curvature_type::Symbol = :scalar,
+            direction::Symbol = :flow, position::Symbol = :bed) where {F <: AbstractFloat}
         valid_directions = (:flow, :cross_flow, :both)
         valid_curvature_types = (:scalar, :variability)
         valid_positions = (:bed, :surface)
@@ -156,6 +159,7 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
     roughness = zeros(eltype(dem), size(dem))
 
     for i in 1:rows, j in 1:cols
+
         rmin = max(1, i - half_window)
         rmax = min(rows, i + half_window)
         cmin = max(1, j - half_window)
@@ -164,8 +168,8 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
 
         if inp_topo_rough.curvature_type == :variability
             # Slope direction at central point
-            dx_c = diff_x(window_dem)[div(end,2), div(end,2)] / glacier.Δx  
-            dy_c = diff_y(window_dem)[div(end,2), div(end,2)] / glacier.Δy 
+            dx_c = diff_x(window_dem)[div(end, 2), div(end, 2)] / glacier.Δx
+            dy_c = diff_y(window_dem)[div(end, 2), div(end, 2)] / glacier.Δy
             slope_vec = [dx_c, dy_c]
             nrm = norm(slope_vec)
             if nrm ≈ 0
@@ -179,7 +183,7 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
             Kₚ = Float64[]
             Kₛ = Float64[]
             wrows, wcols = size(window_dem)
-            for wi in 2:(wrows-1), wj in 2:(wcols-1)   # avoid borders
+            for wi in 2:(wrows - 1), wj in 2:(wcols - 1)   # avoid borders
 
                 # second derivatives using central difference utils
                 dxx = d2dx(window_dem, wi, wj, glacier.Δx)
@@ -203,7 +207,7 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
             elseif inp_topo_rough.direction == :both
                 val = sqrt(std(Kₚ)^2 + std(Kₛ)^2)
             end
-            roughness[i,j] = isnan(val) ? 0.0 : val
+            roughness[i, j] = isnan(val) ? 0.0 : val
 
         elseif inp_topo_rough.curvature_type == :scalar
             # Gradient (slope direction)
@@ -231,7 +235,7 @@ function get_input(inp_topo_rough::iTopoRough, simulation, glacier_idx, t)
             elseif inp_topo_rough.direction == :both
                 val = sqrt(Kₚ^2 + Kₛ^2)
             end
-            roughness[i,j] = isnan(val) ? 0 : val
+            roughness[i, j] = isnan(val) ? 0 : val
         end
     end
 
@@ -246,22 +250,21 @@ end
 ######### LAWS #########
 ########################
 
-
 """
     ConstantA(A::F) where {F <: AbstractFloat}
 
 Law that represents a constant A in the SIA.
 
 # Arguments:
-- `A::F`: Rheology factor A.
+
+  - `A::F`: Rheology factor A.
 """
 function ConstantA(A::F) where {F <: AbstractFloat}
     return ConstantLaw{ScalarCacheNoVJP}(function (simulation, glacier_idx, θ)
-            return ScalarCacheNoVJP(fill(A))
-        end,
+        return ScalarCacheNoVJP(fill(A))
+    end,
     )
 end
-
 
 """
     polyA_PatersonCuffey()
@@ -272,11 +275,10 @@ The values used to fit the polynomial come from Cuffey & Peterson.
 function polyA_PatersonCuffey()
     # Parameterization of A(T) from Cuffey & Peterson
     A_values_sec = ([0.0 -2.0 -5.0 -10.0 -15.0 -20.0 -25.0 -30.0 -35.0 -40.0 -45.0 -50.0;
-                                2.4e-24 1.7e-24 9.3e-25 3.5e-25 2.1e-25 1.2e-25 6.8e-26 3.7e-26 2.0e-26 1.0e-26 5.2e-27 2.6e-27]) # s⁻¹Pa⁻³
-    A_values = hcat(A_values_sec[1,:], A_values_sec[2,:].*60.0*60.0*24.0*365.25)'
-    return Polynomials.fit(A_values[1,:], A_values[2,:])
+                     2.4e-24 1.7e-24 9.3e-25 3.5e-25 2.1e-25 1.2e-25 6.8e-26 3.7e-26 2.0e-26 1.0e-26 5.2e-27 2.6e-27]) # s⁻¹Pa⁻³
+    A_values = hcat(A_values_sec[1, :], A_values_sec[2, :] .* 60.0*60.0*24.0*365.25)'
+    return Polynomials.fit(A_values[1, :], A_values[2, :])
 end
-
 
 """
     CuffeyPaterson(; scalar::Bool = true)
@@ -299,7 +301,7 @@ function CuffeyPaterson(; scalar::Bool = true)
                 init_cache = function (simulation, glacier_idx, θ)
                     return ScalarCacheNoVJP(zeros())
                 end,
-                callback_freq = 0,
+                callback_freq = 0
             )
         else
             Law{MatrixCacheNoVJP}(;
@@ -311,13 +313,12 @@ function CuffeyPaterson(; scalar::Bool = true)
                 init_cache = function (simulation, glacier_idx, θ)
                     MatrixCacheNoVJP(zeros(size(simulation.glaciers[glacier_idx].S) .- 1))
                 end,
-                callback_freq = 0,
+                callback_freq = 0
             )
         end
     end
     return A_law
 end
-
 
 """
     SyntheticC(params::Sleipnir.Parameters)
@@ -327,7 +328,8 @@ based on the ratio of `CPDD` (cumulative positive degree days) to `topo_roughnes
 The law is parameterized by minimum and maximum values (`Cmin`, `Cmax`) from `params.physical`, and
 applies a sigmoid scaling to smoothly interpolate between these bounds.
 """
-function SyntheticC(params::Sleipnir.Parameters; inputs = (; CPDD=iCPDD(), topo_roughness=iTopoRough()))
+function SyntheticC(params::Sleipnir.Parameters;
+        inputs = (; CPDD = iCPDD(), topo_roughness = iTopoRough()))
     C_synth_law = Law{MatrixCacheNoVJP}(;
         name = :SyntheticC,
         inputs = inputs,
@@ -358,7 +360,7 @@ function SyntheticC(params::Sleipnir.Parameters; inputs = (; CPDD=iCPDD(), topo_
         init_cache = function (simulation, glacier_idx, θ)
             MatrixCacheNoVJP(zeros(size(simulation.glaciers[glacier_idx].S) .- 1))
         end,
-        callback_freq = Week(1),  # TODO: modify depending on freq from params
+        callback_freq = Week(1)  # TODO: modify depending on freq from params
     )
     return C_synth_law
 end
