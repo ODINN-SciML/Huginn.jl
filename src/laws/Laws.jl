@@ -1,6 +1,6 @@
 import Sleipnir: get_input, default_name
 
-export iTemp, iH̄, i∇S, iCPDD, iTopoRough
+export iAvgScalarTemp, iAvgGriddedTemp, iH̄, i∇S, iCPDD, iTopoRough
 export ConstantA, CuffeyPaterson, SyntheticC
 
 ########################
@@ -8,20 +8,39 @@ export ConstantA, CuffeyPaterson, SyntheticC
 ########################
 
 """
-    iTemp <: AbstractInput
+    iAvgScalarTemp <: AbstractInput
 
-Input that represents the long term air temperature of a glacier.
+Input that represents the long term air temperature over the whole glacier.
 It is computed using the OGGM climate data over a period predefined in Gungnir (i.e. around 30 years).
 """
-struct iTemp <: AbstractInput end
-default_name(::iTemp) = :long_term_temperature
-function get_input(::iTemp, simulation, glacier_idx, t)
+struct iAvgScalarTemp <: AbstractInput end
+
+default_name(::iAvgScalarTemp) = :averaged_long_term_temperature
+function get_input(temp::iAvgScalarTemp, simulation, glacier_idx, t)
     glacier = simulation.glaciers[glacier_idx]
-    return mean(glacier.climate.longterm_temps)
+    return mean(glacier.climate.longterm_temps_scalar)
 end
-function Base.zero(::iTemp, simulation, glacier_idx)
+function Base.zero(temp::iAvgScalarTemp, simulation, glacier_idx)
     glacier = simulation.glaciers[glacier_idx]
-    return zero(glacier.climate.longterm_temps)
+    return zero(glacier.climate.longterm_temps_scalar)
+end
+
+"""
+    iAvgGriddedTemp <: AbstractInput
+
+Input that represents the long term air temperature over the glacier grid.
+It is computed using the OGGM climate data over a period predefined in Gungnir (i.e. around 30 years).
+"""
+struct iAvgGriddedTemp <: AbstractInput end
+
+default_name(::iAvgGriddedTemp) = :gridded_long_term_temperature
+function get_input(temp::iAvgGriddedTemp, simulation, glacier_idx, t)
+    glacier = simulation.glaciers[glacier_idx]
+    return glacier.climate.longterm_temps_gridded
+end
+function Base.zero(temp::iAvgGriddedTemp, simulation, glacier_idx)
+    glacier = simulation.glaciers[glacier_idx]
+    return zero(glacier.climate.longterm_temps_gridded)
 end
 
 """
@@ -260,26 +279,41 @@ end
 
 
 """
-    CuffeyPaterson()
+    CuffeyPaterson(; scalar::Bool = true)
 
 Create a rheology law for the flow rate factor `A`.
 The created law maps the long term air temperature to `A` using the values from
 Cuffey & Peterson through `polyA_PatersonCuffey` that returns a polynomial which is
 then evaluated at a given temperature in the law.
 """
-function CuffeyPaterson()
+function CuffeyPaterson(; scalar::Bool = true)
     A = polyA_PatersonCuffey()
     A_law = let A = A
-        Law{ScalarCacheNoVJP}(;
-            name = :CuffeyPaterson,
-            inputs = (; T=iTemp()),
-            f! = function (cache, inp, θ)
-                cache.value .= A.(inp.T)
-            end,
-            init_cache = function (simulation, glacier_idx, θ)
-                return ScalarCacheNoVJP(zeros())
-            end,
-        )
+        if scalar
+            Law{ScalarCacheNoVJP}(;
+                name = :CuffeyPaterson,
+                inputs = (; T = iAvgScalarTemp()),
+                f! = function (cache, inp, θ)
+                    cache.value .= A.(inp.T)
+                end,
+                init_cache = function (simulation, glacier_idx, θ)
+                    return ScalarCacheNoVJP(zeros())
+                end,
+                callback_freq = 0,
+            )
+        else
+            Law{MatrixCacheNoVJP}(;
+                name = :CuffeyPaterson,
+                inputs = (; T = iAvgGriddedTemp()),
+                f! = function (cache, inp, θ)
+                    cache.value .= A.(inn1(inp.T))
+                end,
+                init_cache = function (simulation, glacier_idx, θ)
+                    MatrixCacheNoVJP(zeros(size(simulation.glaciers[glacier_idx].S) .- 1))
+                end,
+                callback_freq = 0,
+            )
+        end
     end
     return A_law
 end

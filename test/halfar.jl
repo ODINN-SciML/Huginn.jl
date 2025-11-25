@@ -91,7 +91,7 @@ are in aggreement with state of the art numerical models.
 # Example
 ```julia
 unit_halfar_test()
-
+```
 """
 function unit_halfar_test(;
     A = 1e-16,

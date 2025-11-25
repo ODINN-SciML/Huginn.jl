@@ -81,13 +81,21 @@ function SIA2D!(
         n_H = SIA2D_model.n_H_is_provided ? SIA2D_cache.n_H : n.value
         n_∇S = SIA2D_model.n_∇S_is_provided ? SIA2D_cache.n_∇S : n.value
         gravity_term = ρ * g
-        sliding_term = @. C.value * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S^(p.value - 1)
+        sliding_term = if any(C.value .> 0)
+            @. C.value * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S^(p.value - 1)
+        else
+            zero(H̄)
+        end
         rheology_term = @. 2.0 * gravity_term^n.value * Y.value * H̄^(n_H + 2) * ∇S^(n_∇S - 1) / (n.value + 2)
         @. D = sliding_term + rheology_term
     else
         # Compute D from A, C and n
         gravity_term = ρ * g
-        sliding_term = @. C.value.* gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S^(p.value - 1)
+        sliding_term = if any(C.value .> 0)
+            @. C.value.* gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S^(p.value - 1)
+        else
+            zero(H̄)
+        end
         rheology_term = @. 2.0 * A.value * gravity_term^n.value * H̄^(n.value + 2) * ∇S^(n.value - 1) / (n.value + 2)
         @. D = sliding_term + rheology_term
     end
@@ -384,12 +392,20 @@ function surface_V!(H::Matrix{<:Real}, simulation::SIM, t::R, θ) where {SIM <: 
         n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
         gravity_term = ρ * g
         rheology_term = @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) / (n.value + 2)
-        sliding_term = @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        sliding_term = if any(C.value .> 0)
+            @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        else
+            zero(H̄)
+        end
         sliding_term + rheology_term
     else
         gravity_term = ρ * g
         rheology_term = @. (2.0 * A.value * gravity_term^n.value / (n.value+1)) * H̄^(n.value + 1) * ∇S ^ (n.value - 1)
-        sliding_term = @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        sliding_term = if any(C.value .> 0)
+            @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        else
+            zero(H̄)
+        end
         sliding_term + rheology_term
     end
 
@@ -470,12 +486,20 @@ function surface_V(
         n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
         gravity_term = ρ * g
         rheology_term = @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) / (n.value + 2)
-        sliding_term = @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        sliding_term = if any(C.value .> 0)
+            @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        else
+            zero(H̄)
+        end
         sliding_term + rheology_term
     else
         gravity_term = ρ * g
         rheology_term = @. (2.0 * A.value * gravity_term^n.value / (n.value+1)) * H̄^(n.value + 1) * ∇S ^ (n.value - 1)
-        sliding_term = @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        sliding_term = if any(C.value .> 0)
+            @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        else
+            zero(H̄)
+        end
         sliding_term + rheology_term
     end
 
