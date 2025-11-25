@@ -7,20 +7,22 @@ export HalfarParameters, Halfar
 Holds parameters for the Halfar similarity solution of the shallow ice approximation (SIA).
 
 # Parameters
-- `λ::AbstractFloat=0.0`: Mass balance coefficient (used to model accumulation/ablation).
-- `H₀::AbstractFloat=3600.0`: Dome height at initial time `t₀` [m].
-- `R₀::AbstractFloat=750000.0`: Ice sheet margin radius at `t₀` [m].
-- `n::AbstractFloat=3.0`: Glen flow law exponent.
-- `A::AbstractFloat=1e-16`: Flow rate factor in Glen's law [Pa⁻ⁿ yr⁻¹].
-- `f::AbstractFloat=0.0`: Fraction of isostatic bed depression (0 for fully grounded ice).
-- `ρ::AbstractFloat=910.0`: Ice density [kg/m³].
-- `g::AbstractFloat=9.81`: Gravitational acceleration [m/s²].
+
+  - `λ::AbstractFloat=0.0`: Mass balance coefficient (used to model accumulation/ablation).
+  - `H₀::AbstractFloat=3600.0`: Dome height at initial time `t₀` [m].
+  - `R₀::AbstractFloat=750000.0`: Ice sheet margin radius at `t₀` [m].
+  - `n::AbstractFloat=3.0`: Glen flow law exponent.
+  - `A::AbstractFloat=1e-16`: Flow rate factor in Glen's law [Pa⁻ⁿ yr⁻¹].
+  - `f::AbstractFloat=0.0`: Fraction of isostatic bed depression (0 for fully grounded ice).
+  - `ρ::AbstractFloat=910.0`: Ice density [kg/m³].
+  - `g::AbstractFloat=9.81`: Gravitational acceleration [m/s²].
 
 # Notes
+
 Default parameters set as in Bueler (2005) "Exact solutions and verification of numerical
 models for isothermalice sheets", experiment B.
 """
-@kwdef struct HalfarParameters{F<:AbstractFloat}
+@kwdef struct HalfarParameters{F <: AbstractFloat}
     # Mass balance coefficient
     λ::F = 0.0
     # Dome height at t = t₀
@@ -40,25 +42,29 @@ end
     Halfar(halfar_params::HalfarParameters) -> (_halfar::Function, t₀_years::Float64)
 
 Constructs the Halfar similarity solution to the SIA for a radially symmetric ice sheet
-dome following Bueler (2005) "Exact solutions and verification of numerical models for 
+dome following Bueler (2005) "Exact solutions and verification of numerical models for
 isothermalice sheets"
 
 # Arguments
-- `halfar_params::HalfarParameters`: A struct containing physical and geometric parameters for the Halfar solution, including dome height, margin radius, Glen exponent, and other constants.
+
+  - `halfar_params::HalfarParameters`: A struct containing physical and geometric parameters for the Halfar solution, including dome height, margin radius, Glen exponent, and other constants.
 
 # Returns
-- `_halfar::Function`: A function `(x, y, t) -> H` that evaluates the ice thickness `H` at position `(x, y)` and time `t` (in **years**).
-- `t₀_years::Float64`: The characteristic timescale `t₀` (in **years**) of the solution, based on the specified parameters.
+
+  - `_halfar::Function`: A function `(x, y, t) -> H` that evaluates the ice thickness `H` at position `(x, y)` and time `t` (in **years**).
+  - `t₀_years::Float64`: The characteristic timescale `t₀` (in **years**) of the solution, based on the specified parameters.
 
 # Description
+
 The solution has the form:
 
 ```math
 H(r, t) = H₀ (t / t₀)^(-α) [1 - ((t / t₀)^(-β) (r / R₀))^((n+1)/n)]^{n / (2n + 1)}
+```
 """
 function Halfar(
-    halfar_params::HalfarParameters
-    )
+        halfar_params::HalfarParameters
+)
     # Retrieve parameters
     (; λ, n, A, ρ, g, f) = halfar_params
     A /= 365.25 * 24 * 60 * 60
@@ -82,7 +88,8 @@ function Halfar(
         t *= (365.25 * 24 * 60 * 60)
         r = (x^2 + y^2)^0.5
         if r < R₀ * (t / t₀)^β
-            return H₀ * (t / t₀)^(-α) * (1 - ( (t / t₀)^(-β) * (r / R₀) )^((n + 1) / n))^(n / (2 * n + 1))
+            return H₀ * (t / t₀)^(-α) *
+                   (1 - ((t / t₀)^(-β) * (r / R₀))^((n + 1) / n))^(n / (2 * n + 1))
         else
             return 0.0
         end
@@ -99,7 +106,7 @@ thickness as a function of space and time, this returns the ice surface velocity
 to the Shallow Ice Approximation.
 """
 function Halfar_velocity(
-    halfar_params::HalfarParameters
+        halfar_params::HalfarParameters
 )
     H, t₀ = Halfar(halfar_params)
     # Convert to seconds
@@ -118,7 +125,10 @@ function Halfar_velocity(
         if r < 1e-2 * R₀ * (t / t₀)^β
             return 0.0
         elseif r < R₀ * (t / t₀)^β
-            return H₀ * (t / t₀)^(- α - β) * ((n + 1) / (2 * n + 1)) * ( (t / t₀)^(-β) * (r / R₀))^(1 / n) / (R₀ * (1 - ( (t / t₀)^(-β) * (r / R₀) )^((n + 1) / n))^((n + 1) / (2 * n + 1)) + 1e-10)
+            return H₀ * (t / t₀)^(- α - β) * ((n + 1) / (2 * n + 1)) *
+                   ((t / t₀)^(-β) * (r / R₀))^(1 / n) / (R₀ *
+                    (1 - ((t / t₀)^(-β) * (r / R₀))^((n + 1) / n))^((n + 1) / (2 * n + 1)) +
+                    1e-10)
         else
             return 0.0
         end
@@ -126,7 +136,7 @@ function Halfar_velocity(
 
     function _halfar_velocity(x, y, t)
         r = (x^2 + y^2)^0.5
-        vabs =  2 * A * (ρ * g)^n * H(x, y, t)^(n + 1) * _halfar_slope(x, y, t)^n  / (n + 1)
+        vabs = 2 * A * (ρ * g)^n * H(x, y, t)^(n + 1) * _halfar_slope(x, y, t)^n / (n + 1)
         return vabs .* [x / r, y / r]
     end
 
