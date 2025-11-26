@@ -50,6 +50,7 @@ include("simulations/predictions/Prediction.jl")
 include("models/solutions/halfar.jl")
 
 # Parameterizations
+include("laws/Inputs.jl")
 include("laws/Laws.jl")
 
 # All the utils functions
