@@ -10,7 +10,7 @@ It is computed using the OGGM climate data over a period predefined in Gungnir (
 """
 struct iAvgScalarTemp <: AbstractInput end
 
-default_name(::iAvgScalarTemp) = :averaged_long_term_temperature
+default_name(::iAvgScalarTemp) = :averaged_scalar_long_term_temperature
 function get_input(temp::iAvgScalarTemp, simulation, glacier_idx, t)
     glacier = simulation.glaciers[glacier_idx]
     return mean(glacier.climate.longterm_temps_scalar)
@@ -28,7 +28,7 @@ It is computed using the OGGM climate data over a period predefined in Gungnir (
 """
 struct iAvgGriddedTemp <: AbstractInput end
 
-default_name(::iAvgGriddedTemp) = :gridded_long_term_temperature
+default_name(::iAvgGriddedTemp) = :averaged_gridded_long_term_temperature
 function get_input(temp::iAvgGriddedTemp, simulation, glacier_idx, t)
     glacier = simulation.glaciers[glacier_idx]
     return glacier.climate.longterm_temps_gridded
