@@ -1,5 +1,4 @@
 function plot_analysis_flow_parameters_test()
-
     working_dir = joinpath(dirname(Base.current_project()), "data")
     if !ispath(working_dir)
         mkdir("data")
@@ -9,14 +8,14 @@ function plot_analysis_flow_parameters_test()
 
     params = Parameters(
         simulation = SimulationParameters(
-            use_MB=true,
-            tspan=(2010.0, 2015.0),
+            use_MB = true,
+            tspan = (2010.0, 2015.0),
             working_dir = working_dir,
             test_mode = true,
-            workers=1,
-            rgi_paths=rgi_paths
+            workers = 1,
+            rgi_paths = rgi_paths
         ),
-        solver = SolverParameters(reltol=1e-8)
+        solver = SolverParameters(reltol = 1e-8)
     )
 
     model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))

@@ -1,15 +1,14 @@
 
 function pde_solve_test(;
-    rtol::F,
-    atol::F,
-    save_refs::Bool=false,
-    MB::Bool=false,
-    fast::Bool=true,
-    laws_A = nothing,
-    laws_C = nothing,
-    callback_laws = false
-    ) where {F <: AbstractFloat}
-
+        rtol::F,
+        atol::F,
+        save_refs::Bool = false,
+        MB::Bool = false,
+        fast::Bool = true,
+        laws_A = nothing,
+        laws_C = nothing,
+        callback_laws = false
+) where {F <: AbstractFloat}
     println("PDE solving with MB = $MB, laws_A = $laws_A, laws_C = $laws_C, callback_laws = $callback_laws")
 
     ## Retrieving gdirs and climate for the following glaciers
@@ -26,14 +25,14 @@ function pde_solve_test(;
             tspan = (2010.0, 2015.0),
             working_dir = Huginn.root_dir,
             test_mode = true,
-            rgi_paths = rgi_paths,
+            rgi_paths = rgi_paths
         ),
         solver = SolverParameters(
-            reltol=1e-12,
-            step=2.0, # Large step to store few data
-        ),
+            reltol = 1e-12,
+            step = 2.0 # Large step to store few data
+        )
     )
-    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) Parameters(
+    JET.@test_opt target_modules=(Sleipnir, Muninn, Huginn) Parameters(
         simulation = SimulationParameters(
             use_MB = MB,
             use_velocities = false,
@@ -43,9 +42,9 @@ function pde_solve_test(;
             rgi_paths = rgi_paths
         ),
         solver = SolverParameters(
-            reltol=1e-12,
-            step=2.0, # Large step to store few data
-        ),
+            reltol = 1e-12,
+            step = 2.0 # Large step to store few data
+        )
     )
 
     # We retrieve some glaciers for the simulation
@@ -68,7 +67,7 @@ function pde_solve_test(;
         Law{MatrixCacheNoVJP}(;
             f! = (A, sim, glacier_idx, t, θ) -> A.value .= sim.glaciers[glacier_idx].A,
             init_cache = function (sim, glacier_idx, θ)
-                (;nx, ny) = sim.glaciers[glacier_idx]
+                (; nx, ny) = sim.glaciers[glacier_idx]
                 return MatrixCacheNoVJP(zeros(nx - 1, ny - 1))
             end,
             callback_freq = callback_laws ? Month(1) : nothing
@@ -97,8 +96,8 @@ function pde_solve_test(;
     iceflow = SIA2Dmodel(params; A = A_law, C = C_law)
     JET.@test_opt SIA2Dmodel(params; A = A_law, C = C_law)
 
-    model = Model(;iceflow, mass_balance)
-    JET.@test_opt Model(;iceflow, mass_balance)
+    model = Model(; iceflow, mass_balance)
+    JET.@test_opt Model(; iceflow, mass_balance)
 
     # We create an ODINN prediction
     prediction = Prediction(model, glaciers, params)
@@ -109,7 +108,7 @@ function pde_solve_test(;
     @time run!(prediction)
 
     # Test below is not ready yet
-    JET.@test_opt broken=true target_modules=(Sleipnir,Muninn,Huginn) Huginn.batch_iceflow_PDE!(1, prediction) # Call only the core of run! because saving to JLD2 file is not type stable and GC interferes with JET
+    JET.@test_opt broken=true target_modules=(Sleipnir, Muninn, Huginn) Huginn.batch_iceflow_PDE!(1, prediction) # Call only the core of run! because saving to JLD2 file is not type stable and GC interferes with JET
 
     file_name = @match (MB, laws_A, laws_C, callback_laws) begin
         (false, nothing, nothing, false) => "PDE_refs_noMB"
@@ -131,42 +130,39 @@ function pde_solve_test(;
     PDE_refs = load(joinpath(Huginn.root_dir, "test/data/PDE/$(file_name).jld2"))["results"]
 
     let results=prediction.results
+        for result in results
+            let result=result, test_ref=nothing
+                for PDE_ref in PDE_refs
+                    if result.rgi_id == PDE_ref.rgi_id
+                        test_ref = PDE_ref
+                    end
+                end
 
-    for result in results
-        let result=result, test_ref=nothing
-        for PDE_ref in PDE_refs
-            if result.rgi_id == PDE_ref.rgi_id
-                test_ref = PDE_ref
-            end
+                ##############################
+                #### Make plots of errors ####
+                ##############################
+                test_plot_path = joinpath(Huginn.root_dir, "test/plots")
+                if !isdir(test_plot_path)
+                    mkdir(test_plot_path)
+                end
+                MB ? vtol = 30.0*atol : vtol = 12.0*atol # a little extra tolerance for surface velocities
+
+                ### PDE ###
+                plot_test_error(result, test_ref, "H", result.rgi_id, atol, MB)
+                plot_test_error(result, test_ref, "Vx", result.rgi_id, vtol, MB)
+                plot_test_error(result, test_ref, "Vy", result.rgi_id, vtol, MB)
+
+                # Test that the PDE simulations are correct
+                mask = test_ref.H[end] .> 0.0
+                @test all(isapprox.(result.H[end][mask], test_ref.H[end][mask], rtol = rtol, atol = atol))
+                @test all(isapprox.(result.Vx, test_ref.Vx, rtol = rtol, atol = vtol))
+                @test all(isapprox.(result.Vy, test_ref.Vy, rtol = rtol, atol = vtol))
+            end # let
         end
-
-        ##############################
-        #### Make plots of errors ####
-        ##############################
-        test_plot_path = joinpath(Huginn.root_dir, "test/plots")
-        if !isdir(test_plot_path)
-            mkdir(test_plot_path)
-        end
-        MB ? vtol = 30.0*atol : vtol = 12.0*atol # a little extra tolerance for surface velocities
-
-        ### PDE ###
-        plot_test_error(result, test_ref, "H",  result.rgi_id, atol, MB)
-        plot_test_error(result, test_ref, "Vx", result.rgi_id, vtol, MB)
-        plot_test_error(result, test_ref, "Vy", result.rgi_id, vtol, MB)
-
-        # Test that the PDE simulations are correct
-        mask = test_ref.H[end] .> 0.0
-        @test all(isapprox.(result.H[end][mask], test_ref.H[end][mask], rtol=rtol, atol=atol))
-        @test all(isapprox.(result.Vx, test_ref.Vx, rtol=rtol, atol=vtol))
-        @test all(isapprox.(result.Vy, test_ref.Vy, rtol=rtol, atol=vtol))
-
-        end # let
-    end
     end
 end
 
 function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: AbstractFloat}
-
     rgi_ids = ["RGI60-11.03638"]
 
     rgi_paths = get_rgi_paths()
@@ -182,7 +178,7 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
             test_mode = true,
             rgi_paths = rgi_paths
         ),
-        solver = SolverParameters(reltol=1e-8)
+        solver = SolverParameters(reltol = 1e-8)
     )
     model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
     JET.@test_opt Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
@@ -190,12 +186,12 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     glacier_idx = 1
 
     glaciers = initialize_glaciers(rgi_ids, params)
-    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) initialize_glaciers(rgi_ids, params)[1]
+    JET.@test_opt target_modules=(Sleipnir, Muninn, Huginn) initialize_glaciers(rgi_ids, params)[1]
 
     glacier = glaciers[glacier_idx]
 
     # fake simulation
-    simulation = (;model, glaciers)
+    simulation = (; model, glaciers)
 
     cache = init_cache(model, simulation, glacier_idx, nothing)
     JET.@test_opt init_cache(model, simulation, glacier_idx, nothing)
@@ -203,10 +199,11 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     t = 2015.0
 
     MB_timestep!(cache, model, glacier, params.simulation.step_MB, t)
-    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) MB_timestep!(cache, model, glacier, params.simulation.step_MB, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
+    JET.@test_opt target_modules=(Sleipnir, Muninn, Huginn) MB_timestep!(
+        cache, model, glacier, params.simulation.step_MB, t) # RasterStack manipulation is type unstable, so for the moment this test is deactivated
 
     apply_MB_mask!(cache.iceflow.H, cache.iceflow)
-    JET.@test_opt target_modules=(Sleipnir,Muninn,Huginn) apply_MB_mask!(cache.iceflow.H, cache.iceflow)
+    JET.@test_opt target_modules=(Sleipnir, Muninn, Huginn) apply_MB_mask!(cache.iceflow.H, cache.iceflow)
 
     # /!\ Saves current run as reference values
     if save_refs
@@ -217,9 +214,8 @@ function TI_run_test!(save_refs::Bool = false; rtol::F, atol::F) where {F <: Abs
     MB_ref = load(joinpath(Huginn.root_dir, "test/data/PDE/MB_ref.jld2"))["MB"]
     H_w_MB_ref = load(joinpath(Huginn.root_dir, "test/data/PDE/H_w_MB_ref.jld2"))["H"]
 
-    @test all(isapprox.(MB_ref, cache.iceflow.MB, rtol=rtol, atol=atol))
-    @test all(isapprox.(H_w_MB_ref, cache.iceflow.H, rtol=rtol, atol=atol))
-
+    @test all(isapprox.(MB_ref, cache.iceflow.MB, rtol = rtol, atol = atol))
+    @test all(isapprox.(H_w_MB_ref, cache.iceflow.H, rtol = rtol, atol = atol))
 end
 
 function ground_truth_generation()
@@ -236,8 +232,8 @@ function ground_truth_generation()
             rgi_paths = get_rgi_paths()
         ),
         solver = SolverParameters(
-            reltol=1e-8,
-        ),
+            reltol = 1e-8,
+        )
     )
     model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
     glaciers = initialize_glaciers(rgi_ids, params)

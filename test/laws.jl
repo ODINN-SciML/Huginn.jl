@@ -11,11 +11,11 @@ function laws_constructor_default()
     @test typeof(∇S) == i∇S
     @test typeof(topo_rough) == iTopoRough{Float64}
     # Test default law constructors
-    A_cuffey = CuffeyPaterson(scalar=true)
+    A_cuffey = CuffeyPaterson(scalar = true)
     @test isdefined(A_cuffey, :f)
     # For SyntheticC, need dummy params
-    params = Parameters(simulation=SimulationParameters(test_mode=true))
-    C_syn = SyntheticC(params; inputs=(; CPDD=cpdd, topo_roughness=topo_rough))
+    params = Parameters(simulation = SimulationParameters(test_mode = true))
+    C_syn = SyntheticC(params; inputs = (; CPDD = cpdd, topo_roughness = topo_rough))
     # Tests on fields of SyntheticC
     @test isdefined(C_syn, :f)
     @test hasfield(typeof(C_syn), :name)
@@ -28,21 +28,21 @@ end
 function laws_constructor_specified()
     # Test constructors with specified values for law inputs
     temp = iAvgScalarTemp()
-    cpdd = iCPDD(window=Week(1))
+    cpdd = iCPDD(window = Week(1))
     h̄ = iH̄()
     ∇S = i∇S()
-    topo_rough = iTopoRough(window=300.0)
+    topo_rough = iTopoRough(window = 300.0)
     @test typeof(temp) == iAvgScalarTemp
     @test typeof(cpdd) == iCPDD{Week}
     @test typeof(h̄) == iH̄
     @test typeof(∇S) == i∇S
     @test typeof(topo_rough) == iTopoRough{Float64}
     # Test default law constructors
-    A_cuffey = CuffeyPaterson(scalar=true)
+    A_cuffey = CuffeyPaterson(scalar = true)
     @test isdefined(A_cuffey, :f)
     # For SyntheticC, need dummy params
-    params = Parameters(simulation=SimulationParameters(test_mode=true))
-    C_syn = SyntheticC(params; inputs=(; CPDD=cpdd, topo_roughness=topo_rough))
+    params = Parameters(simulation = SimulationParameters(test_mode = true))
+    C_syn = SyntheticC(params; inputs = (; CPDD = cpdd, topo_roughness = topo_rough))
     # Tests on fields of SyntheticC
     @test isdefined(C_syn, :f)
     @test hasfield(typeof(C_syn), :name)
@@ -56,15 +56,15 @@ function test_SyntheticC()
     # Dummy structs for simulation and glacier
     rgi_ids = ["RGI60-11.03638"]
     rgi_paths = get_rgi_paths()
-    params = Parameters(simulation=SimulationParameters(test_mode=true, 
-                                    use_velocities=false, 
-                                    rgi_paths=rgi_paths))
-    model = Model(iceflow=SIA2Dmodel(params), mass_balance=nothing)
+    params = Parameters(simulation = SimulationParameters(test_mode = true,
+        use_velocities = false,
+        rgi_paths = rgi_paths))
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
     glaciers = initialize_glaciers(rgi_ids, params)
     simulation = Prediction(model, glaciers, params)
     # Create dummy normalized inputs
-    law_inputs = (; CPDD=iCPDD(), topo_roughness=iTopoRough())
-    C_syn = SyntheticC(params; inputs=law_inputs)
+    law_inputs = (; CPDD = iCPDD(), topo_roughness = iTopoRough())
+    C_syn = SyntheticC(params; inputs = law_inputs)
     # Test init_cache
     cache = C_syn.init_cache(simulation, 1, nothing)
     @test size(cache.value) == size(glaciers[1].S) .- 1
@@ -78,21 +78,21 @@ function test_iTopoRough()
     # Dummy structs for simulation and glacier
     rgi_ids = ["RGI60-11.03638"]
     rgi_paths = get_rgi_paths()
-    params = Parameters(simulation=SimulationParameters(test_mode=true, 
-                                    use_velocities=false, 
-                                    rgi_paths=rgi_paths))
-    model = Model(iceflow=SIA2Dmodel(params), mass_balance=nothing)
+    params = Parameters(simulation = SimulationParameters(test_mode = true,
+        use_velocities = false,
+        rgi_paths = rgi_paths))
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
     glaciers = initialize_glaciers(rgi_ids, params)
     simulation = Prediction(model, glaciers, params)
 
-    topo_rough = iTopoRough(window=200.0)
+    topo_rough = iTopoRough(window = 200.0)
     roughness = get_input(topo_rough, simulation, 1, 2010.0)
     zero_roughness = zero(topo_rough, simulation, 1)
     @test size(roughness) == size(glaciers[1].S)
     @test typeof(zero_roughness) == typeof(roughness)
     @test size(zero_roughness) == size(roughness)
 
-    topo_rough = iTopoRough(window=400.0, curvature_type=:variability, direction=:flow)
+    topo_rough = iTopoRough(window = 400.0, curvature_type = :variability, direction = :flow)
     roughness = get_input(topo_rough, simulation, 1, 2010.0)
     zero_roughness = zero(topo_rough, simulation, 1)
     @test size(roughness) == size(glaciers[1].S)
@@ -105,14 +105,14 @@ function test_iCPDD()
     # Dummy structs for simulation and glacier
     rgi_ids = ["RGI60-11.03638"]
     rgi_paths = get_rgi_paths()
-    params = Parameters(simulation=SimulationParameters(test_mode=true, 
-                                    use_velocities=false, 
-                                    rgi_paths=rgi_paths))
-    model = Model(iceflow=SIA2Dmodel(params), mass_balance=nothing)
+    params = Parameters(simulation = SimulationParameters(test_mode = true,
+        use_velocities = false,
+        rgi_paths = rgi_paths))
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
     glaciers = initialize_glaciers(rgi_ids, params)
     simulation = Prediction(model, glaciers, params)
 
-    cpdd = iCPDD(window=Week(1))
+    cpdd = iCPDD(window = Week(1))
     pdd = get_input(cpdd, simulation, 1, 2010.0)
     zero_pdd = zero(cpdd, simulation, 1)
     @test size(pdd) == size(glaciers[1].S)

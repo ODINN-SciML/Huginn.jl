@@ -2,7 +2,6 @@
 Test that analytical Halfar solution satisfies the SIA equation
 """
 function unit_halfar_is_solution(; rtol = 1e-6, atol = 1e-6)
-
     halfar_param = HalfarParameters()
 
     n = halfar_param.n
@@ -26,18 +25,20 @@ function unit_halfar_is_solution(; rtol = 1e-6, atol = 1e-6)
         b = halfar_param.λ * h / t
         # Flux
         qx = - ForwardDiff.derivative(
-                _x -> (Γ * halfar(_x, y, t)^(n + 2) * (
-                    ForwardDiff.derivative(__x -> halfar(__x, y, t), _x)^2.0 +
-                    ForwardDiff.derivative(__y -> halfar(_x, __y, t), y)^2.0
-                )^((n - 1) / 2) *
-                ForwardDiff.derivative(__x -> halfar(__x, y, t), _x)),
+            _x -> (Γ * halfar(_x, y, t)^(n + 2) *
+                   (
+                       ForwardDiff.derivative(__x -> halfar(__x, y, t), _x)^2.0 +
+                       ForwardDiff.derivative(__y -> halfar(_x, __y, t), y)^2.0
+                   )^((n - 1) / 2) *
+                   ForwardDiff.derivative(__x -> halfar(__x, y, t), _x)),
             x)
         qy = - ForwardDiff.derivative(
-                _y -> Γ * halfar(x, _y, t)^(n + 2) * (
-                    ForwardDiff.derivative(__x -> halfar(__x, _y, t), x)^2 +
-                    ForwardDiff.derivative(__y -> halfar(x, __y, t), _y)^2
-                )^((n - 1) / 2) *
-                ForwardDiff.derivative(__y -> halfar(x, __y, t), _y),
+            _y -> Γ * halfar(x, _y, t)^(n + 2) *
+                  (
+                      ForwardDiff.derivative(__x -> halfar(__x, _y, t), x)^2 +
+                      ForwardDiff.derivative(__y -> halfar(x, __y, t), _y)^2
+                  )^((n - 1) / 2) *
+                  ForwardDiff.derivative(__y -> halfar(x, __y, t), _y),
             y)
         q = qx + qy
 
@@ -45,7 +46,6 @@ function unit_halfar_is_solution(; rtol = 1e-6, atol = 1e-6)
     end
     @test all(all_tests)
 end
-
 
 """
     unit_halfar_test(; kwargs...) -> Nothing
@@ -59,57 +59,60 @@ The test checks absolute and relative errors in ice thickness, total mass, and d
 Fails if any error exceeds tolerance thresholds.
 
 # Keyword Arguments
-- `A::Float64=1e-16`: Glen flow law rate factor [Pa⁻ⁿ yr⁻¹].
-- `n::Float64=3.0`: Glen flow law exponent.
-- `Δt::Float64=25000.0`: Time span of the simulation [years].
-- `nx::Int=240`, `ny::Int=240`: Number of grid points in `x` and `y` directions.
-- `H₀::Float64=3600.0`: Dome height at t₀ [m].
-- `R₀::Float64=750000.0`: Dome radius at t₀ [m].
-- `use_MB::Bool=false`: If `true`, includes a mass balance term.
-- `reltol::Float64=0.007`: Maximum allowed relative error.
-- `abstol::Float64=5.0`: Maximum allowed absolute thickness error [m].
-- `masstol::Float64=2e-4`: Maximum allowed relative error in total ice mass.
-- `dometol::Float64=0.20`: Maximum allowed dome height error [m].
-- `distance_to_border::Int=3`: Distance (in grid cells) from ice margin to exclude from error computation.
-- `save_plot::Bool=false`: If `true`, saves diagnostic plots comparing analytical and simulated solutions.
+
+  - `A::Float64=1e-16`: Glen flow law rate factor [Pa⁻ⁿ yr⁻¹].
+  - `n::Float64=3.0`: Glen flow law exponent.
+  - `Δt::Float64=25000.0`: Time span of the simulation [years].
+  - `nx::Int=240`, `ny::Int=240`: Number of grid points in `x` and `y` directions.
+  - `H₀::Float64=3600.0`: Dome height at t₀ [m].
+  - `R₀::Float64=750000.0`: Dome radius at t₀ [m].
+  - `use_MB::Bool=false`: If `true`, includes a mass balance term.
+  - `reltol::Float64=0.007`: Maximum allowed relative error.
+  - `abstol::Float64=5.0`: Maximum allowed absolute thickness error [m].
+  - `masstol::Float64=2e-4`: Maximum allowed relative error in total ice mass.
+  - `dometol::Float64=0.20`: Maximum allowed dome height error [m].
+  - `distance_to_border::Int=3`: Distance (in grid cells) from ice margin to exclude from error computation.
+  - `save_plot::Bool=false`: If `true`, saves diagnostic plots comparing analytical and simulated solutions.
 
 # Outputs
-- Returns `nothing`, but throws `@test` failures if errors exceed tolerance.
-- Optionally saves a diagnostic figure to `test/halfar_test.png`.
+
+  - Returns `nothing`, but throws `@test` failures if errors exceed tolerance.
+  - Optionally saves a diagnostic figure to `test/halfar_test.png`.
 
 # Notes
-- For a full explanation of this test please check Bueler (2005) "Exact solutions and
-verification of numerical models for isothermalice sheets", experiments B and C.
-- Ice flow numerical models experience artifacts near the margin. This is the reason why
-errors are evaluated away from the margin. The choice of distance_to_border = 3 coincides
-with the one found in Bueler (2005). For this same reason, we evaluate both the maximum
-error and the error at the dome (maximum), which allows to evaluate the error away from the
-margin.
-- Error tolerances are selected based on Bueler (2005), and if well they seem large, they
-are in aggreement with state of the art numerical models.
+
+  - For a full explanation of this test please check Bueler (2005) "Exact solutions and
+    verification of numerical models for isothermalice sheets", experiments B and C.
+  - Ice flow numerical models experience artifacts near the margin. This is the reason why
+    errors are evaluated away from the margin. The choice of distance_to_border = 3 coincides
+    with the one found in Bueler (2005). For this same reason, we evaluate both the maximum
+    error and the error at the dome (maximum), which allows to evaluate the error away from the
+    margin.
+  - Error tolerances are selected based on Bueler (2005), and if well they seem large, they
+    are in aggreement with state of the art numerical models.
 
 # Example
+
 ```julia
 unit_halfar_test()
 ```
 """
 function unit_halfar_test(;
-    A = 1e-16,
-    n = 3.0,
-    Δt = 25000.0,
-    nx = 240,
-    ny = 240,
-    H₀ = 3600.0,
-    R₀ = 750000.0,
-    use_MB = false,
-    reltol = 0.007,
-    abstol = 5.0,
-    masstol = 2e-4,
-    dometol = 0.20,
-    distance_to_border = 3,
-    save_plot = false
-    )
-
+        A = 1e-16,
+        n = 3.0,
+        Δt = 25000.0,
+        nx = 240,
+        ny = 240,
+        H₀ = 3600.0,
+        R₀ = 750000.0,
+        use_MB = false,
+        reltol = 0.007,
+        abstol = 5.0,
+        masstol = 2e-4,
+        dometol = 0.20,
+        distance_to_border = 3,
+        save_plot = false
+)
     if use_MB
         λ = 5.0
     else
@@ -131,23 +134,23 @@ function unit_halfar_test(;
 
     # Get parameters for a simulation
     parameters = Parameters(
-        simulation=SimulationParameters(
+        simulation = SimulationParameters(
             tspan = (t₀, t₁),
             use_MB = use_MB,
             step_MB = δt,
             use_iceflow = true,
             working_dir = Huginn.root_dir
-            ),
+        ),
         physical = PhysicalParameters(
             ρ = halfar_params.ρ,
             g = halfar_params.g
-            ),
+        ),
         solver = SolverParameters(
             reltol = 1e-12,
             # abstol = 1e-12,
-            step = δt,
-            )
+            step = δt
         )
+    )
 
     @assert !use_MB "Need to find way to pass MB"
     model = Model(
@@ -164,7 +167,7 @@ function unit_halfar_test(;
     ts = Huginn.define_callback_steps((t₀, t₁), δt) |> collect
 
     # Bed (it has to be flat for the Halfar solution)
-    B = zeros((nx,ny))
+    B = zeros((nx, ny))
     # Computed Halfar solution
     Hs = [[halfar(x, y, t) for x in xs, y in ys] for t in ts]
     H₀ = Hs[begin]
@@ -188,7 +191,7 @@ function unit_halfar_test(;
         nx = nx,
         ny = ny,
         C = 0.0
-        )
+    )
     glaciers = Vector{Sleipnir.AbstractGlacier}([glacier])
 
     prediction = Prediction(model, glaciers, parameters)
@@ -206,7 +209,7 @@ function unit_halfar_test(;
         H_diff = Hs[i] - Hs_preds[i]
         push!(abs_errors, maximum(abs.(H_diff[is_in_glacier(Hs[i], distance_to_border)])))
         push!(rel_errors, maximum(abs.((H_diff ./ Hs[i])[is_in_glacier(Hs[i], distance_to_border)])))
-        push!(mass_errors, sum(H_diff) / sum(H₁) )
+        push!(mass_errors, sum(H_diff) / sum(H₁))
         push!(dome_errors, abs(maximum(Hs[i]) - maximum(Hs_preds[i])))
     end
 
@@ -220,16 +223,18 @@ function unit_halfar_test(;
         fig = Figure(resolution = (800, 800))
 
         Axis(fig[1, 1], title = "Initial Condition")
-        CairoMakie.heatmap!(H₀, colormap=:viridis, colorrange=(0, maximum(H₀))) # Specify CairoMakie to remove ambiguity with Plots.heatmap!
+        CairoMakie.heatmap!(H₀, colormap = :viridis, colorrange = (0, maximum(H₀))) # Specify CairoMakie to remove ambiguity with Plots.heatmap!
 
         Axis(fig[1, 2], title = "Final State")
-        CairoMakie.heatmap!(Hs[end], colormap=:viridis, colorrange=(0, maximum(H₀)))
+        CairoMakie.heatmap!(Hs[end], colormap = :viridis, colorrange = (0, maximum(H₀)))
 
-        Axis(fig[2,1], title="Prediction")
-        CairoMakie.heatmap!(Hs_preds[end], colormap=:viridis, colorrange=(0, maximum(H₀)))
+        Axis(fig[2, 1], title = "Prediction")
+        CairoMakie.heatmap!(Hs_preds[end], colormap = :viridis, colorrange = (
+            0, maximum(H₀)))
 
-        Axis(fig[2,2], title="Difference")
-        CairoMakie.heatmap!(Hs_preds[end] - Hs[end], colormap=Reverse(:balance), colorrange=(-10, 10))
+        Axis(fig[2, 2], title = "Difference")
+        CairoMakie.heatmap!(Hs_preds[end] - Hs[end], colormap = Reverse(:balance), colorrange = (
+            -10, 10))
 
         save("plots/halfar_test.png", fig)
     end
@@ -259,5 +264,6 @@ function halfar_test()#; rtol, atol, distance_to_border)
     unit_halfar_test(A = 1e-17, reltol = 1e-2, distance_to_border = 5)
     # Smaller glacier in shorter timescale
     unit_halfar_test(Δt = 100.0, H₀ = 200.0, R₀ = 3000.0, reltol = 9e-3, masstol = 1e-3)
-    unit_halfar_test(Δt = 100.0, H₀ = 200.0, R₀ = 3000.0, reltol = 9e-3, masstol = 1e-3, nx = 100, ny = 100)
+    unit_halfar_test(Δt = 100.0, H₀ = 200.0, R₀ = 3000.0,
+        reltol = 9e-3, masstol = 1e-3, nx = 100, ny = 100)
 end
