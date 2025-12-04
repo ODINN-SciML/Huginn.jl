@@ -1,7 +1,7 @@
 name: Code Format Check
 on:
   push:
-    branches: []
+    branches: [ "**" ]
     tags: '*'
 jobs:
   format-check:
@@ -20,7 +20,7 @@ jobs:
     - name: Install JuliaFormatter and format
       run: |
         julia  -e 'using Pkg; Pkg.add(PackageSpec(name="JuliaFormatter"))'
-        julia  -e 'using JuliaFormatter; format("src/", verbose=true)'
+        julia  -e 'using JuliaFormatter; format(".", verbose=true)'
 
     - name: Format check
       run: |
