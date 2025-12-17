@@ -11,7 +11,6 @@ DiffEqCallbacks = "459566f4-90b8-5000-8ac3-15dfb0a30def"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Infiltrator = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
-JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
@@ -53,10 +52,20 @@ Sleipnir = "0.12.6"
 Statistics = "1"
 Tullio = "0.3"
 julia = "1.10"
+Aqua = "0.8"
+Test = "1.10"
+Pkg = "1.10"
+Printf = "1.10"
+Random = "1.10"
+LinearAlgebra = "1.10"
+Distributed = "1.10"
+Dates = "1.10"
 
 [extras]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 
 [targets]
-test = ["ForwardDiff", "Test"]
+test = ["ForwardDiff", "Test", "Aqua", "JET"]

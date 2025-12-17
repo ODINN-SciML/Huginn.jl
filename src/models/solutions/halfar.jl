@@ -1,4 +1,3 @@
-export halfar_solution
 export HalfarParameters, Halfar
 
 """
