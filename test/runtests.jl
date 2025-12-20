@@ -22,6 +22,7 @@ using MLStyle
 using Huginn
 using Huginn: Parameters, Model
 using Sleipnir: DummyClimate2D, ScalarCacheNoVJP, MatrixCacheNoVJP
+using Aqua
 
 include("utils_test.jl")
 include("params_construction.jl")
@@ -30,6 +31,7 @@ include("PDE_solve.jl")
 include("mass_conservation.jl")
 include("laws.jl")
 include("plotting.jl")
+include("Aqua.jl")
 
 # Activate to avoid GKS backend Plot issues in the JupyterHub
 ENV["GKSwstype"]="nul"
@@ -109,5 +111,9 @@ ENV["GKSwstype"]="nul"
 
     if GROUP == "All" || GROUP == "Core8"
         @testset "Glacier Plotting" plot_analysis_flow_parameters_test()
+    end
+
+    if GROUP == "All" || GROUP == "Aqua"
+        @testset "Aqua" test_Aqua()
     end
 end
