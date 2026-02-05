@@ -69,7 +69,7 @@ function SolverParameters(;
         maxiters::I = Int(1e5)
 ) where {F <: AbstractFloat, I <: Integer}
     # Build the solver parameters based on input values
-    return SolverParameters(
+    return SolverParameters{Sleipnir.Float, Sleipnir.Int, typeof(solver)}(
         solver,
         Sleipnir.Float(reltol),
         Sleipnir.Float(step),
