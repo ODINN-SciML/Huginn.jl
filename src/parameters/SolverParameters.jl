@@ -3,11 +3,11 @@ export SolverParameters
 """
 A mutable struct that holds parameters for the solver.
 
-    SolverParameters{F <: AbstractFloat, I <: Integer}
+    SolverParameters{F <: AbstractFloat, I <: Integer, ST <: OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm}
 
 # Fields
 
-  - `solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm`: The algorithm used for solving differential equations.
+  - `solver::ST`: The algorithm used for solving differential equations.
   - `reltol::F`: The relative tolerance for the solver.
   - `step::F`: The step size that controls at which frequency the results must be saved.
   - `tstops::Vector{F}`: Optional vector of time points where the solver should stop to store the results.
@@ -16,8 +16,9 @@ A mutable struct that holds parameters for the solver.
   - `progress_steps::I`: The number of steps between progress updates.
   - `maxiters::I`: Maximum number of iterations to perform in the iceflow solver.
 """
-mutable struct SolverParameters{F <: AbstractFloat, I <: Integer} <: AbstractParameters
-    solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm
+mutable struct SolverParameters{F <: AbstractFloat, I <: Integer,
+    ST <: OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm} <: AbstractParameters
+    solver::ST
     reltol::F
     step::F
     tstops::Vector{F}
@@ -68,7 +69,7 @@ function SolverParameters(;
         maxiters::I = Int(1e5)
 ) where {F <: AbstractFloat, I <: Integer}
     # Build the solver parameters based on input values
-    return SolverParameters(
+    return SolverParameters{Sleipnir.Float, Sleipnir.Int, typeof(solver)}(
         solver,
         Sleipnir.Float(reltol),
         Sleipnir.Float(step),
