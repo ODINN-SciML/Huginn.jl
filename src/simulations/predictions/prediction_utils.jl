@@ -190,6 +190,8 @@ function thickness_velocity_data(
         Vy = Array{Matrix{F}, 1}()
         Vabs = Array{Matrix{F}, 1}()
         for j in 1:length(ts)
+            apply_all_callback_laws!(prediction.model.iceflow, prediction.cache.iceflow,
+                prediction, i, ts[j], nothing)
             vx, vy, vabs = Huginn.V_from_H(prediction, Hs[j], ts[j], nothing)
             push!(Vx, vx)
             push!(Vy, vy)
