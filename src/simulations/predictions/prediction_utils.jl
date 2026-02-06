@@ -186,24 +186,31 @@ function thickness_velocity_data(
 
         thicknessData = :H in store ? Sleipnir.ThicknessData(ts, Hs) : nothing
 
-        Vx = Array{Matrix{F}, 1}()
-        Vy = Array{Matrix{F}, 1}()
-        Vabs = Array{Matrix{F}, 1}()
-        for j in 1:length(ts)
-            apply_all_callback_laws!(prediction.model.iceflow, prediction.cache.iceflow,
-                prediction, i, ts[j], nothing)
-            vx, vy, vabs = Huginn.V_from_H(prediction, Hs[j], ts[j], nothing)
-            push!(Vx, vx)
-            push!(Vy, vy)
-            push!(Vabs, vabs)
+        velocityData = if :V in store
+            Vx = Array{Matrix{F}, 1}()
+            Vy = Array{Matrix{F}, 1}()
+            Vabs = Array{Matrix{F}, 1}()
+            for j in 1:length(ts)
+                apply_all_callback_laws!(
+                    prediction.model.iceflow, prediction.cache.iceflow,
+                    prediction, i, ts[j], nothing)
+                vx, vy, vabs = Huginn.V_from_H(prediction, Hs[j], ts[j], nothing)
+                push!(Vx, vx)
+                push!(Vy, vy)
+                push!(Vabs, vabs)
+            end
+            if all(norm.(Vabs) .== 0)
+                @warn "All velocities are null which is probably a bug."
+            end
+            SurfaceVelocityData(
+                date = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day, ts)),
+                vx = Vx,
+                vy = Vy,
+                vabs = Vabs
+            )
+        else
+            nothing
         end
-        velocityData = :V in store ?
-                       SurfaceVelocityData(
-            date = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day, ts)),
-            vx = Vx,
-            vy = Vy,
-            vabs = Vabs
-        ) : nothing
 
         Glacier2D(
             prediction.glaciers[i],
