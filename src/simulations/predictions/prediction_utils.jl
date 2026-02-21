@@ -11,7 +11,8 @@ function run!(simulation::Prediction)
         (glacier_idx) -> batch_iceflow_PDE!(glacier_idx, simulation),
         1:length(simulation.glaciers))
 
-    Sleipnir.save_results_file!(results_list, simulation)
+    # We don't save results files as this is not required and can crash multiple simulations
+    # Sleipnir.save_results_file!(results_list, simulation)
 
     @everywhere GC.gc() # run garbage collector
 end
