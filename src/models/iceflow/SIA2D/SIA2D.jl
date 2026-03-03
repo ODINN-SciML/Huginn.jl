@@ -18,6 +18,7 @@ The SIA model describes glacier flow under the assumption that deformation and b
   - Glen's flow law for internal deformation, with flow rate factor `A` and exponent `n`,
 
   - A sliding law governed by coefficient `C`,
+
   - Optionally the user can provide either:
 
       + A specific diffusive velocity `U` such that `D = U * H`
