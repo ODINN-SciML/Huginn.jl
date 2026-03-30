@@ -18,7 +18,6 @@ The SIA model describes glacier flow under the assumption that deformation and b
   - Glen's flow law for internal deformation, with flow rate factor `A` and exponent `n`,
 
   - A sliding law governed by coefficient `C`,
-
   - Optionally the user can provide either:
 
       + A specific diffusive velocity `U` such that `D = U * H`
@@ -302,6 +301,8 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
     Vy::Matrix{R}
     Γ::A_CACHE
     MB::Matrix{R}
+    MB_history::Vector{Matrix{R}}
+    MB_times::Vector{R}
     MB_mask::BitMatrix
     MB_total::Matrix{R}
     glacier_idx::I
@@ -410,6 +411,8 @@ function init_cache(
         Vx = zeros(F, nx, ny),
         Vy = zeros(F, nx, ny),
         MB = zeros(F, nx, ny),
+        MB_history = Matrix{F}[],
+        MB_times = F[],
         MB_mask = falses(nx, ny),
         MB_total = zeros(F, nx, ny),
         glacier_idx = Sleipnir.Int(glacier_idx),

@@ -49,13 +49,15 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     tstops = define_callback_steps(params.simulation.tspan, step)
     tstops = unique(vcat(tstops, params.solver.tstops)) # Merge time steps controlled by `step` with the user provided time steps
 
-    # Create mass balance callback
+    # Create mass balance callback and store MB snapshots in cache diagnostics
     mb_action! = let model = model, cache = cache, glacier = glacier, step_MB = step_MB
         function (integrator)
             if params.simulation.use_MB
                 # Compute mass balance
                 glacier.S .= glacier.B .+ integrator.u
                 MB_timestep!(cache, model, glacier, step_MB, integrator.t)
+                push!(cache.iceflow.MB_history, copy(cache.iceflow.MB))
+                push!(cache.iceflow.MB_times, integrator.t)
                 apply_MB_mask!(integrator.u, cache.iceflow)
             end
         end
@@ -130,7 +132,14 @@ function simulate_iceflow_PDE!(
 
     # Update simulation results
     results = Sleipnir.create_results(
-        simulation, glacier_idx, iceflow_sol, tstops; processVelocity = V_from_H)
+        simulation,
+        glacier_idx,
+        iceflow_sol,
+        tstops;
+        processVelocity = V_from_H,
+        MB = cache.iceflow.MB_history,
+        t_MB = cache.iceflow.MB_times
+    )
 
     return results
 end
