@@ -17,6 +17,19 @@ function ConstantA(A::F) where {F <: AbstractFloat}
 end
 
 """
+    TemperateA()
+
+Law that represents a constant A in the SIA for temperate ice (0°C).
+
+The value of A is set to 2.4e-24 s⁻¹Pa⁻³ which come from Cuffey & Peterson.
+"""
+function TemperateA()
+    A_value_sec = 2.4e-24 # s⁻¹Pa⁻³
+    A_value = A_value_sec * 60.0 * 60.0 * 24.0 * 365.25 # year⁻¹Pa⁻³
+    return ConstantA(A_value)
+end
+
+"""
     polyA_PatersonCuffey()
 
 Returns a function of the coefficient A as a polynomial of the temperature.
