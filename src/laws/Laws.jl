@@ -1,4 +1,4 @@
-export ConstantA, CuffeyPaterson, SyntheticC, TemeprateA
+export ConstantA, CuffeyPaterson, SyntheticC, TemperateA
 
 """
     ConstantA(A::F) where {F <: AbstractFloat}
