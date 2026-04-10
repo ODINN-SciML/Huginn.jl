@@ -123,7 +123,11 @@ function pde_solve_test(;
 
     # /!\ Saves current run as reference values
     if save_refs
-        jldsave(joinpath(Huginn.root_dir, "test/data/PDE/$(file_name).jld2"); prediction.results)
+        ref_filepath = joinpath(Huginn.root_dir, "test/data/PDE/$(file_name).jld2")
+        mkpath(dirname(ref_filepath))
+        jldsave(ref_filepath; prediction.results)
+        println("Reference file saved to: $ref_filepath")
+        return  # Skip loading and comparison when regenerating
     end
 
     # Load reference values for the simulation

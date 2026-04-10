@@ -32,7 +32,7 @@ function unit_mass_test(;
         B::Matrix{F},
         A::F,
         n::F,
-        t_sim,
+        t_sim::F,
         Δx::F,
         Δy::F,
         rtol::F = 0.02,
