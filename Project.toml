@@ -1,7 +1,7 @@
 name = "Huginn"
 uuid = "9cb796e9-d0ea-421b-b37d-eb97bc1add55"
-authors = ["Jordi Bolibar <jordi.bolibar@gmail.com>", "Facundo Sapienza <sapienza@stanford.edu>", "Alban Gossard <alban.paul.gossard@gmail.com>", "Mathieu Le Séac'h"]
 version = "0.12.8"
+authors = ["Jordi Bolibar <jordi.bolibar@gmail.com>", "Facundo Sapienza <sapienza@stanford.edu>", "Alban Gossard <alban.paul.gossard@gmail.com>", "Mathieu Le Séac'h"]
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
@@ -55,7 +55,7 @@ ProgressMeter = "1"
 Random = "1.10, 1.11"
 Reexport = "1"
 Revise = "3"
-Sleipnir = "0.12.7"
+Sleipnir = "0.12.7, 0.13"
 Statistics = "1"
 Test = "1.10, 1.11"
 Tullio = "0.3"
