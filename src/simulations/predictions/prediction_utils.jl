@@ -154,16 +154,16 @@ end
     thickness_velocity_data(
         prediction::Prediction,
         tstops::Vector{F};
-        store::Tuple=(:H, :V),
+        store::Tuple=(:H, :V, :dhdt),
     ) where {F <: AbstractFloat}
 
-Return a new vector of glaciers with the simulated thickness and ice velocity data for each of the glaciers.
+Return a new vector of glaciers with the simulated thickness ice velocity and dhdt data for each of the glaciers.
 
 # Arguments
 
   - `prediction::Prediction`: A `Prediction` object containing the simulation results and associated glaciers.
   - `tstops::Vector{F}`: A vector of time steps (of type `F <: AbstractFloat`) at which the simulation was evaluated.
-  - `store::Tuple`: Which generated simulation products to store. It can include `:H` and/or `:V`.
+  - `store::Tuple`: Which generated simulation products to store. It can include `:H`, `:V` and/or `:dhdt`.
 
 # Description
 
@@ -171,7 +171,8 @@ This function iterates over the glaciers in the `Prediction` object and generate
 `store` argument at corresponding time steps (`t`).
 If `store` includes `:H`, then the ice thickness is stored.
 If `store` includes `:V`, then it computes the surface ice velocity data and store it.
-A new vector of glaciers is created and each glacier is a copy with an updated `thicknessData` and `velocityData` fields.
+If `store` includes `:dhdt`, then it computes the mean surface elevation change and store it.
+A new vector of glaciers is created and each glacier is a copy with an updated `thicknessData`, `velocityData` and `dhdtData` fields.
 
 # Notes
 
@@ -179,12 +180,12 @@ A new vector of glaciers is created and each glacier is a copy with an updated `
 
 # Returns
 
-A new vector of glaciers where each glacier is a copy of the original one with the updated `thicknessData` and `velocityData` based on the values provided in `store`.
+A new vector of glaciers where each glacier is a copy of the original one with the updated `thicknessData`, `velocityData` and `dhdtData` based on the values provided in `store`.
 """
 function thickness_velocity_data(
         prediction::Prediction,
         tstops::Vector{F};
-        store::Tuple = (:H, :V)
+        store::Tuple = (:H, :V, :dhdt)
 ) where {F <: AbstractFloat}
     # Store the thickness data in the glacier
     glaciers = map(1:length(prediction.glaciers)) do i
@@ -221,11 +222,24 @@ function thickness_velocity_data(
             nothing
         end
 
+        dhdtData = if :dhdt in store
+            tdhdt = (minimum(ts), maximum(ts))
+            ind = Sleipnir.indFromT(prediction.parameters.simulation.tspan, tdhdt, ts)
+            mask = prediction.glaciers[i].mask
+            H0 = Hs[ind[1]][mask]
+            H1 = Hs[ind[2]][mask]
+            dhdt = mean(H1 .- H0)/(tdhdt[2]-tdhdt[1])
+            DhdtData(tdhdt, dhdt)
+        else
+            nothing
+        end
+
         Glacier2D(
             prediction.glaciers[i],
             thicknessData = thicknessData,
-            velocityData = velocityData
-        ) # Rebuild glacier since we cannot change type of `glacier.thicknessData` and `glacier.velocityData`
+            velocityData = velocityData,
+            dhdtData = dhdtData
+        ) # Rebuild glacier since we cannot change type of `glacier.thicknessData`, `glacier.velocityData` and `glacier.dhdtData`
     end
     return glaciers
 end
@@ -236,11 +250,11 @@ end
         params::Sleipnir.Parameters,
         model::Sleipnir.Model,
         tstops::Vector{F};
-        store::Tuple=(:H, :V),
+        store::Tuple=(:H, :V, :dhdt),
     ) where {G <: Sleipnir.AbstractGlacier, F <: AbstractFloat}
 
 Generate ground truth data for a glacier simulation by using the laws specified in the model and running a forward model.
-It returns a new vector of glaciers with updated `thicknessData` and `velocityData` fields based on the `store` argument.
+It returns a new vector of glaciers with updated `thicknessData`, `velocityData` and `dhdtData` fields based on the `store` argument.
 
 # Arguments
 
@@ -248,13 +262,16 @@ It returns a new vector of glaciers with updated `thicknessData` and `velocityDa
   - `params::Sleipnir.Parameters`: Simulation parameters.
   - `model::Sleipnir.Model`: The model to use for the simulation.
   - `tstops::Vector{F}`: A vector of time steps at which the simulation will be evaluated.
-  - `store::Tuple`: Which generated simulation products to store. It can include `:H` and/or `:V`.
+  - `store::Tuple`: Which generated simulation products to store. It can include `:H`, `:V` and/or `:dhdt`.
 
 # Description
 
  1. Runs a forward model simulation for the glaciers using the provided laws, parameters, model, and time steps.
  2. Build a new vector of glaciers and store the simulation results as ground truth in the `glaciers` struct.
-    For each glacier it populates the `thicknessData` field if `store` contains `:H` and it populates `velocityData` if `store` contains `:V`.
+    For each glacier it populates
+      + `thicknessData` field if `store` contains `:H`,
+      + `velocityData` if `store` contains `:V`,
+      + `dhdtData` if `store` contains `:dhdt`.
 
 # Example
 
@@ -272,7 +289,7 @@ function generate_ground_truth(
         params::Sleipnir.Parameters,
         model::Sleipnir.Model,
         tstops::Vector{F};
-        store::Tuple = (:H, :V)
+        store::Tuple = (:H, :V, :dhdt)
 ) where {G <: Sleipnir.AbstractGlacier, F <: AbstractFloat}
     # Generate timespan from simulation
     t₀, t₁ = params.simulation.tspan
