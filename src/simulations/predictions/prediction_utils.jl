@@ -64,7 +64,7 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     end
     # A simulation period is sliced in time windows that are separated by `step_MB`
     # The mass balance is applied at the end of each of the windows
-    cb_MB = PeriodicCallback(mb_action!, step_MB; initial_affect = false)
+    cb_MB = PeriodicCallback(mb_action!, step_MB; initial_affect = false, final_affect = true)
 
     # Create iceflow law callback
     cb_iceflow = build_callback(
@@ -163,14 +163,14 @@ Return a new vector of glaciers with the simulated thickness ice velocity and dh
 
   - `prediction::Prediction`: A `Prediction` object containing the simulation results and associated glaciers.
   - `tstops::Vector{F}`: A vector of time steps (of type `F <: AbstractFloat`) at which the simulation was evaluated.
-  - `store::Tuple`: Which generated simulation products to store. It can include `:H`, `:V` and/or `:dhdt`.
+  - `store::Tuple`: Which generated simulation products to store. It can include `:H`, `:V`, `:avgV` and/or `:dhdt`.
 
 # Description
 
 This function iterates over the glaciers in the `Prediction` object and generates the simulated data based on the
 `store` argument at corresponding time steps (`t`).
 If `store` includes `:H`, then the ice thickness is stored.
-If `store` includes `:V`, then it computes the surface ice velocity data and store it.
+If `store` includes `:V` or `:avgV`, then it computes the surface ice velocity data and store it. These two options are mutually exclusive. When `:avgV` is provided, only one snapshot of ice surface velocity is computed and it corresponds to the ice surface velocity at the closest time to (tspan[1]+tspan[2])/2.
 If `store` includes `:dhdt`, then it computes the mean surface elevation change and store it.
 A new vector of glaciers is created and each glacier is a copy with an updated `thicknessData`, `velocityData` and `dhdtData` fields.
 
@@ -193,18 +193,27 @@ function thickness_velocity_data(
         ts = prediction.results[i].t
         Hs = prediction.results[i].H
         @assert ts ≈ tstops "Timestops of simulated PDE solution and the provided tstops do not match."
+        if :V in store || :avgV in store
+            @assert (:V in store) != (:avgV in store) "Cannot store :V and :avgV at the same time."
+        end
 
         thicknessData = :H in store ? Sleipnir.ThicknessData(ts, Hs) : nothing
 
-        velocityData = if :V in store
+        velocityData = if :V in store || :avgV in store
+            ts_V = if :avgV in store
+                # First time step that is greater than (tspan[1]+tspan[2])/2 (middle of the time window)
+                [ts[findfirst(_t -> _t>(minimum(ts)+maximum(ts))/2, ts)]]
+            else
+                ts
+            end
             Vx = Array{Matrix{F}, 1}()
             Vy = Array{Matrix{F}, 1}()
             Vabs = Array{Matrix{F}, 1}()
-            for j in 1:length(ts)
+            for j in 1:length(ts_V)
                 apply_all_callback_laws!(
                     prediction.model.iceflow, prediction.cache.iceflow,
-                    prediction, i, ts[j], nothing)
-                vx, vy, vabs = Huginn.V_from_H(prediction, Hs[j], ts[j], nothing)
+                    prediction, i, ts_V[j], nothing)
+                vx, vy, vabs = Huginn.V_from_H(prediction, Hs[j], ts_V[j], nothing)
                 push!(Vx, vx)
                 push!(Vy, vy)
                 push!(Vabs, vabs)
@@ -212,8 +221,14 @@ function thickness_velocity_data(
             if all(norm.(Vabs) .== 0)
                 @warn "All velocities are null which is probably a bug."
             end
+            date1 = :V in store ? nothing :
+                    Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day, [minimum(ts)]))
+            date2 = :V in store ? nothing :
+                    Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day, [maximum(ts)]))
             SurfaceVelocityData(
-                date = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day, ts)),
+                date = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day, ts_V)),
+                date1 = date1,
+                date2 = date2,
                 vx = Vx,
                 vy = Vy,
                 vabs = Vabs
@@ -225,10 +240,10 @@ function thickness_velocity_data(
         dhdtData = if :dhdt in store
             tdhdt = (minimum(ts), maximum(ts))
             ind = Sleipnir.indFromT(prediction.parameters.simulation.tspan, tdhdt, ts)
-            mask = prediction.glaciers[i].mask
-            H0 = Hs[ind[1]][mask]
-            H1 = Hs[ind[2]][mask]
-            dhdt = mean(H1 .- H0)/(tdhdt[2]-tdhdt[1])
+            H0 = Hs[ind[1]]
+            H1 = Hs[ind[2]]
+            mask = H0 .> 1e-2
+            dhdt = mean(H1[mask] .- H0[mask])/(tdhdt[2]-tdhdt[1])
             DhdtData(tdhdt, dhdt)
         else
             nothing
@@ -262,7 +277,7 @@ It returns a new vector of glaciers with updated `thicknessData`, `velocityData`
   - `params::Sleipnir.Parameters`: Simulation parameters.
   - `model::Sleipnir.Model`: The model to use for the simulation.
   - `tstops::Vector{F}`: A vector of time steps at which the simulation will be evaluated.
-  - `store::Tuple`: Which generated simulation products to store. It can include `:H`, `:V` and/or `:dhdt`.
+  - `store::Tuple`: Which generated simulation products to store. It can include `:H`, `:V`, `:avgV` and/or `:dhdt`.
 
 # Description
 
@@ -270,7 +285,7 @@ It returns a new vector of glaciers with updated `thicknessData`, `velocityData`
  2. Build a new vector of glaciers and store the simulation results as ground truth in the `glaciers` struct.
     For each glacier it populates
       + `thicknessData` field if `store` contains `:H`,
-      + `velocityData` if `store` contains `:V`,
+      + `velocityData` if `store` contains `:V` or `:avgV`,
       + `dhdtData` if `store` contains `:dhdt`.
 
 # Example
@@ -365,6 +380,8 @@ function apply_MB_mask!(H, ifm::SIA2DCache)
     # Appy MB only over ice, and avoid applying it to the borders in the accummulation area to avoid overflow
     MB, MB_mask, MB_total = ifm.MB, ifm.MB_mask, ifm.MB_total
     MB_mask .= ((H .> 0.0) .&& (MB .< 0.0)) .|| ((H .> 10.0) .&& (MB .>= 0.0))
+    mask_ice_disappear = (H[MB_mask] + MB[MB_mask]) .< 0.0 # Mask of where the ice will disappear after MB application
+    MB[MB_mask][mask_ice_disappear] = -H[MB_mask][mask_ice_disappear]
     H[MB_mask] .+= MB[MB_mask]
     MB_total[MB_mask] .+= MB[MB_mask]
     return nothing # For type stability
