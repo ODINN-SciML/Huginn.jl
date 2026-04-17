@@ -199,21 +199,15 @@ function thickness_velocity_data(
 
         thicknessData = :H in store ? Sleipnir.ThicknessData(ts, Hs) : nothing
 
-        velocityData = if :V in store || :avgV in store
-            ts_V = if :avgV in store
-                # First time step that is greater than (tspan[1]+tspan[2])/2 (middle of the time window)
-                [ts[findfirst(_t -> _t>(minimum(ts)+maximum(ts))/2, ts)]]
-            else
-                ts
-            end
+        velocityData = if :V in store
             Vx = Array{Matrix{F}, 1}()
             Vy = Array{Matrix{F}, 1}()
             Vabs = Array{Matrix{F}, 1}()
-            for j in 1:length(ts_V)
+            for j in 1:length(ts)
                 apply_all_callback_laws!(
                     prediction.model.iceflow, prediction.cache.iceflow,
-                    prediction, i, ts_V[j], nothing)
-                vx, vy, vabs = Huginn.V_from_H(prediction, Hs[j], ts_V[j], nothing)
+                    prediction, i, ts[j], nothing)
+                vx, vy, vabs = Huginn.V_from_H(prediction, Hs[j], ts[j], nothing)
                 push!(Vx, vx)
                 push!(Vy, vy)
                 push!(Vabs, vabs)
@@ -221,17 +215,33 @@ function thickness_velocity_data(
             if all(norm.(Vabs) .== 0)
                 @warn "All velocities are null which is probably a bug."
             end
-            date1 = :V in store ? nothing :
-                    Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day, [minimum(ts)]))
-            date2 = :V in store ? nothing :
-                    Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day, [maximum(ts)]))
             SurfaceVelocityData(
-                date = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day, ts_V)),
-                date1 = date1,
-                date2 = date2,
+                date = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day, ts)),
                 vx = Vx,
                 vy = Vy,
                 vabs = Vabs
+            )
+        elseif :avgV in store
+            Vx = Array{Matrix{F}, 1}()
+            Vy = Array{Matrix{F}, 1}()
+            Vabs = Array{Matrix{F}, 1}()
+
+            tspan_velocity = prediction.parameters.simulation.tspan # Use the whole simulation to compute average velocity
+            step_velocity = prediction.parameters.solver.step # Use the `step` parameter for average velocity computation
+            avg_Vx_pred, avg_Vy_pred,
+            avg_V_pred = Huginn.averageV(
+                nothing, prediction, tspan_velocity, step_velocity, ts, Hs)
+            if norm(avg_V_pred) == 0
+                @warn "Velocity is null which is probably a bug."
+            end
+            SurfaceVelocityData(
+                date = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(
+                    Sleipnir.Dates.Day, [(minimum(ts)+maximum(ts))/2])),
+                date1 = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day, [minimum(ts)])),
+                date2 = Sleipnir.Dates.DateTime.(Sleipnir.partial_year(Sleipnir.Dates.Day, [maximum(ts)])),
+                vx = [avg_Vx_pred],
+                vy = [avg_Vy_pred],
+                vabs = [avg_V_pred]
             )
         else
             nothing

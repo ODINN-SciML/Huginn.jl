@@ -82,7 +82,9 @@ ENV["GKSwstype"]="nul"
     end
 
     if GROUP == "All" || GROUP == "Core2"
-        @testset "Ground truth generation" ground_truth_generation()
+        @testset "Classical ground truth generation" ground_truth_generation()
+        @testset "Average velocity ground truth generation" ground_truth_generation(;
+            store = (:H, :avgV))
     end
 
     if GROUP == "All" || GROUP == "Core3"

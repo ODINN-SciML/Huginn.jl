@@ -586,3 +586,67 @@ function V_from_H(
     V = (Vx .^ 2 .+ Vy .^ 2) .^ (1/2)
     return Vx, Vy, V
 end
+
+"""
+    averageV(
+        θ,
+        simulation,
+        tspan_velocity::Tuple{F,F},
+        step::F,
+        ts::Vector{F},
+        Hs::Vector{Matrix{F}},
+    ) where {F <: AbstractFloat}
+
+Compute average surface velocity from ice thickness over a given time window and using a constant time stepping.
+This function uses the SIA model to map the ice thickness to instant surface velocity.
+
+Arguments:
+
+  - `θ`: Parameters of the laws to be used in the SIA. Can be `nothing` when no learnable laws are used.
+  - `simulation::SIM`: The simulation structure used to retrieve the physical
+    parameters.
+  - `tspan_velocity::Tuple{F,F}`: Time window over which the average surface velocity is computed. It can be different than the simulation period.
+  - `step::F`: Constant time step used to compute the average surface velocity.
+  - `ts::Vector{F}`: Vector representing time associated to each ice thickness matrix.
+  - `Hs::Vector{Matrix{F}}`: Vector ice thickness matrices.
+  - `H::Matrix{F}`: The ice thickness matrix.
+  - `t::R`: Current simulation time.
+
+Returns:
+
+  - `avg_Vx`: x axis component of the average surface velocity.
+  - `avg_Vy`: y axis component of the average surface velocity.
+  - `avg_V`: Magnitude velocity.
+"""
+function averageV(
+        θ,
+        simulation::SIM,
+        tspan_velocity::Tuple{F, F},
+        step::F,
+        ts::Vector{F},
+        Hs::Vector{Matrix{F}}
+) where {F <: AbstractFloat, SIM <: Simulation}
+    # 1. Determine indices in prediction that will be used for average velocity estimation
+    tLoss = collect(tspan_velocity[1]:step:tspan_velocity[2])
+    dt = diff(tLoss)
+    tLoss = tLoss[begin:(end - 1)] # Discard last point t=tspan_velocity[2]
+    ind_pred = Sleipnir.indFromT(simulation.parameters.simulation.tspan, tLoss, ts)
+    T = sum(dt)
+
+    # 2. Compute the predicted velocity Vx_pred, Vy_pred, V_pred
+    if !isnothing(simulation.model.trainable_components)
+        simulation.model.trainable_components.θ = θ
+    end
+    res = map(i -> Huginn.V_from_H(simulation, Hs[ind_pred[i]], tLoss[i], θ),
+        1:length(dt)
+    )
+    Vx_pred = first.(res)
+    Vy_pred = getindex.(res, 2)
+
+    # 3. Aggregate the velocities
+    avg_Vx = sum((Vx_pred .* dt)/T)
+    avg_Vy = sum((Vy_pred .* dt)/T)
+    avg_V = (avg_Vx .^ 2 .+ avg_Vy .^ 2) .^ (1/2)
+
+    return avg_Vx, avg_Vy, avg_V
+end
