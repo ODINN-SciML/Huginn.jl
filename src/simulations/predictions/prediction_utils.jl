@@ -170,7 +170,7 @@ Return a new vector of glaciers with the simulated thickness ice velocity and dh
 This function iterates over the glaciers in the `Prediction` object and generates the simulated data based on the
 `store` argument at corresponding time steps (`t`).
 If `store` includes `:H`, then the ice thickness is stored.
-If `store` includes `:V` or `:avgV`, then it computes the surface ice velocity data and store it. These two options are mutually exclusive. When `:avgV` is provided, only one snapshot of ice surface velocity is computed and it corresponds to the ice surface velocity at the closest time to (tspan[1]+tspan[2])/2.
+If `store` includes `:V` or `:avgV`, then it computes the surface ice velocity data and stores it. These two options are mutually exclusive. When `:avgV` is provided, only one snapshot of ice surface velocity is computed and it corresponds to the ice surface velocity at the closest time to (tspan[1]+tspan[2])/2.
 If `store` includes `:dhdt`, then it computes the mean surface elevation change and store it.
 A new vector of glaciers is created and each glacier is a copy with an updated `thicknessData`, `velocityData` and `dhdtData` fields.
 
