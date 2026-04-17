@@ -57,32 +57,34 @@ ENV["GKSwstype"]="nul"
     if GROUP == "All" || GROUP == "Core1"
         @testset "PDE solving integration tests" begin
             @testset "w/o MB w/o laws" pde_solve_test(;
-                rtol = 0.01, atol = 0.01, save_refs = false, MB = false, fast = true)
+                rtol = 0.01, atol = 0.01, MB = false, fast = true)
             @testset "w/  MB w/o laws" pde_solve_test(;
-                rtol = 0.01, atol = 0.01, save_refs = false, MB = true, fast = true)
+                rtol = 0.01, atol = 0.01, MB = true, fast = true)
             @testset "w/  MB w/  A scalar laws" pde_solve_test(;
-                rtol = 0.01, atol = 0.01, save_refs = false, MB = true,
+                rtol = 0.01, atol = 0.01, MB = true,
                 fast = true, laws_A = :scalar, callback_laws = false)
             @testset "w/  MB w/  A scalar callback laws" pde_solve_test(;
-                rtol = 0.01, atol = 0.01, save_refs = false, MB = true,
+                rtol = 0.01, atol = 0.01, MB = true,
                 fast = true, laws_A = :scalar, callback_laws = true)
             @testset "w/  MB w/  A matrix  laws" pde_solve_test(;
-                rtol = 0.01, atol = 0.01, save_refs = false, MB = true,
+                rtol = 0.01, atol = 0.01, MB = true,
                 fast = true, laws_A = :matrix, callback_laws = false)
             @testset "w/  MB w/  A matrix callback laws" pde_solve_test(;
-                rtol = 0.01, atol = 0.01, save_refs = false, MB = true,
+                rtol = 0.01, atol = 0.01, MB = true,
                 fast = true, laws_A = :matrix, callback_laws = true)
             @testset "w/  MB w/  C scalar laws" pde_solve_test(;
-                rtol = 0.01, atol = 0.01, save_refs = false, MB = true,
+                rtol = 0.01, atol = 0.01, MB = true,
                 fast = true, laws_C = :scalar, callback_laws = false)
             @testset "w/  MB w/  C scallar callback laws" pde_solve_test(;
-                rtol = 0.01, atol = 0.01, save_refs = false, MB = true,
+                rtol = 0.01, atol = 0.01, MB = true,
                 fast = true, laws_C = :scalar, callback_laws = true)
         end
     end
 
     if GROUP == "All" || GROUP == "Core2"
-        @testset "Ground truth generation" ground_truth_generation()
+        @testset "Classical ground truth generation" ground_truth_generation()
+        @testset "Average velocity ground truth generation" ground_truth_generation(;
+            store = (:H, :avgV))
     end
 
     if GROUP == "All" || GROUP == "Core3"
