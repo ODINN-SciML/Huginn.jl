@@ -25,7 +25,6 @@ else
 end
 using Test
 using JLD2
-using Plots
 using Dates
 using Infiltrator
 using OrdinaryDiffEq
