@@ -48,11 +48,13 @@ function SIA2D!(
     params = simulation.parameters
 
     (;
-        H̄, S, dSdx, dSdy,
+        H̄, Hclip, S, dSdx, dSdy,
         D, Dx, Dy,
         dSdx_edges, dSdy_edges,
+        dSdx_buf, dSdy_buf,
         ∇S, ∇Sx, ∇Sy,
-        Fx, Fy, Fxx, Fyy, Γ
+        Fx, Fy, Fxx, Fyy, Γ,
+        sliding_term, rheology_term
     ) = SIA2D_cache
 
     (; Δx, Δy, B) = glacier
@@ -60,7 +62,7 @@ function SIA2D!(
     (; ρ, g, ϵ) = params.physical
 
     # First, enforce values to be positive
-    Hclip = map(x -> ifelse(x > 0.0, x, 0.0), H) # We cannot change H otherwise Enzyme cannot differentiate it using Const (which is the case in SciMLSensitivity)
+    @. Hclip = ifelse(H > 0.0, H, 0.0) # We cannot change H otherwise Enzyme cannot differentiate it using Const (which is the case in SciMLSensitivity)
     # Update glacier surface altimetry
     S .= B .+ Hclip
 
@@ -84,25 +86,27 @@ function SIA2D!(
         n_H = SIA2D_model.n_H_is_provided ? SIA2D_cache.n_H : n.value
         n_∇S = SIA2D_model.n_∇S_is_provided ? SIA2D_cache.n_∇S : n.value
         gravity_term = ρ * g
-        sliding_term = if any(C.value .> 0)
-            @. C.value * gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) *
-               ∇S^(p.value - 1)
+        if any(C.value .> 0)
+            @. sliding_term = C.value * gravity_term^(p.value - q.value) *
+                              H̄^(p.value - q.value + 1) *
+                              ∇S^(p.value - 1)
         else
-            zero(H̄)
+            fill!(sliding_term, 0)
         end
-        rheology_term = @. 2.0 * gravity_term^n.value * Y.value * H̄^(n_H + 2) *
+        @. rheology_term = 2.0 * gravity_term^n.value * Y.value * H̄^(n_H + 2) *
                            ∇S^(n_∇S - 1) / (n.value + 2)
         @. D = sliding_term + rheology_term
     else
         # Compute D from A, C and n
         gravity_term = ρ * g
-        sliding_term = if any(C.value .> 0)
-            @. C.value .* gravity_term^(p.value - q.value) * H̄^(p.value - q.value + 1) *
-               ∇S^(p.value - 1)
+        if any(C.value .> 0)
+            @. sliding_term = C.value .* gravity_term^(p.value - q.value) *
+                              H̄^(p.value - q.value + 1) *
+                              ∇S^(p.value - 1)
         else
-            zero(H̄)
+            fill!(sliding_term, 0)
         end
-        rheology_term = @. 2.0 * A.value * gravity_term^n.value * H̄^(n.value + 2) *
+        @. rheology_term = 2.0 * A.value * gravity_term^n.value * H̄^(n.value + 2) *
                            ∇S^(n.value - 1) / (n.value + 2)
         @. D = sliding_term + rheology_term
     end
@@ -114,10 +118,14 @@ function SIA2D!(
     # Cap surface elevaton differences with the upstream ice thickness to
     # imporse boundary condition of the SIA equation
     η₀ = params.physical.η₀
-    dSdx_edges .= @views @. min(dSdx_edges, η₀ * Hclip[2:end, 2:(end - 1)] / Δx)
-    dSdx_edges .= @views @. max(dSdx_edges, -η₀ * Hclip[1:(end - 1), 2:(end - 1)] / Δx)
-    dSdy_edges .= @views @. min(dSdy_edges, η₀ * Hclip[2:(end - 1), 2:end] / Δy)
-    dSdy_edges .= @views @. max(dSdy_edges, -η₀ * Hclip[2:(end - 1), 1:(end - 1)] / Δy)
+    @views @. dSdx_buf = min(dSdx_edges, η₀ * Hclip[2:end, 2:(end - 1)] / Δx)
+    dSdx_edges .= dSdx_buf
+    @views @. dSdx_buf = max(dSdx_edges, -η₀ * Hclip[1:(end - 1), 2:(end - 1)] / Δx)
+    dSdx_edges .= dSdx_buf
+    @views @. dSdy_buf = min(dSdy_edges, η₀ * Hclip[2:(end - 1), 2:end] / Δy)
+    dSdy_edges .= dSdy_buf
+    @views @. dSdy_buf = max(dSdy_edges, -η₀ * Hclip[2:(end - 1), 1:(end - 1)] / Δy)
+    dSdy_edges .= dSdy_buf
 
     avg_y!(Dx, D)
     avg_x!(Dy, D)
@@ -377,19 +385,23 @@ function surface_V!(
     glacier_idx = iceflow_cache.glacier_idx
     glacier = simulation.glaciers[glacier_idx]
     B = glacier.B
+    S = iceflow_cache.S
     H̄ = iceflow_cache.H̄
     dSdx = iceflow_cache.dSdx
     dSdy = iceflow_cache.dSdy
     ∇S = iceflow_cache.∇S
     ∇Sx = iceflow_cache.∇Sx
     ∇Sy = iceflow_cache.∇Sy
+    D = iceflow_cache.D
+    sliding_term = iceflow_cache.sliding_term
+    rheology_term = iceflow_cache.rheology_term
     Γꜛ = iceflow_cache.Γ
     Δx = glacier.Δx
     Δy = glacier.Δy
     (; ρ, g) = params.physical
 
     # Update glacier surface altimetry
-    S = B .+ H
+    @. S = B + H
 
     # All grid variables computed in a staggered grid
     # Compute surface gradients on edges
@@ -404,36 +416,38 @@ function surface_V!(
         iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
     (; A, n, C, p, q, Y, U) = iceflow_cache
 
-    D = if iceflow_model.U_is_provided
+    if iceflow_model.U_is_provided
         # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
         # Shape factor relating average velocity and surface velocity
         f = simulation.parameters.simulation.f_surface_velocity_factor
-        U.value ./ f
+        @. D = U.value / f
     elseif iceflow_model.Y_is_provided
         # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
         n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
         n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
         gravity_term = ρ * g
-        rheology_term = @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) /
+        @. rheology_term = 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) /
                            (n.value + 2)
-        sliding_term = if any(C.value .> 0)
-            @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) *
-               H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        if any(C.value .> 0)
+            @. sliding_term = C.value * (p.value - q.value + 2) *
+                              gravity_term^(p.value - q.value) *
+                              H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
         else
-            zero(H̄)
+            fill!(sliding_term, 0)
         end
-        sliding_term + rheology_term
+        @. D = sliding_term + rheology_term
     else
         gravity_term = ρ * g
-        rheology_term = @. (2.0 * A.value * gravity_term^n.value / (n.value+1)) *
+        @. rheology_term = (2.0 * A.value * gravity_term^n.value / (n.value+1)) *
                            H̄^(n.value + 1) * ∇S ^ (n.value - 1)
-        sliding_term = if any(C.value .> 0)
-            @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) *
-               H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        if any(C.value .> 0)
+            @. sliding_term = C.value * (p.value - q.value + 2) *
+                              gravity_term^(p.value - q.value) *
+                              H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
         else
-            zero(H̄)
+            fill!(sliding_term, 0)
         end
-        sliding_term + rheology_term
+        @. D = sliding_term + rheology_term
     end
 
     # Compute averaged surface velocities
@@ -485,63 +499,73 @@ function surface_V(
     glacier_idx = iceflow_cache.glacier_idx
     glacier = simulation.glaciers[glacier_idx]
     B = glacier.B
+    S = iceflow_cache.S
+    H̄ = iceflow_cache.H̄
+    dSdx = iceflow_cache.dSdx
+    dSdy = iceflow_cache.dSdy
+    ∇S = iceflow_cache.∇S
+    ∇Sx = iceflow_cache.∇Sx
+    ∇Sy = iceflow_cache.∇Sy
+    D = iceflow_cache.D
+    sliding_term = iceflow_cache.sliding_term
+    rheology_term = iceflow_cache.rheology_term
     Δx = glacier.Δx
     Δy = glacier.Δy
     (; ρ, g) = params.physical
 
     # Update glacier surface altimetry
-    S = B .+ H
+    @. S = B + H
 
     # All grid variables computed in a staggered grid
     # Compute surface gradients on edges
-    dSdx = diff_x(S) / Δx
-    dSdy = diff_y(S) / Δy
-    ∇S = (avg_y(dSdx) .^ 2 .+ avg_x(dSdy) .^ 2) .^ (1/2)
-    H̄ = avg(H)
-
-    # Store temporary variables for use with the laws
-    iceflow_cache.∇S .= ∇S
-    iceflow_cache.H̄ .= H̄
+    diff_x!(dSdx, S, Δx)
+    diff_y!(dSdy, S, Δy)
+    avg_y!(∇Sx, dSdx)
+    avg_x!(∇Sy, dSdy)
+    @. ∇S = (∇Sx ^ 2 + ∇Sy ^ 2) ^ (1 / 2)
+    avg!(H̄, H)
 
     apply_all_non_callback_laws!(
         iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
     (; A, n, C, p, q, Y, U) = iceflow_cache
 
-    D = if iceflow_model.U_is_provided
+    if iceflow_model.U_is_provided
         # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
         # Shape factor relating average velocity and surface velocity
         f = simulation.parameters.simulation.f_surface_velocity_factor
-        U.value ./ f
+        @. D = U.value / f
     elseif iceflow_model.Y_is_provided
         # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
         n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
         n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
         gravity_term = ρ * g
-        rheology_term = @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) /
+        @. rheology_term = 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) /
                            (n.value + 2)
-        sliding_term = if any(C.value .> 0)
-            @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) *
-               H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        if any(C.value .> 0)
+            @. sliding_term = C.value * (p.value - q.value + 2) *
+                              gravity_term^(p.value - q.value) *
+                              H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
         else
-            zero(H̄)
+            fill!(sliding_term, 0)
         end
-        sliding_term + rheology_term
+        @. D = sliding_term + rheology_term
     else
         gravity_term = ρ * g
-        rheology_term = @. (2.0 * A.value * gravity_term^n.value / (n.value+1)) *
+        @. rheology_term = (2.0 * A.value * gravity_term^n.value / (n.value+1)) *
                            H̄^(n.value + 1) * ∇S ^ (n.value - 1)
-        sliding_term = if any(C.value .> 0)
-            @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) *
-               H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+        if any(C.value .> 0)
+            @. sliding_term = C.value * (p.value - q.value + 2) *
+                              gravity_term^(p.value - q.value) *
+                              H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
         else
-            zero(H̄)
+            fill!(sliding_term, 0)
         end
-        sliding_term + rheology_term
+        @. D = sliding_term + rheology_term
     end
 
     # Compute averaged surface velocities
-    Vx = - D .* avg_y(dSdx)
-    Vy = - D .* avg_x(dSdy)
+    Vx = .-D .* ∇Sx
+    Vy = .-D .* ∇Sy
 
     return Vx, Vy
 end

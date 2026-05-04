@@ -281,15 +281,20 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
     U::U_CACHE
     H₀::Matrix{R}
     H::Matrix{R}
+    Hclip::Matrix{R}
     H̄::Matrix{R}
     S::Matrix{R}
     dSdx::Matrix{R}
     dSdy::Matrix{R}
     D::Matrix{R}
+    sliding_term::Matrix{R}
+    rheology_term::Matrix{R}
     Dx::Matrix{R}
     Dy::Matrix{R}
     dSdx_edges::Matrix{R}
     dSdy_edges::Matrix{R}
+    dSdx_buf::Matrix{R}
+    dSdy_buf::Matrix{R}
     ∇S::Matrix{R}
     ∇Sy::Matrix{R}
     ∇Sx::Matrix{R}
@@ -392,15 +397,20 @@ function init_cache(
         Γ,
         H₀ = deepcopy(glacier.H₀),
         H = deepcopy(glacier.H₀),
+        Hclip = zeros(F, nx, ny),
         H̄ = zeros(F, nx-1, ny-1),
         S = deepcopy(glacier.S),
         dSdx = zeros(F, nx-1, ny),
         dSdy = zeros(F, nx, ny-1),
         D = zeros(F, nx-1, ny-1),
+        sliding_term = zeros(F, nx-1, ny-1),
+        rheology_term = zeros(F, nx-1, ny-1),
         Dx = zeros(F, nx-1, ny-2),
         Dy = zeros(F, nx-2, ny-1),
         dSdx_edges = zeros(F, nx-1, ny-2),
         dSdy_edges = zeros(F, nx-2, ny-1),
+        dSdx_buf = zeros(F, nx-1, ny-2),
+        dSdy_buf = zeros(F, nx-2, ny-1),
         ∇S = zeros(F, nx-1, ny-1),
         ∇Sx = zeros(F, nx-1, ny-1),
         ∇Sy = zeros(F, nx-1, ny-1),
