@@ -390,8 +390,14 @@ function apply_MB_mask!(H, ifm::SIA2DCache)
     # Appy MB only over ice, and avoid applying it to the borders in the accummulation area to avoid overflow
     MB, MB_mask, MB_total = ifm.MB, ifm.MB_mask, ifm.MB_total
     MB_mask .= ((H .> 0.0) .&& (MB .< 0.0)) .|| ((H .> 10.0) .&& (MB .>= 0.0))
-    mask_ice_disappear = (H[MB_mask] + MB[MB_mask]) .< 0.0 # Mask of where the ice will disappear after MB application
-    MB[MB_mask][mask_ice_disappear] = -H[MB_mask][mask_ice_disappear]
+    # Get the linear indices where MB_mask is true
+    mask_indices = findall(MB_mask)
+    # Among those, find where ice would disappear after MB application
+    mask_ice_disappear = (H[mask_indices] .+ MB[mask_indices]) .< 0.0
+    # Get the actual indices to modify
+    disappear_indices = mask_indices[mask_ice_disappear]
+    # Clip MB in-place at those indices
+    MB[disappear_indices] .= .-H[disappear_indices]
     H[MB_mask] .+= MB[MB_mask]
     MB_total[MB_mask] .+= MB[MB_mask]
     return nothing # For type stability
