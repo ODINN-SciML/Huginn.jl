@@ -88,6 +88,57 @@ function Base.:(==)(a::SolverParameters, b::SolverParameters)
         a.progress_steps == b.progress_steps && a.maxiters == b.maxiters
 end
 
+# Display setup
+Base.show(io::IO, ::MIME"text/plain", params::SolverParameters) = Base.show(io, params)
+function Base.show(io::IO, params::SolverParameters)
+    label(s) = printstyled(io, rpad(s, 12); color = :light_black)
+    sep() = printstyled(io, " · "; color = :light_black)
+    field(s) = printstyled(io, s; color = :light_black)
+    val(s) = print(io, s)
+    hint(s) = printstyled(io, s; color = :light_black)
+    check(b) = b ? "\e[32m✓\e[0m" : "\e[31m✗\e[0m"
+
+    println(io, "SolverParameters")
+
+    # Algorithm
+    label("  Algorithm")
+    val("$(nameof(typeof(params.solver)))")
+    sep()
+    field("reltol");
+    print(io, " = ");
+    val("$(params.reltol)")
+    sep()
+    field("maxiters");
+    print(io, " = ");
+    val("$(params.maxiters)")
+    println(io)
+
+    # Output
+    label("  Output")
+    field("step");
+    print(io, " = ");
+    val("$(round(params.step; digits=4))");
+    hint(" yr")
+    sep()
+    field("tstops");
+    print(io, " = ")
+    n = length(params.tstops)
+    n == 0 ? hint("(empty)") : hint("$n $(n == 1 ? "entry" : "entries")")
+    sep()
+    print(io, check(params.save_everystep));
+    field("save_everystep")
+    println(io)
+
+    # Progress
+    label("  Progress")
+    print(io, check(params.progress));
+    field("progress")
+    if params.progress
+        hint(" (every $(params.progress_steps) steps)")
+    end
+    println(io)
+end
+
 function Parameters(;
         physical::PhysicalParameters = PhysicalParameters(),
         simulation::SimulationParameters = SimulationParameters(),
