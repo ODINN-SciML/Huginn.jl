@@ -49,3 +49,77 @@ function Prediction(model::Sleipnir.Model, glaciers::Vector{G},
         parameters::Sleipnir.Parameters) where {G <: Sleipnir.AbstractGlacier}
     Prediction(model, glaciers, parameters, Results[])
 end
+
+# Display setup
+Base.show(io::IO, ::MIME"text/plain", prediction::Prediction) = Base.show(io, prediction)
+function Base.show(io::IO, prediction::Prediction)
+    label(s) = printstyled(io, rpad(s, 14); color = :light_black)
+    sep() = printstyled(io, " · "; color = :light_black)
+    field(s) = printstyled(io, s; color = :light_black)
+    val(s) = print(io, s)
+    hint(s) = printstyled(io, s; color = :light_black)
+    check(b) = b ? "\e[32m✓\e[0m" : "\e[31m✗\e[0m"
+
+    println(io, "Prediction")
+
+    # glaciers
+    label("  glaciers")
+    n = length(prediction.glaciers)
+    val("$n");
+    hint(" $(n == 1 ? "glacier" : "glaciers")")
+    println(io)
+
+    # model
+    label("  model")
+    field("iceflow");
+    print(io, " = ")
+    val("$(nameof(typeof(prediction.model.iceflow)))")
+    sep()
+    field("mass_balance");
+    print(io, " = ")
+    val("$(nameof(typeof(prediction.model.mass_balance)))")
+    sep()
+    field("learnable");
+    print(io, " = ")
+    if isnothing(prediction.model.trainable_components)
+        hint("(nothing)")
+    else
+        Base.show(io, prediction.model.trainable_components)
+    end
+    println(io)
+
+    # parameters
+    label("  parameters")
+    println(io)
+    # Capture the Parameters show output and re-indent each line
+    params_str = sprint(show, prediction.parameters)
+    for line in split(params_str, "\n")
+        isempty(line) && continue
+        # Skip the "Parameters" header line since the label already identifies it
+        occursin(r"^Parameters$", line) && continue
+        printstyled(io, "    "; color = :light_black)
+        println(io, line)
+    end
+
+    # cache
+    label("  cache")
+    if isnothing(prediction.cache)
+        hint("(nothing)")
+    else
+        val("$(nameof(typeof(prediction.cache)))")
+    end
+    println(io)
+
+    # results
+    label("  results")
+    n_results = length(prediction.results)
+    if n_results == 0
+        print(io, check(false));
+        hint(" not yet run")
+    else
+        print(io, check(true));
+        val(" $n_results")
+        hint(" $(n_results == 1 ? "result" : "results") ready")
+    end
+    println(io)
+end
