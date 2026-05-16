@@ -248,6 +248,8 @@ Store and preallocated all variables needed for running the 2D Shallow Ice Appro
   - `Vy::Matrix{R}`: Velocity in the y-direction.
   - `Γ::A_CACHE`: Basal shear stress.
   - `MB::Matrix{R}`: Mass balance.
+  - `MB_history::Vector{Matrix{R}}`: Mass balance history.
+  - `MB_times::Vector{R}`: Mass balance time steps.
   - `MB_mask::BitMatrix`: Boolean mask for applying the mass balance.
   - `MB_total::Matrix{R}`: Total mass balance field.
   - `glacier_idx::I`: Index of the glacier for use in simulations with multiple glaciers.
