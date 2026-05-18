@@ -83,6 +83,7 @@ This struct stores the laws used to compute these three parameters during a simu
     apply_q_in_SIA::Bool = false
     apply_Y_in_SIA::Bool = false
     apply_U_in_SIA::Bool = false
+    show_status::Vector{Int} = [0] # Show information
 
     function SIA2Dmodel(A, C, n, p, q, Y, U, n_H, n_∇S)
         Y_is_provided = !isnothing(Y)
@@ -143,7 +144,8 @@ This struct stores the laws used to compute these three parameters during a simu
             apply_law_in_model(p),
             apply_law_in_model(q),
             apply_law_in_model(Y),
-            apply_law_in_model(U)
+            apply_law_in_model(U),
+            [0] # Show information
         )
     end
 end
@@ -537,6 +539,80 @@ function Base.show(io::IO, model::SIA2Dmodel)
     colorq = :yellow
     colorY = :blue
     colorΓ = :cyan
+    if model.show_status[1] >= 0
+        println(io, "------- Detailed info about the Shallow Ice Approximation (SIA) -------")
+        println(io, "The SIA is a 2D low order model that approximates the glacier dynamics.")
+        println(io,
+            "In the ODINN ecosystem this can be parameterized through different variables, and with the current status of the model:")
+        print(io, " - ");
+        printstyled(io, "H̄ is the ice thickness on the dual grid");
+        println(io, "")
+        print(io, " - ");
+        printstyled(io, "∇S is the ice surface slope, given by ∇S=∇(B+H) with B the bedrock elevation");
+        println(io, "")
+        print(io, " - ");
+        printstyled(io, "D is the diffusivity"; color = colorD);
+        println(io, "")
+        print(io, " - ");
+        printstyled(io, "U is the flux"; color = colorU);
+        println(io, "")
+        if model.U_is_provided
+            # Nothing else to show in this case
+        elseif model.Y_is_provided
+            print(io, " - ");
+            printstyled(io,
+                "Y is a hybrid parametrization of the rheology (the hybrid diffusivity)";
+                color = colorA);
+            println(io, "")
+            print(io, " - ");
+            printstyled(io, "n is the exponent in Glen's flow law"; color = colorn);
+            println(io, "")
+            print(io, " - ");
+            printstyled(io, "ρ and g are resp. the ice density and the gravity constant");
+            println(io, "")
+            print(io, " - ");
+            printstyled(io, "C is the sliding coefficient in the Weertman sliding law"; color = colorC);
+            println(io, "")
+            print(io, " - ");
+            printstyled(io, "p is the stress exponent in the Weertman sliding law"; color = colorp);
+            println(io, "")
+            print(io, " - ");
+            printstyled(
+                io, "q is the effective-pressure exponent in the Weertman sliding law";
+                color = colorq);
+            println(io, "")
+            print(io, " - ");
+            printstyled(io, "n_H and n_∇S are custom exponents for resp. H̄ and ∇S");
+            println(io, "")
+        else
+            print(io, " - ");
+            printstyled(io, "A is the rheology of the ice in Glen's flow law"; color = colorA);
+            println(io, "")
+            print(io, " - ");
+            printstyled(io, "n is the exponent in Glen's flow law"; color = colorn);
+            println(io, "")
+            print(io, " - ");
+            printstyled(io, "ρ and g are resp. the ice density and the gravity constant");
+            println(io, "")
+            print(io, " - ");
+            printstyled(io, "C is the sliding coefficient in the Weertman sliding law"; color = colorC);
+            println(io, "")
+            print(io, " - ");
+            printstyled(io, "p is the stress exponent in the Weertman sliding law"; color = colorp);
+            println(io, "")
+            print(io, " - ");
+            printstyled(
+                io, "q is the effective-pressure exponent in the Weertman sliding law";
+                color = colorq);
+            println(io, "")
+        end
+        if model.show_status[1] == 0
+            println(io,
+                "> These details will be shown only once. To show them in future prints set model.show_status .= 1;")
+            model.show_status .= -1 # Do not show so that many information in future show
+        end
+        println(io, "")
+    end
     print(io, "SIA2D iceflow equation")
     print(io, "  = ∇(");
     printstyled(io, "D"; color = colorD);
