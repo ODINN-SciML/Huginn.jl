@@ -56,9 +56,9 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
                 # Compute mass balance
                 glacier.S .= glacier.B .+ integrator.u
                 MB_timestep!(cache, model, glacier, step_MB, integrator.t)
+                apply_MB_mask!(integrator.u, cache.iceflow)
                 push!(cache.iceflow.MB_history, copy(cache.iceflow.MB))
                 push!(cache.iceflow.MB_times, integrator.t)
-                apply_MB_mask!(integrator.u, cache.iceflow)
             end
         end
     end
@@ -390,6 +390,8 @@ function apply_MB_mask!(H, ifm::SIA2DCache)
     # Appy MB only over ice, and avoid applying it to the borders in the accummulation area to avoid overflow
     MB, MB_mask, MB_total = ifm.MB, ifm.MB_mask, ifm.MB_total
     MB_mask .= ((H .> 0.0) .&& (MB .< 0.0)) .|| ((H .> 10.0) .&& (MB .>= 0.0))
+    # Set MB to zero outside of MB_mask
+    MB[.!MB_mask] .= 0
     # Get the linear indices where MB_mask is true
     mask_indices = findall(MB_mask)
     # Among those, find where ice would disappear after MB application
