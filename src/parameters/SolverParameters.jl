@@ -1,5 +1,7 @@
 export SolverParameters
 
+using Sleipnir: label, sep, field, val, hint, check
+
 """
 A mutable struct that holds parameters for the solver.
 
@@ -88,6 +90,52 @@ function Base.:(==)(a::SolverParameters, b::SolverParameters)
         a.progress_steps == b.progress_steps && a.maxiters == b.maxiters
 end
 
+# Display setup
+Base.show(io::IO, ::MIME"text/plain", params::SolverParameters) = Base.show(io, params)
+function Base.show(io::IO, params::SolverParameters)
+    pad = 12
+
+    println(io, "SolverParameters")
+
+    # Algorithm
+    label(io, "  Algorithm", pad)
+    val(io, "$(nameof(typeof(params.solver)))")
+    sep(io)
+    field(io, "reltol");
+    print(io, " = ");
+    val(io, "$(params.reltol)")
+    sep(io)
+    field(io, "maxiters");
+    print(io, " = ");
+    val(io, "$(params.maxiters)")
+    println(io)
+
+    # Output
+    label(io, "  Output", pad)
+    field(io, "step");
+    print(io, " = ");
+    val(io, "$(round(params.step; digits=4))");
+    hint(io, " yr")
+    sep(io)
+    field(io, "tstops");
+    print(io, " = ")
+    n = length(params.tstops)
+    n == 0 ? hint(io, "(empty)") : hint(io, "$n $(n == 1 ? "entry" : "entries")")
+    sep(io)
+    print(io, check(params.save_everystep));
+    field(io, "save_everystep")
+    println(io)
+
+    # Progress
+    label(io, "  Progress", pad)
+    print(io, check(params.progress));
+    field(io, "progress")
+    if params.progress
+        hint(io, " (every $(params.progress_steps) steps)")
+    end
+    println(io)
+end
+
 function Parameters(;
         physical::PhysicalParameters = PhysicalParameters(),
         simulation::SimulationParameters = SimulationParameters(),
@@ -96,7 +144,7 @@ function Parameters(;
 
     # Build the parameters based on all the subtypes of parameters
     parameters = Sleipnir.Parameters(physical, simulation,
-        nothing, solver, nothing, nothing)
+        nothing, solver, nothing)
 
     enable_multiprocessing(parameters)
 
