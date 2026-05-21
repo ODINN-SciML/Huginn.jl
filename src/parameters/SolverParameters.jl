@@ -1,5 +1,7 @@
 export SolverParameters
 
+using Sleipnir: label, sep, field, val, hint, check
+
 """
 A mutable struct that holds parameters for the solver.
 
@@ -91,50 +93,45 @@ end
 # Display setup
 Base.show(io::IO, ::MIME"text/plain", params::SolverParameters) = Base.show(io, params)
 function Base.show(io::IO, params::SolverParameters)
-    label(s) = printstyled(io, rpad(s, 12); color = :light_black)
-    sep() = printstyled(io, " · "; color = :light_black)
-    field(s) = printstyled(io, s; color = :light_black)
-    val(s) = print(io, s)
-    hint(s) = printstyled(io, s; color = :light_black)
-    check(b) = b ? "\e[32m✓\e[0m" : "\e[31m✗\e[0m"
+    pad = 12
 
     println(io, "SolverParameters")
 
     # Algorithm
-    label("  Algorithm")
-    val("$(nameof(typeof(params.solver)))")
-    sep()
-    field("reltol");
+    label(io, "  Algorithm", pad)
+    val(io, "$(nameof(typeof(params.solver)))")
+    sep(io)
+    field(io, "reltol");
     print(io, " = ");
-    val("$(params.reltol)")
-    sep()
-    field("maxiters");
+    val(io, "$(params.reltol)")
+    sep(io)
+    field(io, "maxiters");
     print(io, " = ");
-    val("$(params.maxiters)")
+    val(io, "$(params.maxiters)")
     println(io)
 
     # Output
-    label("  Output")
-    field("step");
+    label(io, "  Output", pad)
+    field(io, "step");
     print(io, " = ");
-    val("$(round(params.step; digits=4))");
-    hint(" yr")
-    sep()
-    field("tstops");
+    val(io, "$(round(params.step; digits=4))");
+    hint(io, " yr")
+    sep(io)
+    field(io, "tstops");
     print(io, " = ")
     n = length(params.tstops)
-    n == 0 ? hint("(empty)") : hint("$n $(n == 1 ? "entry" : "entries")")
-    sep()
+    n == 0 ? hint(io, "(empty)") : hint(io, "$n $(n == 1 ? "entry" : "entries")")
+    sep(io)
     print(io, check(params.save_everystep));
-    field("save_everystep")
+    field(io, "save_everystep")
     println(io)
 
     # Progress
-    label("  Progress")
+    label(io, "  Progress", pad)
     print(io, check(params.progress));
-    field("progress")
+    field(io, "progress")
     if params.progress
-        hint(" (every $(params.progress_steps) steps)")
+        hint(io, " (every $(params.progress_steps) steps)")
     end
     println(io)
 end
