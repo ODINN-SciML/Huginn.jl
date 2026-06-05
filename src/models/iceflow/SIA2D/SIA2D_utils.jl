@@ -576,13 +576,22 @@ function V_from_H(
         simulation::SIM,
         H::Matrix{F},
         t::Real,
-        θ
+        θ;
+        padding_method = :centered
 ) where {F <: AbstractFloat, SIM <: Simulation}
     Vx_in, Vy_in = surface_V(H, simulation, t, θ)
     Vx = zero(H)
     Vy = zero(H)
-    inn1(Vx) .= Vx_in
-    inn1(Vy) .= Vy_in
+    # We include the velocities in the larger matrix by adding extra empty column
+    if padding_method == :centered
+        inn(Vx) .= avg(Vx_in)
+        inn(Vy) .= avg(Vy_in)
+    elseif padding_method == :bottom_right
+        inn1(Vx) .= Vx_in
+        inn1(Vy) .= Vy_in
+    else
+        @error "Padding method not specified."
+    end
     V = (Vx .^ 2 .+ Vy .^ 2) .^ (1/2)
     return Vx, Vy, V
 end
