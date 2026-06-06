@@ -19,6 +19,9 @@ function params_constructor_specified(save_refs::Bool = false)
         progress_steps = 10
     )
 
+    # Test prints
+    println(solver_params)
+
     if save_refs
         jldsave(joinpath(Huginn.root_dir, "test/data/params/solver_params_specified.jld2"); solver_params)
     end
