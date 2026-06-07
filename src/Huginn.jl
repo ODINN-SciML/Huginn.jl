@@ -11,8 +11,6 @@ using OrdinaryDiffEq
 using Base: @kwdef
 using Tullio
 using Infiltrator
-using Plots, PlotThemes
-Plots.theme(:wong2) # sets overall theme for Plots
 using CairoMakie
 import Pkg
 using Distributed

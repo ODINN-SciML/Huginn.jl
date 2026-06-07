@@ -15,9 +15,12 @@ function plot_test_error(pred::Results, ref::Results, variable, rgi_id, atol,
             colour=:speed
         end
         MB ? tail = "MB" : tail = ""
-        PDE_plot = Plots.heatmap(access(pred, variable)[end] .- access(ref, variable)[end],
-            title = "$(variable): PDE simulation - Reference simulation", c = colour)
-        Plots.savefig(PDE_plot, joinpath(path, "$(variable)_PDE_$rgi_id$tail.pdf"))
+        fig_pde, ax_pde,
+        hm_pde = CairoMakie.heatmap(
+            access(pred, variable)[end] .- access(ref, variable)[end],
+            colormap = colour)
+        ax_pde.title = "$(variable): PDE simulation - Reference simulation"
+        CairoMakie.save(joinpath(path, "$(variable)_PDE_$rgi_id$tail.pdf"), fig_pde)
     end
 end
 
@@ -36,9 +39,12 @@ function plot_test_error(pred::Tuple, ref::Dict{String, Any}, variable, rgi_id,
     end
     if !all(isapprox.(pred[idx], ref[variable], atol = atol))
         # @warn "Error found in PDE solve! Check plots in /test/plots⁄"
-        UDE_plot = Plots.heatmap(pred[idx] .- ref[variable],
-            title = "$(variable): UDE simulation - Reference simulation", c = colour)
         MB ? tail = "MB" : tail = ""
-        Plots.savefig(UDE_plot, joinpath(path, "$(variable)_UDE_$rgi_id$tail.pdf"))
+        fig_ude, ax_ude,
+        hm_ude = CairoMakie.heatmap(
+            pred[idx] .- ref[variable],
+            colormap = colour)
+        ax_ude.title = "$(variable): UDE simulation - Reference simulation"
+        CairoMakie.save(joinpath(path, "$(variable)_UDE_$rgi_id$tail.pdf"), fig_ude)
     end
 end
