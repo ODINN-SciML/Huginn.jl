@@ -13,12 +13,18 @@ A mutable struct that represents a prediction simulation.
   - `parameters::Sleipnir.Parameters`: The parameters used for the prediction.
   - `results::Vector{Results}`: A vector of results obtained from the prediction.
 """
-mutable struct Prediction{CACHE} <: Simulation
-    model::Sleipnir.Model
+mutable struct Prediction{
+    MODEL <: Sleipnir.Model,
+    CACHE,
+    GLACIER <: Sleipnir.AbstractGlacier,
+    PARAMS <: Sleipnir.Parameters,
+    RES <: Vector{Results}
+} <: Simulation
+    model::MODEL
     cache::Union{CACHE, Nothing}
-    glaciers::Vector{Sleipnir.AbstractGlacier}
-    parameters::Sleipnir.Parameters
-    results::Vector{Results}
+    glaciers::Vector{GLACIER}
+    parameters::PARAMS
+    results::RES
 
     function Prediction(
             model::Sleipnir.Model,
@@ -26,7 +32,9 @@ mutable struct Prediction{CACHE} <: Simulation
             parameters::Sleipnir.Parameters,
             results::Vector{Results}
     )
-        return new{cache_type(model)}(model, nothing, glaciers, parameters, results)
+        return new{typeof(model), cache_type(model), eltype(glaciers),
+            typeof(parameters), typeof(results)}(
+            model, nothing, glaciers, parameters, results)
     end
 end
 
