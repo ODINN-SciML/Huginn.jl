@@ -18,6 +18,8 @@ function params_constructor_specified(save_refs::Bool = false)
         progress = true,
         progress_steps = 10
     )
+    @test check_concrete_types(solver_params; show = false)
+    @test check_field_types(typeof(solver_params); show = false)
 
     # Test prints
     println(solver_params)
@@ -34,6 +36,8 @@ end
 function params_constructor_default(save_refs::Bool = false)
     solver_params = SolverParameters()
     JET.@test_opt SolverParameters()
+    @test check_concrete_types(solver_params; show = false)
+    @test check_field_types(typeof(solver_params); show = false)
 
     if save_refs
         jldsave(joinpath(Huginn.root_dir, "test/data/params/solver_params_default.jld2"); solver_params)

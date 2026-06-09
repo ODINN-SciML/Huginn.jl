@@ -4,7 +4,6 @@ function pde_solve_test(;
         atol::F,
         save_refs::Bool = false,
         MB::Bool = false,
-        fast::Bool = true,
         laws_A = nothing,
         laws_C = nothing,
         callback_laws = false
