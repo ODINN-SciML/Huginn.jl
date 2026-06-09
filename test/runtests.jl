@@ -94,7 +94,7 @@ ENV["GKSwstype"]="nul"
     end
 
     if GROUP == "All" || GROUP == "Core3"
-        @testset "Prediction instantiation" test_prediction()
+        @testset "Prediction instantiation" test_prediction_instantiation()
         @testset "Run TI models in-place" TI_run_test!(false; rtol = 1e-5, atol = 1e-5)
     end
 
