@@ -61,43 +61,38 @@ end
 # Display setup
 Base.show(io::IO, ::MIME"text/plain", prediction::Prediction) = Base.show(io, prediction)
 function Base.show(io::IO, prediction::Prediction)
-    label(s) = printstyled(io, rpad(s, 14); color = 183)
-    sep() = printstyled(io, " · "; color = :light_black)
-    field(s) = printstyled(io, s; color = :light_black)
-    val(s) = print(io, s)
-    hint(s) = printstyled(io, s; color = :light_black)
-    check(b) = b ? "\e[32m✓\e[0m " : "\e[31m✗\e[0m "
+    pad = 14
 
     println(io, "Prediction")
 
     # glaciers
-    label("  glaciers")
+    label(io, "  glaciers", pad)
     n = length(prediction.glaciers)
-    val("$n");
-    hint(" $(n == 1 ? "glacier" : "glaciers")")
+    val(io, "$n");
+    hint(io, " $(n == 1 ? "glacier" : "glaciers")")
     println(io)
 
     # model
-    label("  model")
-    field("iceflow");
+    label(io, "  model", pad)
+    field(io, "iceflow");
     print(io, " = ")
-    val("$(nameof(typeof(prediction.model.iceflow)))")
-    sep()
-    field("mass_balance");
+    val(io, "$(nameof(typeof(prediction.model.iceflow)))")
+    sep(io)
+    field(io, "mass_balance");
     print(io, " = ")
-    val("$(nameof(typeof(prediction.model.mass_balance)))")
-    sep()
-    field("learnable");
+    val(io, "$(nameof(typeof(prediction.model.mass_balance)))")
+    sep(io)
+    field(io, "learnable");
     print(io, " = ")
     if isnothing(prediction.model.trainable_components)
-        hint("(nothing)")
+        hint(io, "(nothing)")
     else
         Base.show(io, prediction.model.trainable_components)
     end
     println(io)
 
     # parameters
-    label("  parameters")
+    label(io, "  parameters", pad)
     println(io)
     # Capture the Parameters show output and re-indent each line
     params_str = sprint(show, prediction.parameters)
@@ -110,24 +105,24 @@ function Base.show(io::IO, prediction::Prediction)
     end
 
     # cache
-    label("  cache")
+    label(io, "  cache", pad)
     if isnothing(prediction.cache)
-        hint("(nothing)")
+        hint(io, "(nothing)")
     else
-        val("$(nameof(typeof(prediction.cache)))")
+        val(io, "$(nameof(typeof(prediction.cache)))")
     end
     println(io)
 
     # results
-    label("  results")
+    label(io, "  results", pad)
     n_results = length(prediction.results)
     if n_results == 0
         print(io, check(false));
-        hint(" not yet run")
+        hint(io, " not yet run")
     else
         print(io, check(true));
-        val(" $n_results")
-        hint(" $(n_results == 1 ? "result" : "results") ready")
+        val(io, " $n_results")
+        hint(io, " $(n_results == 1 ? "result" : "results") ready")
     end
     println(io)
 end
