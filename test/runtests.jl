@@ -47,6 +47,7 @@ using Aqua
 include("utils_test.jl")
 include("params_construction.jl")
 include("halfar.jl")
+include("prediction.jl")
 include("PDE_solve.jl")
 include("mass_conservation.jl")
 include("laws.jl")
@@ -62,27 +63,27 @@ ENV["GKSwstype"]="nul"
     if GROUP == "All" || GROUP == "Core1"
         @testset "PDE solving integration tests" begin
             @testset "w/o MB w/o laws" pde_solve_test(;
-                rtol = 0.01, atol = 0.01, MB = false, fast = true)
+                rtol = 0.01, atol = 0.01, MB = false)
             @testset "w/  MB w/o laws" pde_solve_test(;
-                rtol = 0.01, atol = 0.01, MB = true, fast = true)
+                rtol = 0.01, atol = 0.01, MB = true)
             @testset "w/  MB w/  A scalar laws" pde_solve_test(;
                 rtol = 0.01, atol = 0.01, MB = true,
-                fast = true, laws_A = :scalar, callback_laws = false)
+                laws_A = :scalar, callback_laws = false)
             @testset "w/  MB w/  A scalar callback laws" pde_solve_test(;
                 rtol = 0.01, atol = 0.01, MB = true,
-                fast = true, laws_A = :scalar, callback_laws = true)
+                laws_A = :scalar, callback_laws = true)
             @testset "w/  MB w/  A matrix  laws" pde_solve_test(;
                 rtol = 0.01, atol = 0.01, MB = true,
-                fast = true, laws_A = :matrix, callback_laws = false)
+                laws_A = :matrix, callback_laws = false)
             @testset "w/  MB w/  A matrix callback laws" pde_solve_test(;
                 rtol = 0.01, atol = 0.01, MB = true,
-                fast = true, laws_A = :matrix, callback_laws = true)
+                laws_A = :matrix, callback_laws = true)
             @testset "w/  MB w/  C scalar laws" pde_solve_test(;
                 rtol = 0.01, atol = 0.01, MB = true,
-                fast = true, laws_C = :scalar, callback_laws = false)
+                laws_C = :scalar, callback_laws = false)
             @testset "w/  MB w/  C scallar callback laws" pde_solve_test(;
                 rtol = 0.01, atol = 0.01, MB = true,
-                fast = true, laws_C = :scalar, callback_laws = true)
+                laws_C = :scalar, callback_laws = true)
         end
     end
 
@@ -93,6 +94,7 @@ ENV["GKSwstype"]="nul"
     end
 
     if GROUP == "All" || GROUP == "Core3"
+        @testset "Prediction instantiation" test_prediction_instantiation()
         @testset "Run TI models in-place" TI_run_test!(false; rtol = 1e-5, atol = 1e-5)
     end
 

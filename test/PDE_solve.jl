@@ -4,10 +4,10 @@ function pde_solve_test(;
         atol::F,
         save_refs::Bool = false,
         MB::Bool = false,
-        fast::Bool = true,
         laws_A = nothing,
         laws_C = nothing,
-        callback_laws = false
+        callback_laws = false,
+        save_plot::Bool = false
 ) where {F <: AbstractFloat}
     println("PDE solving with MB = $MB, laws_A = $laws_A, laws_C = $laws_C, callback_laws = $callback_laws")
 
@@ -32,24 +32,9 @@ function pde_solve_test(;
             step = 2.0 # Large step to store few data
         )
     )
-    JET.@test_opt target_modules=(Sleipnir, Muninn, Huginn) Parameters(
-        simulation = SimulationParameters(
-            use_MB = MB,
-            use_velocities = false,
-            tspan = (2010.0, 2015.0),
-            working_dir = Huginn.root_dir,
-            test_mode = true,
-            rgi_paths = rgi_paths
-        ),
-        solver = SolverParameters(
-            reltol = 1e-12,
-            step = 2.0 # Large step to store few data
-        )
-    )
 
     # We retrieve some glaciers for the simulation
     glaciers = initialize_glaciers(rgi_ids, params)
-    # JET.@test_opt broken=true target_modules=(Sleipnir,Muninn,Huginn) initialize_glaciers(rgi_ids, params) # For the moment this is not type stable because of the readings (type of CSV files and RasterStack cannot be determined at compilation time)
 
     mass_balance = isnothing(MB) ? nothing : TImodel1(params)
 
@@ -94,21 +79,19 @@ function pde_solve_test(;
     end
 
     iceflow = SIA2Dmodel(params; A = A_law, C = C_law)
-    JET.@test_opt SIA2Dmodel(params; A = A_law, C = C_law)
-
     model = Model(; iceflow, mass_balance)
-    JET.@test_opt Model(; iceflow, mass_balance)
 
     # We create an ODINN prediction
     prediction = Prediction(model, glaciers, params)
 
-    JET.@test_opt target_modules=(Sleipnir, Muninn, Huginn) Prediction(model, glaciers, params)
-
     # We run the simulation
     @time run!(prediction)
 
-    # Test below is not ready yet
-    JET.@test_opt broken=true target_modules=(Sleipnir, Muninn, Huginn) Huginn.batch_iceflow_PDE!(1, prediction) # Call only the core of run! because saving to JLD2 file is not type stable and GC interferes with JET
+    if !MB && isnothing(laws_A) && isnothing(laws_C) # Test this only once
+        # Test below is not ready yet
+        JET.@test_opt broken=true target_modules=(Sleipnir, Muninn, Huginn) Huginn.batch_iceflow_PDE!(
+            1, prediction) # Call only the core of run! because saving to JLD2 file is not type stable and GC interferes with JET
+    end
 
     file_name = @match (MB, laws_A, laws_C, callback_laws) begin
         (false, nothing, nothing, false) => "PDE_refs_noMB"
@@ -152,9 +135,12 @@ function pde_solve_test(;
                 MB ? vtol = 30.0*atol : vtol = 12.0*atol # a little extra tolerance for surface velocities
 
                 ### PDE ###
-                plot_test_error(result, test_ref, "H", result.rgi_id, atol, MB)
-                plot_test_error(result, test_ref, "Vx", result.rgi_id, vtol, MB)
-                plot_test_error(result, test_ref, "Vy", result.rgi_id, vtol, MB)
+                if save_plot
+                    # This is only for debugging
+                    plot_test_error(result, test_ref, "H", result.rgi_id, atol, MB)
+                    plot_test_error(result, test_ref, "Vx", result.rgi_id, vtol, MB)
+                    plot_test_error(result, test_ref, "Vy", result.rgi_id, vtol, MB)
+                end
 
                 # Test that the PDE simulations are correct
                 mask = test_ref.H[end] .> 0.0
