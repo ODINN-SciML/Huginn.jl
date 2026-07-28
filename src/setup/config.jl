@@ -11,7 +11,8 @@ function enable_multiprocessing(params::Sleipnir.Parameters)
     if procs > 0 && params.simulation.multiprocessing
         if nprocs() < procs
             @eval begin
-                addprocs($procs - nprocs(); exeflags = "--project")
+                project_dir = dirname(Base.active_project())
+                addprocs($procs - nprocs(); exeflags = "--project=$(project_dir)")
                 @info "Number of cores: $(nprocs())"
                 @info "Number of workers: $(nworkers())"
                 @everywhere using Reexport

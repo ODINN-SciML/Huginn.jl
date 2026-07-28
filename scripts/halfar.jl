@@ -72,11 +72,16 @@ prediction = Prediction(model, glaciers, parameters)
 
 run!(prediction)
 
+results = prediction.results[1]
+results.x = xs
+results.y = ys
+
 # Make video
 make_thickness_video(
-    prediction.results[1].H,
+    results,
     glaciers[1],
-    parameters,
+    parameters.simulation.tspan,
+    δt,
     "./scripts/figures/Halfar_sol_video.mp4";
     framerate = 24,
     baseTitle = "Halfar solution"
@@ -84,12 +89,15 @@ make_thickness_video(
 
 # Error plot
 
+results_err = deepcopy(results)
 Err = (prediction.results[1].H .- Hs)
+results_err.H = Err
 
 make_thickness_video(
-    Err,
+    results_err,
     glaciers[1],
-    parameters,
+    parameters.simulation.tspan,
+    δt,
     "./scripts/figures/Halfar_error_video.mp4";
     framerate = 24,
     baseTitle = "Halfar error",
