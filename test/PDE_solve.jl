@@ -84,6 +84,10 @@ function pde_solve_test(;
     # We create an ODINN prediction
     prediction = Prediction(model, glaciers, params)
 
+    # Not type-stable: calibrate_MB reads the climate RasterStack (same limitation as
+    # initialize_glaciers / batch_iceflow_PDE! above — RasterStack eltype not known at compile time).
+    JET.@test_opt broken=true target_modules=(Sleipnir, Muninn, Huginn) Prediction(model, glaciers, params)
+
     # We run the simulation
     @time run!(prediction)
 

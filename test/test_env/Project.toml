@@ -14,4 +14,4 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Sleipnir = "f5e6c550-199f-11ee-3608-394420200519"
 
 [sources]
-Huginn = {path = "../../"}
+Huginn = {path = "../.."}

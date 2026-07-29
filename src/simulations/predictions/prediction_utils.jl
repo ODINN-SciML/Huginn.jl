@@ -50,12 +50,14 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     tstops = unique(vcat(tstops, params.solver.tstops)) # Merge time steps controlled by `step` with the user provided time steps
 
     # Create mass balance callback and store MB snapshots in cache diagnostics
-    mb_action! = let model = model, cache = cache, glacier = glacier, step_MB = step_MB
+    mb_action! = let model = model, cache = cache, glacier = glacier, step_MB = step_MB,
+        glacier_idx = glacier_idx
+
         function (integrator)
             if params.simulation.use_MB
                 # Compute mass balance
                 glacier.S .= glacier.B .+ integrator.u
-                MB_timestep!(cache, model, glacier, step_MB, integrator.t)
+                MB_timestep!(cache, model, glacier, step_MB, integrator.t, glacier_idx)
                 apply_MB_mask!(integrator.u, cache.iceflow)
                 push!(cache.iceflow.MB_history, copy(cache.iceflow.MB))
                 push!(cache.iceflow.MB_times, integrator.t)
