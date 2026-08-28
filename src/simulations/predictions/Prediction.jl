@@ -35,7 +35,7 @@ mutable struct Prediction{
         # Optionally calibrate the mass balance model per glacier (no-op unless
         # the model type defines a calibration routine, e.g. TImodel1).
         if parameters.simulation.use_MB && parameters.simulation.calibrate_MB
-            model = calibrate_MB_model!(model, glaciers, parameters)
+            model = calibrate_MB_model(model, glaciers, parameters)
         end
         return new{typeof(model), cache_type(model), eltype(glaciers),
             typeof(parameters), typeof(results)}(
