@@ -27,36 +27,35 @@ using Reexport
 # ############ PARAMETERS ###############
 # ##############################################
 
-cd(@__DIR__)
-const global root_dir::String = dirname(Base.current_project())
-const global root_plots::String = joinpath(root_dir, "plots")
+const src_dir::String = dirname(@__FILE__)
+const global root_dir::String = joinpath(src_dir, "..")
 
 # ##############################################
 # ############ HUGINN LIBRARIES ##############
 # ##############################################
 
 # Include setup
-include("setup/config.jl")
+include(src_dir*"/setup/config.jl")
 
-include("parameters/SolverParameters.jl")
+include(src_dir*"/parameters/SolverParameters.jl")
 # All structures and functions related to Ice flow models
-include("models/iceflow/IceflowModel.jl")
+include(src_dir*"/models/iceflow/IceflowModel.jl")
 # Everything related to running forward simulations of ice flow
-include("simulations/predictions/Prediction.jl")
+include(src_dir*"/simulations/predictions/Prediction.jl")
 
 # Everything related to analytical solutions
-include("models/solutions/halfar.jl")
+include(src_dir*"/models/solutions/halfar.jl")
 
 # Parameterizations
-include("laws/Inputs.jl")
-include("laws/Laws.jl")
+include(src_dir*"/laws/Inputs.jl")
+include(src_dir*"/laws/Laws.jl")
 
 # All the utils functions
-include("simulations/predictions/prediction_utils.jl")
-include("models/iceflow/iceflow_utils.jl")
-include("laws/laws_utils.jl")
+include(src_dir*"/simulations/predictions/prediction_utils.jl")
+include(src_dir*"/models/iceflow/iceflow_utils.jl")
+include(src_dir*"/laws/laws_utils.jl")
 
 # Everything related to plotting
-include("plotting/plotting_utils.jl")
+include(src_dir*"/plotting/plotting_utils.jl")
 
 end # module
