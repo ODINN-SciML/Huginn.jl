@@ -55,7 +55,9 @@ function test_prediction_instantiation()
     @test_broken check_field_types(typeof(simulation); show = false)
 
     cache = init_cache(model, simulation, glacier_idx, nothing)
-    JET.@test_opt init_cache(model, simulation, glacier_idx, nothing)
+    # Not type-stable: the mass balance cache precomputes the climate windows, which reads the
+    # climate RasterStack (same limitation as Prediction above).
+    JET.@test_opt broken=true init_cache(model, simulation, glacier_idx, nothing)
     @test check_concrete_types(cache; show = false)
     @test_broken check_field_types(typeof(cache); show = false)
 end

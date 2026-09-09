@@ -1,4 +1,4 @@
-export inn1
+export inn1, add_MB!
 
 # Helper functions for the staggered grid
 
@@ -244,6 +244,46 @@ function project_curvatures(H, eₚ, eₛ)
     Kₚ = eₚ' * H * eₚ
     Kₛ = eₛ' * H * eₛ
     return Kₚ, Kₛ
+end
+
+"""
+    add_MB!(dH, H, simulation, t::Real)
+
+Add the surface mass balance rate `ṁ(H, t)` to the ice flow tendency `dH`, in-place.
+
+Surface mass balance is a source term of the ice flow equation,
+
+```math
+∂H/∂t = -∇·(D∇S) + ṁ(H, t)
+```
+
+so the solver integrates it together with the flux divergence and controls its error with
+the same tolerances. Because `ṁ` reads the surface elevation `S = B + H`, the elevation
+feedback `∂ṁ/∂H` is part of the Jacobian and is picked up by the adjoint.
+
+Ice flow right hand sides call this unconditionally. It returns immediately when the mass
+balance cache is inactive, which is the case whenever the simulation carries no mass balance
+to evaluate in the right hand side.
+
+# Arguments
+
+  - `dH`: Rate of change of ice thickness, updated in-place.
+  - `H`: Current ice thickness.
+  - `simulation`: Simulation object holding the model, the caches and the glaciers.
+  - `t::Real`: Current simulation time.
+"""
+function add_MB!(dH, H, simulation, t::Real)
+    mb_cache = simulation.cache.mass_balance
+    mb_cache_active(mb_cache) || return nothing
+
+    glacier_idx = simulation.cache.iceflow.glacier_idx
+    glacier = simulation.glaciers[glacier_idx]
+    mb_model = get_mb_model(simulation.model.mass_balance, glacier_idx)
+
+    MB_rate!(mb_cache.ṁ, H, mb_cache, mb_model, glacier, t)
+    # Interior only: the border of `dH` is never written, so it would accumulate across stages
+    inn(dH) .+= inn(mb_cache.ṁ)
+    return nothing
 end
 
 include("SIA2D/SIA2D_utils.jl")

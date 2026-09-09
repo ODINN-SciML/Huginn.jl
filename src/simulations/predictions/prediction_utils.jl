@@ -45,28 +45,12 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     simulation.cache = init_cache(model, simulation, glacier_idx, nothing)
     cache = simulation.cache
 
+    continuous_MB = params.simulation.use_MB &&
+                    params.simulation.MB_scheme == :continuous
+
     # Define tstops
     tstops = define_callback_steps(params.simulation.tspan, step)
     tstops = unique(vcat(tstops, params.solver.tstops)) # Merge time steps controlled by `step` with the user provided time steps
-
-    # Create mass balance callback and store MB snapshots in cache diagnostics
-    mb_action! = let model = model, cache = cache, glacier = glacier, step_MB = step_MB,
-        glacier_idx = glacier_idx
-
-        function (integrator)
-            if params.simulation.use_MB
-                # Compute mass balance
-                glacier.S .= glacier.B .+ integrator.u
-                MB_timestep!(cache, model, glacier, step_MB, integrator.t, glacier_idx)
-                apply_MB_mask!(integrator.u, cache.iceflow)
-                push!(cache.iceflow.MB_history, copy(cache.iceflow.MB))
-                push!(cache.iceflow.MB_times, integrator.t)
-            end
-        end
-    end
-    # A simulation period is sliced in time windows that are separated by `step_MB`
-    # The mass balance is applied at the end of each of the windows
-    cb_MB = PeriodicCallback(mb_action!, step_MB; initial_affect = false, final_affect = true)
 
     # Create iceflow law callback
     cb_iceflow = build_callback(
@@ -76,7 +60,30 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
         params.simulation.tspan
     )
 
-    cb = CallbackSet(cb_MB, cb_iceflow)
+    cb = if continuous_MB
+        CallbackSet(cb_iceflow)
+    else
+        # Create mass balance callback and store MB snapshots in cache diagnostics
+        mb_action! = let model = model, cache = cache, glacier = glacier, step_MB = step_MB,
+            glacier_idx = glacier_idx
+
+            function (integrator)
+                if params.simulation.use_MB
+                    # Compute mass balance
+                    glacier.S .= glacier.B .+ integrator.u
+                    MB_timestep!(cache, model, glacier, step_MB, integrator.t, glacier_idx)
+                    apply_MB_mask!(integrator.u, cache.iceflow)
+                    push!(cache.iceflow.MB_history, copy(cache.iceflow.MB))
+                    push!(cache.iceflow.MB_times, integrator.t)
+                end
+            end
+        end
+        # A simulation period is sliced in time windows that are separated by `step_MB`
+        # The mass balance is applied at the end of each of the windows
+        cb_MB = PeriodicCallback(
+            mb_action!, step_MB; initial_affect = false, final_affect = true)
+        CallbackSet(cb_MB, cb_iceflow)
+    end
 
     # Run iceflow PDE for this glacier
     du = params.simulation.use_iceflow ? SIA2D_PDE! : noSIA2D!
@@ -94,6 +101,10 @@ end
     ) where {SIM <: Simulation, F <: AbstractFloat}
 
 Make forward simulation of the iceflow PDE determined in `du` in-place and create the results.
+
+The results are sampled on `tstops`. When the mass balance is evaluated in the right hand
+side, the solver is additionally forced to stop on the mass balance window edges, which are
+discontinuities of the right hand side but not result time steps.
 """
 function simulate_iceflow_PDE!(
         simulation::SIM,
@@ -104,14 +115,26 @@ function simulate_iceflow_PDE!(
     cache = simulation.cache
     params = simulation.parameters
 
+    continuous_MB = mb_cache_active(cache.mass_balance)
+    # `ṁ` jumps at every MB window edge, and no callback is left to save on `tstops`
+    solver_tstops = if continuous_MB
+        edges = define_callback_steps(params.simulation.tspan, params.simulation.step_MB)
+        sort(unique(vcat(tstops, edges)))
+    else
+        tstops
+    end
+    # Saving on the window edges too: `MB_diagnostics` reads `H` there
+    saveat = continuous_MB ? solver_tstops : F[]
+
     # Define problem to be solved
     iceflow_prob = ODEProblem{true, SciMLBase.FullSpecialize}(
-        du, cache.iceflow.H, params.simulation.tspan, simulation; tstops = tstops)
+        du, cache.iceflow.H, params.simulation.tspan, simulation; tstops = solver_tstops)
 
     iceflow_sol = solve(iceflow_prob,
         params.solver.solver,
         callback = cb,
         reltol = params.solver.reltol,
+        saveat = saveat,
         save_everystep = params.solver.save_everystep,
         progress = params.solver.progress,
         progress_steps = params.solver.progress_steps,
@@ -132,6 +155,8 @@ function simulate_iceflow_PDE!(
     # Surface topography
     @. cache.iceflow.S = glacier.B + cache.iceflow.H
 
+    MB, t_MB = MB_diagnostics(simulation, iceflow_sol)
+
     # Update simulation results
     results = Sleipnir.create_results(
         simulation,
@@ -139,15 +164,58 @@ function simulate_iceflow_PDE!(
         iceflow_sol,
         tstops;
         processVelocity = V_from_H,
-        MB = cache.iceflow.MB_history,
-        t_MB = cache.iceflow.MB_times
+        MB = MB,
+        t_MB = t_MB
     )
 
     return results
 end
 
+"""
+    MB_diagnostics(simulation, iceflow_sol)
+
+Mass balance accumulated over each mass balance window, and the times it is reported at.
+
+These populate the `MB` and `t_MB` fields of `Results`. When the mass balance is evaluated
+inside the ice flow right hand side, no snapshot is recorded during the solve and the
+accumulation is rebuilt from the states saved on the window edges with a midpoint rule,
+
+```math
+MB_k ≈ ṁ\\left(\\frac{H_{k-1} + H_k}{2}, \\frac{t_{k-1} + t_k}{2}\\right) (t_k - t_{k-1})
+```
+
+The grid is the window grid, not the result grid, so `MB` and `t_MB` do not depend on `step`.
+Otherwise the snapshots recorded during the solve are returned unchanged.
+"""
+function MB_diagnostics(simulation, iceflow_sol)
+    cache = simulation.cache
+    mb_cache = cache.mass_balance
+    mb_cache_active(mb_cache) || return cache.iceflow.MB_history, cache.iceflow.MB_times
+
+    glacier_idx = cache.iceflow.glacier_idx
+    glacier = simulation.glaciers[glacier_idx]
+    mb_model = get_mb_model(simulation.model.mass_balance, glacier_idx)
+
+    params = simulation.parameters
+    tspan = params.simulation.tspan
+    edges = define_callback_steps(tspan, params.simulation.step_MB)
+    H = iceflow_sol.u[Sleipnir.indFromT(tspan, edges, iceflow_sol.t)]
+
+    F = eltype(edges)
+    n = length(edges) - 1
+    MB = Vector{Matrix{F}}(undef, max(n, 0))
+    t_MB = Vector{F}(undef, max(n, 0))
+    for k in 1:n
+        MB_rate!(mb_cache.ṁ, 0.5 .* (H[k] .+ H[k + 1]), mb_cache, mb_model, glacier,
+            0.5 * (edges[k] + edges[k + 1]))
+        MB[k] = mb_cache.ṁ .* (edges[k + 1] - edges[k])
+        t_MB[k] = edges[k + 1]
+    end
+    return MB, t_MB
+end
+
 function SIA2D_PDE!(_dH::Matrix{R}, _H::Matrix{R}, simulation::SIM,
-        t::R) where {R <: Real, SIM <: Simulation}
+        t::Real) where {R <: Real, SIM <: Simulation}
     SIA2D!(_dH, _H, simulation, t, nothing)
     return nothing
 end
