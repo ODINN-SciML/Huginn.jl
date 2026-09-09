@@ -136,9 +136,10 @@ function generate_result(placeholder_sim::SIM, A, n) where {SIM <: Simulation}
         n = ConstantLaw{ScalarCacheNoVJP}(Returns(ScalarCacheNoVJP(n)))
     )
 
-    model = Model(;
-        mass_balance = placeholder_sim.model.mass_balance,
-        iceflow = iceflow_model
+    model = Sleipnir.Model(
+        iceflow_model,
+        placeholder_sim.model.mass_balance,
+        nothing
     )
 
     simulation = Prediction(model, placeholder_sim.glaciers, placeholder_sim.parameters)
