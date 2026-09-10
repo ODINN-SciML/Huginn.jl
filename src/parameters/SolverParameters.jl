@@ -11,6 +11,10 @@ A mutable struct that holds parameters for the solver.
 
   - `solver::ST`: The algorithm used for solving differential equations.
   - `reltol::F`: The relative tolerance for the solver.
+  - `abstol::F`: The absolute tolerance for the solver, in metres of ice. This is the tolerance that binds in practice: with `reltol` as tight as the default, `reltol * H` sits far below `abstol` over most of a glacier, so `abstol` alone sets the error floor and the step size. The solver error accumulates over a run, roughly as `t^1.4`, so the default suits runs of a few years and **longer runs want a tighter value**: over 30 years the default reaches an RMS error of 0.22 m and a local error of 3.8 m, against 0.08 m and 3.2 m at `1e-4`.
+  - `scale_abstol::Bool`: Whether `abstol` is tightened in proportion to the run length. Solver error accumulates, so a tolerance suited to a few years is too loose for several decades; see `effective_abstol`. Set to `false` to use `abstol` exactly as given.
+  - `adaptive::Bool`: Whether the solver chooses its own step size. Adaptive stepping makes the solution a *discontinuous* function of the parameters, because an arbitrarily small change can flip which steps are accepted. That is harmless for a forward run but it makes finite differences meaningless, so gradient checks want `adaptive = false` even though production runs do not.
+  - `dt::F`: Fixed step size used when `adaptive` is `false`, in years. Ignored otherwise.
   - `step::F`: The step size that controls at which frequency the results must be saved.
   - `tstops::Vector{F}`: Optional vector of time points where the solver should stop to store the results.
   - `save_everystep::Bool`: Flag indicating whether to save the solution at every step computed by the solver.
@@ -22,6 +26,10 @@ mutable struct SolverParameters{F <: AbstractFloat, I <: Integer,
     ST <: OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm} <: AbstractParameters
     solver::ST
     reltol::F
+    abstol::F
+    scale_abstol::Bool
+    adaptive::Bool
+    dt::F
     step::F
     tstops::Vector{F}
     save_everystep::Bool
@@ -36,6 +44,10 @@ Constructs a `SolverParameters` object with the specified parameters or using de
     SolverParameters(;
         solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm = RDPK3Sp35(),
         reltol::F = 1e-12,
+        abstol::F = 1e-3,
+        scale_abstol::Bool = true,
+        adaptive::Bool = true,
+        dt::F = 1.0/120.0,
         step::F = 1.0/12.0,
         tstops::Vector{Sleipnir.Float} = Vector{Sleipnir.Float}(),
         save_everystep = false,
@@ -48,6 +60,10 @@ Constructs a `SolverParameters` object with the specified parameters or using de
 
   - `solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm`: The ODE solver algorithm to use. Defaults to `RDPK3Sp35()`.
   - `reltol::F`: The relative tolerance for the solver. Defaults to `1e-12`.
+  - `abstol::F`: The absolute tolerance, in metres of ice, and the one that binds in practice. Defaults to `1e-3`, which suits runs of a few years.
+  - `scale_abstol::Bool`: Whether to tighten `abstol` in proportion to the run length, since solver error accumulates. Defaults to `true`.
+  - `adaptive::Bool`: Whether the solver picks its own step size. Defaults to `true`; gradient checks against finite differences need `false`.
+  - `dt::F`: Fixed step in years, used only when `adaptive` is `false`. Defaults to `1.0/120.0`.
   - `step::F`: The step size that controls at which frequency the solution should be computed and returned in the results.
     Defaults to `1.0/12.0` (i.e. a month).
   - `tstops::Vector{Sleipnir.Float}`: Optional vector of time points where the solver should stop. Defaults to an empty vector.
@@ -63,6 +79,10 @@ Constructs a `SolverParameters` object with the specified parameters or using de
 function SolverParameters(;
         solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm = RDPK3Sp35(),
         reltol::F = 1e-12,
+        abstol::F = 1e-3,
+        scale_abstol::Bool = true,
+        adaptive::Bool = true,
+        dt::F = 1.0/120.0,
         step::F = 1.0/12.0,
         tstops::Vector{Sleipnir.Float} = Vector{Sleipnir.Float}(),
         save_everystep = false,
@@ -74,6 +94,10 @@ function SolverParameters(;
     return SolverParameters{Sleipnir.Float, Sleipnir.Int, typeof(solver)}(
         solver,
         Sleipnir.Float(reltol),
+        Sleipnir.Float(abstol),
+        scale_abstol,
+        adaptive,
+        Sleipnir.Float(dt),
         Sleipnir.Float(step),
         Sleipnir.Float.(tstops),
         save_everystep,
@@ -84,7 +108,10 @@ function SolverParameters(;
 end
 
 function Base.:(==)(a::SolverParameters, b::SolverParameters)
-    a.solver == b.solver && a.reltol == b.reltol && a.step == b.step &&
+    a.solver == b.solver && a.reltol == b.reltol && a.abstol == b.abstol &&
+        a.scale_abstol == b.scale_abstol &&
+        a.adaptive == b.adaptive && a.dt == b.dt &&
+        a.step == b.step &&
         a.tstops == b.tstops && a.save_everystep == b.save_everystep &&
         a.progress == b.progress &&
         a.progress_steps == b.progress_steps && a.maxiters == b.maxiters
@@ -104,6 +131,10 @@ function Base.show(io::IO, params::SolverParameters)
     field(io, "reltol");
     print(io, " = ");
     val(io, "$(params.reltol)")
+    sep(io)
+    field(io, "abstol");
+    print(io, " = ");
+    val(io, "$(params.abstol)")
     sep(io)
     field(io, "maxiters");
     print(io, " = ");

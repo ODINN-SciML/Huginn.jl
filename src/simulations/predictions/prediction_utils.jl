@@ -115,30 +115,30 @@ function simulate_iceflow_PDE!(
     cache = simulation.cache
     params = simulation.parameters
 
-    continuous_MB = mb_cache_active(cache.mass_balance)
-    # `ṁ` jumps at every MB window edge, and no callback is left to save on `tstops`
-    solver_tstops = if continuous_MB
-        edges = define_callback_steps(params.simulation.tspan, params.simulation.step_MB)
-        sort(unique(vcat(tstops, edges)))
-    else
-        tstops
-    end
-    # Saving on the window edges too: `MB_diagnostics` reads `H` there
-    saveat = continuous_MB ? solver_tstops : F[]
+    solver_tstops, saveat = MB_solver_stops(simulation, tstops)
+    # `dt` is passed only when stepping is fixed. In adaptive mode the solver picks its own
+    # initial step, and supplying one overrides that choice; supplying zero aborts the solve
+    # outright.
+    step_kw = params.solver.adaptive ? NamedTuple() : (; dt = params.solver.dt)
 
     # Define problem to be solved
     iceflow_prob = ODEProblem{true, SciMLBase.FullSpecialize}(
         du, cache.iceflow.H, params.simulation.tspan, simulation; tstops = solver_tstops)
 
     iceflow_sol = solve(iceflow_prob,
-        params.solver.solver,
+        with_eigen_est(params.solver.solver, simulation);
         callback = cb,
         reltol = params.solver.reltol,
+        abstol = params.solver.scale_abstol ?
+                 effective_abstol(params.solver.abstol, params.simulation.tspan) :
+                 params.solver.abstol,
+        adaptive = params.solver.adaptive,
         saveat = saveat,
         save_everystep = params.solver.save_everystep,
         progress = params.solver.progress,
         progress_steps = params.solver.progress_steps,
-        maxiters = params.solver.maxiters)
+        maxiters = params.solver.maxiters,
+        step_kw...)
     @assert iceflow_sol.retcode==ReturnCode.Success "There was an error in the iceflow solver. Returned code is \"$(iceflow_sol.retcode)\""
 
     # @show iceflow_sol.destats
@@ -169,6 +169,113 @@ function simulate_iceflow_PDE!(
     )
 
     return results
+end
+
+"""
+    spectral_radius(simulation)
+
+Bound on the spectral radius of the ice flow right hand side, in yr⁻¹.
+
+Two terms contribute. The flux divergence is a diffusion with coefficient `D`, whose discrete
+Laplacian is bounded by `4 D (1/Δx² + 1/Δy²)`. The mass balance source adds its own diagonal
+Jacobian `∂ṁ/∂H`.
+
+The second term is the one that is easy to forget, and it is not a correction: where the ice
+is thin the ramp makes `∂ṁ/∂H` large, and where `A` is small `D` is negligible, so the mass
+balance can be the *only* term. Dropping it there underestimates the spectral radius and the
+stabilised solver picks too few stages.
+
+The mass balance term is a bound precomputed from the lookup table rather than the exact
+maximum at the current state, because this is called from inside the solver: the adjoint hands
+back an augmented `[H; θ]` vector, so anything that reads the state cannot be evaluated there.
+"""
+function spectral_radius(simulation)
+    cache = simulation.cache
+    glacier = simulation.glaciers[cache.iceflow.glacier_idx]
+    λ = 4 * maximum(cache.iceflow.D) * (1 / glacier.Δx^2 + 1 / glacier.Δy^2)
+    mb_cache = cache.mass_balance
+    return mb_cache_active(mb_cache) ? λ + mb_cache.∂ṁ_max : λ
+end
+
+"""
+    with_eigen_est(alg, simulation)
+
+Give a stabilised solver the spectral radius instead of letting it estimate one.
+
+`ROCK2` otherwise runs an internal power iteration, which costs right hand side evaluations
+and, because the iteration itself depends on the state, makes the solution jitter with the
+parameters. That jitter is invisible to a forward run but it puts a noise floor under the
+loss, which is fatal for finite differences. Every other algorithm is returned unchanged.
+"""
+function with_eigen_est(alg::ROCK2, simulation)
+    return ROCK2(min_stages = alg.min_stages, max_stages = alg.max_stages,
+        eigen_est = (integrator) -> integrator.eigen_est = spectral_radius(simulation))
+end
+function with_eigen_est(alg::ROCK4, simulation)
+    return ROCK4(min_stages = alg.min_stages, max_stages = alg.max_stages,
+        eigen_est = (integrator) -> integrator.eigen_est = spectral_radius(simulation))
+end
+with_eigen_est(alg, simulation) = alg
+
+"""
+    ABSTOL_REFERENCE_YEARS
+
+Run length the default `abstol` was chosen for. Longer runs are tightened relative to it by
+[`effective_abstol`](@ref).
+"""
+const ABSTOL_REFERENCE_YEARS = 5.0
+
+"""
+    effective_abstol(abstol, tspan; verbose = true)
+
+Absolute tolerance actually handed to the solver, tightened in proportion to the run length.
+
+Solver error accumulates: on a test glacier it grew as roughly `t^1.4`, so a tolerance that is
+appropriate for a few years is too loose for several decades. At the default `abstol` a 30 year
+run reached an RMS error of 0.22 m and a local error of 3.8 m, against 0.02 m and 0.16 m over
+five years.
+
+The scaling is linear in the run length, which lands near the tolerance that measurement
+recommends for a multi-decade run at roughly twice the cost. It is deliberately *not* the
+scaling that would hold the error strictly constant: the error responds weakly to the tolerance
+(about `abstol^0.4`), so holding it fixed would demand a tolerance some hundreds of times
+tighter and a cost to match. This trades a little accuracy for a run that finishes.
+
+The tolerance is only ever tightened, never loosened, and the adjustment is logged. Pass
+`verbose = false` to silence it.
+
+!!! note
+
+    The exponents behind this rule were measured on a single glacier over three run lengths.
+    They set the shape of the rule, not a guarantee, and a run that needs a specific accuracy
+    should set `abstol` explicitly rather than rely on it.
+"""
+function effective_abstol(abstol::F, tspan; verbose::Bool = true) where {F}
+    years = tspan[2] - tspan[1]
+    years > ABSTOL_REFERENCE_YEARS || return abstol
+    scaled = abstol * F(ABSTOL_REFERENCE_YEARS / years)
+    verbose &&
+        @info "Tightening abstol for a $(round(years; digits = 1)) year run" abstol scaled
+    return scaled
+end
+
+"""
+    MB_solver_stops(simulation, tstops::Vector{F}) where {F <: AbstractFloat}
+
+Times the solver must stop at, and times it must save at, for a given result grid `tstops`.
+
+When the mass balance is evaluated in the right hand side, `ṁ` is piecewise constant in time
+and the right hand side jumps at every window edge, so the solver has to stop there. Nothing
+saves on `tstops` any more either, since no periodic callback runs, so the states are also
+saved on the window edges: [`MB_diagnostics`](@ref) reads `H` there. Otherwise the solver
+stops on `tstops` and saving is left alone.
+"""
+function MB_solver_stops(simulation, tstops::Vector{F}) where {F <: AbstractFloat}
+    mb_cache_active(simulation.cache.mass_balance) || return tstops, F[]
+    params = simulation.parameters
+    edges = define_callback_steps(params.simulation.tspan, params.simulation.step_MB)
+    solver_tstops = sort(unique(vcat(tstops, edges)))
+    return solver_tstops, solver_tstops
 end
 
 """

@@ -47,3 +47,34 @@ function params_constructor_default(save_refs::Bool = false)
 
     @test solver_params == solver_params_ref
 end
+
+function effective_abstol_test()
+    atol = 1e-3
+    ref = Huginn.ABSTOL_REFERENCE_YEARS
+
+    # Short runs keep the tolerance they were given, boundary included
+    @test Huginn.effective_abstol(atol, (2010.0, 2011.0); verbose = false) == atol
+    @test Huginn.effective_abstol(atol, (2010.0, 2010.0 + ref); verbose = false) == atol
+
+    # Longer runs are tightened in proportion to the run length
+    @test Huginn.effective_abstol(atol, (2010.0, 2010.0 + 2 * ref); verbose = false) ≈
+          atol / 2
+    @test Huginn.effective_abstol(atol, (1990.0, 2020.0); verbose = false) ≈ atol * ref / 30
+
+    # Never loosened, and monotone in the run length
+    prev = atol
+    for years in (1.0, ref, 10.0, 30.0, 100.0)
+        cur = Huginn.effective_abstol(atol, (2010.0, 2010.0 + years); verbose = false)
+        @test cur <= atol
+        @test cur <= prev
+        prev = cur
+    end
+
+    # The float type of abstol is preserved
+    @test Huginn.effective_abstol(Float32(atol), (1990.0, 2020.0); verbose = false) isa
+          Float32
+
+    # The flag round-trips and is respected by the constructor
+    @test SolverParameters(scale_abstol = false).scale_abstol == false
+    @test SolverParameters().scale_abstol == true
+end
