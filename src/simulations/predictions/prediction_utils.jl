@@ -36,17 +36,12 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     params = simulation.parameters
     glacier = simulation.glaciers[glacier_idx]
     step = params.solver.step
-    step_MB = params.simulation.step_MB
 
     glacier_id = isnothing(glacier.rgi_id) ? "unnamed" : glacier.rgi_id
     println("Processing glacier $(glacier_id) for PDE forward simulation")
 
     # Initialize iceflow and mb cache
     simulation.cache = init_cache(model, simulation, glacier_idx, nothing)
-    cache = simulation.cache
-
-    continuous_MB = params.simulation.use_MB &&
-                    params.simulation.MB_scheme == :continuous
 
     # Define tstops
     tstops = define_callback_steps(params.simulation.tspan, step)
@@ -60,30 +55,8 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
         params.simulation.tspan
     )
 
-    cb = if continuous_MB
-        CallbackSet(cb_iceflow)
-    else
-        # Create mass balance callback and store MB snapshots in cache diagnostics
-        mb_action! = let model = model, cache = cache, glacier = glacier, step_MB = step_MB,
-            glacier_idx = glacier_idx
-
-            function (integrator)
-                if params.simulation.use_MB
-                    # Compute mass balance
-                    glacier.S .= glacier.B .+ integrator.u
-                    MB_timestep!(cache, model, glacier, step_MB, integrator.t, glacier_idx)
-                    apply_MB_mask!(integrator.u, cache.iceflow)
-                    push!(cache.iceflow.MB_history, copy(cache.iceflow.MB))
-                    push!(cache.iceflow.MB_times, integrator.t)
-                end
-            end
-        end
-        # A simulation period is sliced in time windows that are separated by `step_MB`
-        # The mass balance is applied at the end of each of the windows
-        cb_MB = PeriodicCallback(
-            mb_action!, step_MB; initial_affect = false, final_affect = true)
-        CallbackSet(cb_MB, cb_iceflow)
-    end
+    # Mass balance is a source term of the ice flow RHS, so there is no callback for it
+    cb = CallbackSet(cb_iceflow)
 
     # Run iceflow PDE for this glacier
     du = params.simulation.use_iceflow ? SIA2D_PDE! : noSIA2D!
@@ -264,14 +237,18 @@ end
 
 Times the solver must stop at, and times it must save at, for a given result grid `tstops`.
 
-When the mass balance is evaluated in the right hand side, `ṁ` is piecewise constant in time
-and the right hand side jumps at every window edge, so the solver has to stop there. Nothing
-saves on `tstops` any more either, since no periodic callback runs, so the states are also
-saved on the window edges: [`MB_diagnostics`](@ref) reads `H` there. Otherwise the solver
-stops on `tstops` and saving is left alone.
+Saving has to be asked for explicitly. No callback runs on the result grid any more, and a
+callback used to be what put those states in the solution: a `PeriodicCallback` saves either
+side of itself by default, so the mass balance one did it as a side effect even on a run
+without mass balance. `create_results` then reads the result grid out of the solution and
+fails on the states that are missing.
+
+With mass balance in the right hand side there is more to do: `ṁ` is piecewise constant in
+time and the right hand side jumps at every window edge, so the solver also has to stop
+there, and the states on those edges are saved for [`MB_diagnostics`](@ref) to read.
 """
 function MB_solver_stops(simulation, tstops::Vector{F}) where {F <: AbstractFloat}
-    mb_cache_active(simulation.cache.mass_balance) || return tstops, F[]
+    mb_cache_active(simulation.cache.mass_balance) || return tstops, tstops
     params = simulation.parameters
     edges = define_callback_steps(params.simulation.tspan, params.simulation.step_MB)
     solver_tstops = sort(unique(vcat(tstops, edges)))
