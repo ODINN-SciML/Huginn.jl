@@ -75,9 +75,9 @@ end
 
 Make forward simulation of the iceflow PDE determined in `du` in-place and create the results.
 
-The results are sampled on `tstops`. When the mass balance is evaluated in the right hand
-side, the solver is additionally forced to stop on the mass balance window edges, which are
-discontinuities of the right hand side but not result time steps.
+Results are sampled on `tstops`. When mass balance runs in the right hand side, the solver
+is also forced to stop on the mass balance window edges — discontinuities of the right hand
+side, not result time steps.
 """
 function simulate_iceflow_PDE!(
         simulation::SIM,
@@ -149,18 +149,16 @@ end
 
 Bound on the spectral radius of the ice flow right hand side, in yr⁻¹.
 
-Two terms contribute. The flux divergence is a diffusion with coefficient `D`, whose discrete
-Laplacian is bounded by `4 D (1/Δx² + 1/Δy²)`. The mass balance source adds its own diagonal
-Jacobian `∂ṁ/∂H`.
+Two terms contribute: the flux divergence, a diffusion bounded by `4 D (1/Δx² + 1/Δy²)`, and
+the mass balance source's diagonal Jacobian `∂ṁ/∂H`.
 
-The second term is the one that is easy to forget, and it is not a correction: where the ice
-is thin the ramp makes `∂ṁ/∂H` large, and where `A` is small `D` is negligible, so the mass
-balance can be the *only* term. Dropping it there underestimates the spectral radius and the
-stabilised solver picks too few stages.
+The mass balance term isn't a correction — where ice is thin the ramp makes `∂ṁ/∂H` large,
+and where `A` is small `D` is negligible, so mass balance can be the only term. Dropping it
+underestimates the spectral radius and the stabilised solver picks too few stages.
 
-The mass balance term is a bound precomputed from the lookup table rather than the exact
-maximum at the current state, because this is called from inside the solver: the adjoint hands
-back an augmented `[H; θ]` vector, so anything that reads the state cannot be evaluated there.
+The mass balance term is a bound from the lookup table, not the exact maximum at the current
+state: this runs inside the solver, where the adjoint hands back an augmented `[H; θ]`
+vector that a state-dependent version couldn't read anyway.
 """
 function spectral_radius(simulation)
     cache = simulation.cache
@@ -175,10 +173,10 @@ end
 
 Give a stabilised solver the spectral radius instead of letting it estimate one.
 
-`ROCK2` otherwise runs an internal power iteration, which costs right hand side evaluations
-and, because the iteration itself depends on the state, makes the solution jitter with the
-parameters. That jitter is invisible to a forward run but it puts a noise floor under the
-loss, which is fatal for finite differences. Every other algorithm is returned unchanged.
+`ROCK2` otherwise power-iterates it, costing extra right hand side evaluations and — since
+the iteration depends on the state — making the solution jitter with the parameters.
+Invisible in a forward run, but it puts a noise floor under the loss that's fatal for finite
+differences. Every other algorithm is returned unchanged.
 """
 function with_eigen_est(alg::ROCK2, simulation)
     return ROCK2(min_stages = alg.min_stages, max_stages = alg.max_stages,
@@ -201,27 +199,25 @@ const ABSTOL_REFERENCE_YEARS = 5.0
 """
     effective_abstol(abstol, tspan; verbose = true)
 
-Absolute tolerance actually handed to the solver, tightened in proportion to the run length.
+Absolute tolerance handed to the solver, tightened linearly with run length.
 
-Solver error accumulates: on a test glacier it grew as roughly `t^1.4`, so a tolerance that is
-appropriate for a few years is too loose for several decades. At the default `abstol` a 30 year
-run reached an RMS error of 0.22 m and a local error of 3.8 m, against 0.02 m and 0.16 m over
-five years.
+Solver error accumulates — on a test glacier as roughly `t^1.4` — so a tolerance sized for a
+few years is too loose for several decades. At the default `abstol`, a 30 year run reached
+RMS error 0.22 m and local error 3.8 m, against 0.02 m and 0.16 m over five years.
 
-The scaling is linear in the run length, which lands near the tolerance that measurement
-recommends for a multi-decade run at roughly twice the cost. It is deliberately *not* the
-scaling that would hold the error strictly constant: the error responds weakly to the tolerance
-(about `abstol^0.4`), so holding it fixed would demand a tolerance some hundreds of times
-tighter and a cost to match. This trades a little accuracy for a run that finishes.
+Linear scaling lands near what that measurement recommends for a multi-decade run, at
+roughly twice the cost. It's deliberately not the scaling that holds error constant: error
+responds weakly to tolerance (about `abstol^0.4`), so a constant-error rule would need a
+tolerance some hundreds of times tighter, and a cost to match.
 
-The tolerance is only ever tightened, never loosened, and the adjustment is logged. Pass
-`verbose = false` to silence it.
+Only ever tightens, never loosens; the adjustment is logged. Pass `verbose = false` to
+silence it.
 
 !!! note
 
-    The exponents behind this rule were measured on a single glacier over three run lengths.
-    They set the shape of the rule, not a guarantee, and a run that needs a specific accuracy
-    should set `abstol` explicitly rather than rely on it.
+    These exponents were measured on one glacier over three run lengths. They set the shape
+    of the rule, not a guarantee — a run needing a specific accuracy should set `abstol`
+    explicitly.
 """
 function effective_abstol(abstol::F, tspan; verbose::Bool = true) where {F}
     years = tspan[2] - tspan[1]
@@ -237,15 +233,14 @@ end
 
 Times the solver must stop at, and times it must save at, for a given result grid `tstops`.
 
-Saving has to be asked for explicitly. No callback runs on the result grid any more, and a
-callback used to be what put those states in the solution: a `PeriodicCallback` saves either
-side of itself by default, so the mass balance one did it as a side effect even on a run
-without mass balance. `create_results` then reads the result grid out of the solution and
-fails on the states that are missing.
+Saving must be asked for explicitly now: no callback runs on the result grid any more, and a
+`PeriodicCallback` used to save either side of itself as a side effect — the mass balance
+one did this even on runs without mass balance. `create_results` reads the result grid out
+of the solution and fails on states that are missing.
 
-With mass balance in the right hand side there is more to do: `ṁ` is piecewise constant in
-time and the right hand side jumps at every window edge, so the solver also has to stop
-there, and the states on those edges are saved for [`MB_diagnostics`](@ref) to read.
+With mass balance in the right hand side, the solver must also stop at every window edge
+(`ṁ` is piecewise constant in time, so the right hand side jumps there), and those edge
+states are saved for [`MB_diagnostics`](@ref) to read.
 """
 function MB_solver_stops(simulation, tstops::Vector{F}) where {F <: AbstractFloat}
     mb_cache_active(simulation.cache.mass_balance) || return tstops, tstops
@@ -258,18 +253,18 @@ end
 """
     MB_diagnostics(simulation, iceflow_sol)
 
-Mass balance accumulated over each mass balance window, and the times it is reported at.
+Mass balance accumulated over each mass balance window, and the times it's reported at.
 
-These populate the `MB` and `t_MB` fields of `Results`. When the mass balance is evaluated
-inside the ice flow right hand side, no snapshot is recorded during the solve and the
-accumulation is rebuilt from the states saved on the window edges with a midpoint rule,
+Populates the `MB` and `t_MB` fields of `Results`. With mass balance in the ice flow right
+hand side, no snapshot is recorded during the solve, so it's rebuilt from the states saved on
+window edges with a midpoint rule,
 
 ```math
 MB_k ≈ ṁ\\left(\\frac{H_{k-1} + H_k}{2}, \\frac{t_{k-1} + t_k}{2}\\right) (t_k - t_{k-1})
 ```
 
-The grid is the window grid, not the result grid, so `MB` and `t_MB` do not depend on `step`.
-Otherwise the snapshots recorded during the solve are returned unchanged.
+on the window grid, not the result grid — `MB` and `t_MB` don't depend on `step`. Otherwise
+the snapshots recorded during the solve are returned unchanged.
 """
 function MB_diagnostics(simulation, iceflow_sol)
     cache = simulation.cache

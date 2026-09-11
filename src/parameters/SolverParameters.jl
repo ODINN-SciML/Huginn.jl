@@ -11,9 +11,9 @@ A mutable struct that holds parameters for the solver.
 
   - `solver::ST`: The algorithm used for solving differential equations.
   - `reltol::F`: The relative tolerance for the solver.
-  - `abstol::F`: The absolute tolerance for the solver, in metres of ice. This is the tolerance that binds in practice: with `reltol` as tight as the default, `reltol * H` sits far below `abstol` over most of a glacier, so `abstol` alone sets the error floor and the step size. The solver error accumulates over a run, roughly as `t^1.4`, so the default suits runs of a few years and **longer runs want a tighter value**: over 30 years the default reaches an RMS error of 0.22 m and a local error of 3.8 m, against 0.08 m and 3.2 m at `1e-4`.
-  - `scale_abstol::Bool`: Whether `abstol` is tightened in proportion to the run length. Solver error accumulates, so a tolerance suited to a few years is too loose for several decades; see `effective_abstol`. Set to `false` to use `abstol` exactly as given.
-  - `adaptive::Bool`: Whether the solver chooses its own step size. Adaptive stepping makes the solution a *discontinuous* function of the parameters, because an arbitrarily small change can flip which steps are accepted. That is harmless for a forward run but it makes finite differences meaningless, so gradient checks want `adaptive = false` even though production runs do not.
+  - `abstol::F`: The absolute tolerance for the solver, in metres of ice. Binds in practice: `reltol * H` sits far below `abstol` over most of a glacier, so `abstol` alone sets the error floor and the step size. Solver error accumulates roughly as `t^1.4`, so longer runs want a tighter value — see [`effective_abstol`](@ref).
+  - `scale_abstol::Bool`: Whether `abstol` is tightened in proportion to run length, since solver error accumulates (see [`effective_abstol`](@ref)). Set `false` to use `abstol` exactly as given.
+  - `adaptive::Bool`: Whether the solver chooses its own step size. Adaptive stepping makes the solution discontinuous in the parameters — an arbitrarily small change can flip which steps are accepted — which is harmless for a forward run but makes finite differences meaningless. Gradient checks want `adaptive = false`; production runs don't.
   - `dt::F`: Fixed step size used when `adaptive` is `false`, in years. Ignored otherwise.
   - `step::F`: The step size that controls at which frequency the results must be saved.
   - `tstops::Vector{F}`: Optional vector of time points where the solver should stop to store the results.
