@@ -423,9 +423,11 @@ function surface_V!(
         gravity_term = ρ * g
         rheology_term = @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) /
                            (n.value + 2)
+        # Plug flow: the surface sliding velocity is the depth average, i.e. the flux term
+        # of SIA2D! divided by H̄, which recovers u_b = C τ^p / N^q
         sliding_term = if any(C.value .> 0)
-            @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) *
-               H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+            @. C.value * gravity_term^(p.value - q.value) *
+               H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
         else
             zero(H̄)
         end
@@ -434,9 +436,11 @@ function surface_V!(
         gravity_term = ρ * g
         rheology_term = @. (2.0 * A.value * gravity_term^n.value / (n.value+1)) *
                            H̄^(n.value + 1) * ∇S ^ (n.value - 1)
+        # Plug flow: the surface sliding velocity is the depth average, i.e. the flux term
+        # of SIA2D! divided by H̄, which recovers u_b = C τ^p / N^q
         sliding_term = if any(C.value .> 0)
-            @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) *
-               H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+            @. C.value * gravity_term^(p.value - q.value) *
+               H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
         else
             zero(H̄)
         end
@@ -448,6 +452,92 @@ function surface_V!(
     Vy = .-D .* ∇Sy
 
     return Vx, Vy
+end
+
+"""
+    surface_V_inplace!(Vx, Vy, H, simulation, t, θ)
+
+In-place variant of [`surface_V!`](@ref) that writes the surface velocity
+components into the preallocated H-sized buffers `Vx`, `Vy` (staggered values in
+their interior, via `inn1`) and returns `nothing`. This mirrors the in-place,
+no-tuple-return shape of `SIA2D!`, which Enzyme differentiates cleanly, whereas
+the tuple-returning `surface_V!` trips Enzyme's verifier in reverse mode. It is
+the Enzyme target for the automatic velocity VJP (the `V_from_H` rrule in ODINN)
+and, like `surface_V!`, dispatches on the iceflow model so it stays universal.
+"""
+function surface_V_inplace!(
+        Vx, Vy, H::Matrix{<:Real}, simulation::SIM,
+        t::R, θ) where {SIM <: Simulation, R <: Real}
+    params::Sleipnir.Parameters = simulation.parameters
+    iceflow_model = simulation.model.iceflow
+    iceflow_cache = simulation.cache.iceflow
+    glacier_idx = iceflow_cache.glacier_idx
+    glacier = simulation.glaciers[glacier_idx]
+    B = glacier.B
+    H̄ = iceflow_cache.H̄
+    dSdx = iceflow_cache.dSdx
+    dSdy = iceflow_cache.dSdy
+    ∇S = iceflow_cache.∇S
+    ∇Sx = iceflow_cache.∇Sx
+    ∇Sy = iceflow_cache.∇Sy
+    Δx = glacier.Δx
+    Δy = glacier.Δy
+    (; ρ, g, ϵ) = params.physical
+
+    # Update glacier surface altimetry
+    S = B .+ H
+
+    # All grid variables computed in a staggered grid
+    diff_x!(dSdx, S, Δx)
+    diff_y!(dSdy, S, Δy)
+    avg_y!(∇Sx, dSdx)
+    avg_x!(∇Sy, dSdy)
+    # ϵ regularizes the sqrt for AD stability (∂∇S/∂∇Sx = ∇Sx/∇S → 0/0 at flat cells),
+    # matching SIA2D!; without it the reverse-mode velocity VJP is corrupted.
+    ∇S .= (∇Sx .^ 2 .+ ∇Sy .^ 2 .+ ϵ) .^ (1/2)
+    avg!(H̄, H)
+
+    apply_all_non_callback_laws!(
+        iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
+    (; A, n, C, p, q, Y, U) = iceflow_cache
+
+    # Typed buffer for D (see surface_V! for why a `D = if ... end` Union breaks Enzyme).
+    D = zero(H̄)
+    if iceflow_model.U_is_provided
+        f = simulation.parameters.simulation.f_surface_velocity_factor
+        @. D = U.value / f
+    elseif iceflow_model.Y_is_provided
+        n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
+        n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
+        gravity_term = ρ * g
+        rheology_term = @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) /
+                           (n.value + 2)
+        # Plug flow: the surface sliding velocity is the depth average, i.e. the flux term
+        # of SIA2D! divided by H̄, which recovers u_b = C τ^p / N^q
+        sliding_term = zero(H̄)
+        if any(C.value .> 0)
+            @. sliding_term = C.value * gravity_term^(p.value - q.value) *
+                              H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
+        end
+        @. D = sliding_term + rheology_term
+    else
+        gravity_term = ρ * g
+        rheology_term = @. (2.0 * A.value * gravity_term^n.value / (n.value+1)) *
+                           H̄^(n.value + 1) * ∇S ^ (n.value - 1)
+        # Plug flow: the surface sliding velocity is the depth average, i.e. the flux term
+        # of SIA2D! divided by H̄, which recovers u_b = C τ^p / N^q
+        sliding_term = zero(H̄)
+        if any(C.value .> 0)
+            @. sliding_term = C.value * gravity_term^(p.value - q.value) *
+                              H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
+        end
+        @. D = sliding_term + rheology_term
+    end
+
+    # Write staggered velocities into the interior of the H-sized output buffers.
+    inn1(Vx) .= .-D .* ∇Sx
+    inn1(Vy) .= .-D .* ∇Sy
+    return nothing
 end
 
 """
@@ -526,9 +616,11 @@ function surface_V(
         gravity_term = ρ * g
         rheology_term = @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) /
                            (n.value + 2)
+        # Plug flow: the surface sliding velocity is the depth average, i.e. the flux term
+        # of SIA2D! divided by H̄, which recovers u_b = C τ^p / N^q
         sliding_term = if any(C.value .> 0)
-            @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) *
-               H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+            @. C.value * gravity_term^(p.value - q.value) *
+               H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
         else
             zero(H̄)
         end
@@ -537,9 +629,11 @@ function surface_V(
         gravity_term = ρ * g
         rheology_term = @. (2.0 * A.value * gravity_term^n.value / (n.value+1)) *
                            H̄^(n.value + 1) * ∇S ^ (n.value - 1)
+        # Plug flow: the surface sliding velocity is the depth average, i.e. the flux term
+        # of SIA2D! divided by H̄, which recovers u_b = C τ^p / N^q
         sliding_term = if any(C.value .> 0)
-            @. C.value * (p.value - q.value + 2) * gravity_term^(p.value - q.value) *
-               H̄^(p.value - q.value + 1) * ∇S ^ (n.value - 1)
+            @. C.value * gravity_term^(p.value - q.value) *
+               H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
         else
             zero(H̄)
         end
