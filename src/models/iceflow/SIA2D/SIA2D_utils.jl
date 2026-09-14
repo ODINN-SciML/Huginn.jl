@@ -393,7 +393,7 @@ function surface_V!(
     Γꜛ = iceflow_cache.Γ
     Δx = glacier.Δx
     Δy = glacier.Δy
-    (; ρ, g) = params.physical
+    (; ρ, g, ϵ) = params.physical
 
     # Update glacier surface altimetry
     S = B .+ H
@@ -404,7 +404,9 @@ function surface_V!(
     diff_y!(dSdy, S, Δy)
     avg_y!(∇Sx, dSdx)
     avg_x!(∇Sy, dSdy)
-    ∇S .= (∇Sx .^ 2 .+ ∇Sy .^ 2) .^ (1/2)
+    # ϵ as in `SIA2D!`, `surface_V` and `surface_V_inplace!`: all four have to agree, or the
+    # velocity a path reports depends on which one it happened to call.
+    ∇S .= (∇Sx .^ 2 .+ ∇Sy .^ 2 .+ ϵ) .^ (1/2)
     avg!(H̄, H)
 
     apply_all_non_callback_laws!(
@@ -584,7 +586,7 @@ function surface_V(
     B = glacier.B
     Δx = glacier.Δx
     Δy = glacier.Δy
-    (; ρ, g) = params.physical
+    (; ρ, g, ϵ) = params.physical
 
     # Update glacier surface altimetry
     S = B .+ H
@@ -593,7 +595,11 @@ function surface_V(
     # Compute surface gradients on edges
     dSdx = diff_x(S) / Δx
     dSdy = diff_y(S) / Δy
-    ∇S = (avg_y(dSdx) .^ 2 .+ avg_x(dSdy) .^ 2) .^ (1/2)
+    # ϵ has to match `surface_V_inplace!` (and `SIA2D!`): the `V_from_H` rrule takes its value
+    # from here but computes its pullback by differentiating `surface_V_inplace!`, so without
+    # the same regularization the pullback is the derivative of a different function than the
+    # primal it is attached to. It also keeps laws reading `cache.∇S` consistent across paths.
+    ∇S = (avg_y(dSdx) .^ 2 .+ avg_x(dSdy) .^ 2 .+ ϵ) .^ (1/2)
     H̄ = avg(H)
 
     # Store temporary variables for use with the laws
