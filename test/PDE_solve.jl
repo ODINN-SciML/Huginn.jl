@@ -29,6 +29,9 @@ function pde_solve_test(;
         ),
         solver = SolverParameters(
             reltol = 1e-12,
+            # Pinned so the references track the ice flow model rather than the solver defaults
+            abstol = 1e-6,
+            scale_abstol = false,
             step = 2.0 # Large step to store few data
         )
     )
