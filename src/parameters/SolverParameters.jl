@@ -12,8 +12,8 @@ A mutable struct that holds parameters for the solver.
   - `solver::ST`: The algorithm used for solving differential equations.
   - `supply_eigen_est::Bool`: Whether to give `ROCK2` and `ROCK4` our own estimate of the spectral radius instead of letting them compute it (see [`with_eigen_est`](@ref)). Other solvers ignore it. Only useful for finite difference gradient checks.
   - `reltol::F`: The relative tolerance for the solver.
-  - `abstol::F`: The absolute tolerance for the solver, in metres of ice. This is the tolerance that matters in practice, since `reltol * H` is much smaller over most of the glacier. It is rescaled with the length of the run unless `scale_abstol` is `false` (see [`effective_abstol`](@ref)).
-  - `scale_abstol::Bool`: Whether to rescale `abstol` with the length of the run (see [`effective_abstol`](@ref)). Set to `false` to use `abstol` as it is.
+  - `abstol::F`: The absolute tolerance for the solver, in metres of ice. This is the tolerance that matters in practice, since `reltol * H` is much smaller over most of the glacier. It is tightened for runs longer than 5 years unless `scale_abstol` is `false` (see [`effective_abstol`](@ref)).
+  - `scale_abstol::Bool`: Whether to tighten `abstol` for long runs (see [`effective_abstol`](@ref)). Set to `false` to use `abstol` as it is.
   - `adaptive::Bool`: Whether the solver chooses its own step size. Adaptive stepping makes the solution discontinuous in the parameters — an arbitrarily small change can flip which steps are accepted — which is harmless for a forward run but makes finite differences meaningless. Gradient checks want `adaptive = false`; forward runs don't.
   - `dt::F`: Fixed step size used when `adaptive` is `false`, in years. Ignored otherwise.
   - `step::F`: The step size that controls at which frequency the results must be saved.
@@ -65,7 +65,7 @@ Constructs a `SolverParameters` object with the specified parameters or using de
   - `supply_eigen_est::Bool`: Whether to give `ROCK2` and `ROCK4` our own estimate of the spectral radius (see [`with_eigen_est`](@ref)). Only useful for finite difference gradient checks. Defaults to `false`.
   - `reltol::F`: The relative tolerance for the solver. Defaults to `1e-12`.
   - `abstol::F`: The absolute tolerance for the solver, in metres of ice. Defaults to `1e-3`, for a run of 5 years (see [`effective_abstol`](@ref)).
-  - `scale_abstol::Bool`: Whether to rescale `abstol` with the length of the run. Defaults to `true`.
+  - `scale_abstol::Bool`: Whether to tighten `abstol` for long runs. Defaults to `true`.
   - `adaptive::Bool`: Whether the solver picks its own step size. Defaults to `true`; gradient checks against finite differences need `false`.
   - `dt::F`: Fixed step in years, used only when `adaptive` is `false`. Defaults to `1.0/120.0`.
   - `step::F`: The step size that controls at which frequency the solution should be computed and returned in the results.

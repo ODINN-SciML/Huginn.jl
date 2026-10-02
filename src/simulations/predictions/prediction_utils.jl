@@ -213,10 +213,10 @@ const ABSTOL_REFERENCE_YEARS = 5.0
 """
     effective_abstol(abstol, tspan; verbose = true)
 
-Rescale `abstol` with the length of the run. `abstol` is given for a run of
-[`ABSTOL_REFERENCE_YEARS`](@ref), and it is divided by how many times longer the run is. A
-30 year run uses `abstol / 6`, and a 1 year run `abstol * 5`. Runs shorter than a year are
-treated as 1 year runs, so `abstol` is never more than 5 times looser.
+Tighten `abstol` for long runs. `abstol` is given for a run of
+[`ABSTOL_REFERENCE_YEARS`](@ref), and it is divided by how many times longer the run is: a
+30 year run uses `abstol / 6`. Shorter runs keep `abstol` as it is. We tried loosening it
+for them too, but that made short inversions and gradient checks noticeably less accurate.
 
 We do this because the solver error grows with the length of the run. On RGI60-11.03638,
 with `abstol = 1e-3`, the RMS error in `H` was 0.016, 0.129 and 0.223 m after 5, 15 and 30
@@ -228,18 +228,17 @@ elevation lookup table and accumulation ramp). With this rescaling, the error gr
 linearly with the length of the run. Keeping it constant would need a tolerance hundreds of
 times smaller for 30 years, which would be too expensive.
 
-These numbers come from a single glacier, and runs shorter than 5 years were not tested. If
-you need a given accuracy, set `abstol` yourself and `scale_abstol = false` in
-[`SolverParameters`](@ref).
+These numbers come from a single glacier. If you need a given accuracy, set `abstol`
+yourself and `scale_abstol = false` in [`SolverParameters`](@ref).
 
-The rescaling is logged, use `verbose = false` to silence it.
+The adjustment is logged, use `verbose = false` to silence it.
 """
 function effective_abstol(abstol::F, tspan; verbose::Bool = true) where {F}
     years = tspan[2] - tspan[1]
-    # Floor at 1 year so very short runs don't get an arbitrarily loose tolerance
-    scaled = abstol * F(ABSTOL_REFERENCE_YEARS / max(years, 1))
+    # Only tighten: loosening short runs hurt short inversions and gradient checks
+    scaled = abstol * F(ABSTOL_REFERENCE_YEARS / max(years, ABSTOL_REFERENCE_YEARS))
     verbose && scaled != abstol &&
-        @info "Rescaling abstol for a $(round(years; digits = 1)) year run" abstol scaled
+        @info "Tightening abstol for a $(round(years; digits = 1)) year run" abstol scaled
     return scaled
 end
 

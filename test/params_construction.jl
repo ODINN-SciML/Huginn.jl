@@ -60,23 +60,21 @@ function effective_abstol_test()
     # A run of exactly the reference length keeps the tolerance it was given
     @test Huginn.effective_abstol(atol, (2010.0, 2010.0 + ref); verbose = false) == atol
 
-    # Longer runs are tightened and shorter ones loosened, in inverse proportion
+    # Longer runs are tightened in proportion to the run length
     @test Huginn.effective_abstol(atol, (2010.0, 2010.0 + 2 * ref); verbose = false) ≈
           atol / 2
     @test Huginn.effective_abstol(atol, (1990.0, 2020.0); verbose = false) ≈ atol * ref / 30
-    @test Huginn.effective_abstol(atol, (2010.0, 2010.0 + ref / 5); verbose = false) ≈
-          atol * 5
 
-    # Runs shorter than a year are scaled as a 1 year run
-    @test Huginn.effective_abstol(atol, (2010.0, 2010.1); verbose = false) ≈ atol * ref
-    @test Huginn.effective_abstol(atol, (2010.0, 2010.5); verbose = false) ==
-          Huginn.effective_abstol(atol, (2010.0, 2011.0); verbose = false)
+    # Shorter runs keep the tolerance they were given
+    @test Huginn.effective_abstol(atol, (2010.0, 2012.0); verbose = false) == atol
+    @test Huginn.effective_abstol(atol, (2010.0, 2010.1); verbose = false) == atol
 
-    # Monotone in the run length
-    prev = Inf
+    # Never loosened, and monotone in the run length
+    prev = atol
     for years in (1.0, ref, 10.0, 30.0, 100.0)
         cur = Huginn.effective_abstol(atol, (2010.0, 2010.0 + years); verbose = false)
-        @test cur < prev
+        @test cur <= atol
+        @test cur <= prev
         prev = cur
     end
 
