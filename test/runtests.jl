@@ -102,6 +102,7 @@ ENV["GKSwstype"]="nul"
         @testset "Solver parameters construction" begin
             @testset "With specified variables" params_constructor_specified(false)
             @testset "With default variables" params_constructor_default(false)
+            @testset "Absolute tolerance scaling" effective_abstol_test()
         end
     end
 

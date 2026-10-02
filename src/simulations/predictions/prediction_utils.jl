@@ -36,37 +36,16 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     params = simulation.parameters
     glacier = simulation.glaciers[glacier_idx]
     step = params.solver.step
-    step_MB = params.simulation.step_MB
 
     glacier_id = isnothing(glacier.rgi_id) ? "unnamed" : glacier.rgi_id
     println("Processing glacier $(glacier_id) for PDE forward simulation")
 
     # Initialize iceflow and mb cache
     simulation.cache = init_cache(model, simulation, glacier_idx, nothing)
-    cache = simulation.cache
 
     # Define tstops
     tstops = define_callback_steps(params.simulation.tspan, step)
     tstops = unique(vcat(tstops, params.solver.tstops)) # Merge time steps controlled by `step` with the user provided time steps
-
-    # Create mass balance callback and store MB snapshots in cache diagnostics
-    mb_action! = let model = model, cache = cache, glacier = glacier, step_MB = step_MB,
-        glacier_idx = glacier_idx
-
-        function (integrator)
-            if params.simulation.use_MB
-                # Compute mass balance
-                glacier.S .= glacier.B .+ integrator.u
-                MB_timestep!(cache, model, glacier, step_MB, integrator.t, glacier_idx)
-                apply_MB_mask!(integrator.u, cache.iceflow)
-                push!(cache.iceflow.MB_history, copy(cache.iceflow.MB))
-                push!(cache.iceflow.MB_times, integrator.t)
-            end
-        end
-    end
-    # A simulation period is sliced in time windows that are separated by `step_MB`
-    # The mass balance is applied at the end of each of the windows
-    cb_MB = PeriodicCallback(mb_action!, step_MB; initial_affect = false, final_affect = true)
 
     # Create iceflow law callback
     cb_iceflow = build_callback(
@@ -76,7 +55,8 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
         params.simulation.tspan
     )
 
-    cb = CallbackSet(cb_MB, cb_iceflow)
+    # Mass balance is a source term of the ice flow RHS, so there is no callback for it
+    cb = CallbackSet(cb_iceflow)
 
     # Run iceflow PDE for this glacier
     du = params.simulation.use_iceflow ? SIA2D_PDE! : noSIA2D!
@@ -94,6 +74,10 @@ end
     ) where {SIM <: Simulation, F <: AbstractFloat}
 
 Make forward simulation of the iceflow PDE determined in `du` in-place and create the results.
+
+Results are sampled on `tstops`. When mass balance runs in the right hand side, the solver
+is also forced to stop on the mass balance window edges — discontinuities of the right hand
+side, not result time steps.
 """
 function simulate_iceflow_PDE!(
         simulation::SIM,
@@ -104,18 +88,31 @@ function simulate_iceflow_PDE!(
     cache = simulation.cache
     params = simulation.parameters
 
+    solver_tstops, saveat = MB_solver_stops(simulation, tstops)
+    # `dt` is passed only when stepping is fixed. In adaptive mode the solver picks its own
+    # initial step, and supplying one overrides that choice; supplying zero aborts the solve
+    # outright.
+    step_kw = params.solver.adaptive ? NamedTuple() : (; dt = params.solver.dt)
+
     # Define problem to be solved
     iceflow_prob = ODEProblem{true, SciMLBase.FullSpecialize}(
-        du, cache.iceflow.H, params.simulation.tspan, simulation; tstops = tstops)
+        du, cache.iceflow.H, params.simulation.tspan, simulation; tstops = solver_tstops)
 
     iceflow_sol = solve(iceflow_prob,
-        params.solver.solver,
+        params.solver.supply_eigen_est ?
+        with_eigen_est(params.solver.solver, simulation) : params.solver.solver;
         callback = cb,
         reltol = params.solver.reltol,
+        abstol = params.solver.scale_abstol ?
+                 effective_abstol(params.solver.abstol, params.simulation.tspan) :
+                 params.solver.abstol,
+        adaptive = params.solver.adaptive,
+        saveat = saveat,
         save_everystep = params.solver.save_everystep,
         progress = params.solver.progress,
         progress_steps = params.solver.progress_steps,
-        maxiters = params.solver.maxiters)
+        maxiters = params.solver.maxiters,
+        step_kw...)
     @assert iceflow_sol.retcode==ReturnCode.Success "There was an error in the iceflow solver. Returned code is \"$(iceflow_sol.retcode)\""
 
     # @show iceflow_sol.destats
@@ -132,6 +129,8 @@ function simulate_iceflow_PDE!(
     # Surface topography
     @. cache.iceflow.S = glacier.B + cache.iceflow.H
 
+    MB, t_MB = MB_diagnostics(simulation, iceflow_sol)
+
     # Update simulation results
     results = Sleipnir.create_results(
         simulation,
@@ -139,15 +138,177 @@ function simulate_iceflow_PDE!(
         iceflow_sol,
         tstops;
         processVelocity = V_from_H,
-        MB = cache.iceflow.MB_history,
-        t_MB = cache.iceflow.MB_times
+        MB = MB,
+        t_MB = t_MB
     )
 
     return results
 end
 
+"""
+    spectral_radius(simulation)
+
+Bound on the spectral radius of the ice flow right hand side, in yr⁻¹.
+
+Two terms contribute: the flux divergence, a diffusion bounded by `4 D (1/Δx² + 1/Δy²)`, and
+the mass balance source's diagonal Jacobian `∂ṁ/∂H`.
+
+The mass balance term isn't a correction — where ice is thin the ramp makes `∂ṁ/∂H` large,
+and where `A` is small `D` is negligible, so mass balance can be the only term. Dropping it
+underestimates the spectral radius and the stabilised solver picks too few stages.
+
+The mass balance term is a bound from the lookup table, not the exact maximum at the current
+state: this runs inside the solver, where the adjoint hands back an augmented `[H; θ]`
+vector that a state-dependent version couldn't read anyway.
+"""
+function spectral_radius(simulation)
+    cache = simulation.cache
+    glacier = simulation.glaciers[cache.iceflow.glacier_idx]
+    λ = 4 * maximum(cache.iceflow.D) * (1 / glacier.Δx^2 + 1 / glacier.Δy^2)
+    mb_cache = cache.mass_balance
+    return mb_cache_active(mb_cache) ? λ + mb_cache.∂ṁ_max : λ
+end
+
+"""
+    with_eigen_est(alg, simulation)
+
+Give `ROCK2` and `ROCK4` our own estimate of the spectral radius, computed with
+[`spectral_radius`](@ref), instead of letting them compute it. Other solvers are returned
+unchanged. It is only used when `supply_eigen_est = true` in [`SolverParameters`](@ref).
+
+By default, ROCK estimates the spectral radius with a power iteration. The result of this
+iteration changes slightly between two close parameter values, and so can the number of
+stages used by the solver. This doesn't matter for a forward run, but it adds noise to the
+loss, which breaks finite difference gradient checks. Our estimate doesn't have this problem.
+
+This is not a speed-up. On RGI60-11.03638 over 2010–2015, the solver needed 1130 RHS
+evaluations with our estimate and 1157 without it. Multiplying our estimate by 2 or 5 to be
+on the safe side costs 25% and 83% more evaluations.
+
+!!! warning
+
+    [`spectral_radius`](@ref) is not a guaranteed upper bound. It uses the `D` from the last
+    RHS evaluation, but `D` also depends on `∇S`, so along the flow the true value can be up
+    to about `n` times larger. If the estimate is too low, the solver uses too few stages and
+    can become unstable. With `adaptive = true` such a step is usually rejected, but with
+    `adaptive = false` nothing catches it.
+"""
+function with_eigen_est(alg::ROCK2, simulation)
+    return ROCK2(min_stages = alg.min_stages, max_stages = alg.max_stages,
+        eigen_est = (integrator) -> integrator.eigen_est = spectral_radius(simulation))
+end
+function with_eigen_est(alg::ROCK4, simulation)
+    return ROCK4(min_stages = alg.min_stages, max_stages = alg.max_stages,
+        eigen_est = (integrator) -> integrator.eigen_est = spectral_radius(simulation))
+end
+with_eigen_est(alg, simulation) = alg
+
+"""
+    ABSTOL_REFERENCE_YEARS
+
+Length of the run, in years, for which `abstol` is given. See [`effective_abstol`](@ref).
+"""
+const ABSTOL_REFERENCE_YEARS = 5.0
+
+"""
+    effective_abstol(abstol, tspan; verbose = true)
+
+Tighten `abstol` for long runs. `abstol` is given for a run of
+[`ABSTOL_REFERENCE_YEARS`](@ref), and it is divided by how many times longer the run is: a
+30 year run uses `abstol / 6`. Shorter runs keep `abstol` as it is. We tried loosening it
+for them too, but that made short inversions and gradient checks noticeably less accurate.
+
+We do this because the solver error grows with the length of the run. On RGI60-11.03638,
+with `abstol = 1e-3`, the RMS error in `H` was 0.016, 0.129 and 0.223 m after 5, 15 and 30
+years, compared to a converged reference (`RDPK3Sp35`, `abstol = 1e-10`, fixed
+`dt = 1/2400`). Between 5 and 30 years this is roughly `t^1.4`. Tightening `abstol` helps
+less than one would expect, since the error only went down as `abstol^0.4`. This is
+probably because the mass balance is not smooth in `H` (linear interpolation in the
+elevation lookup table and accumulation ramp). With this rescaling, the error grows roughly
+linearly with the length of the run. Keeping it constant would need a tolerance hundreds of
+times smaller for 30 years, which would be too expensive.
+
+These numbers come from a single glacier. If you need a given accuracy, set `abstol`
+yourself and `scale_abstol = false` in [`SolverParameters`](@ref).
+
+The adjustment is logged, use `verbose = false` to silence it.
+"""
+function effective_abstol(abstol::F, tspan; verbose::Bool = true) where {F}
+    years = tspan[2] - tspan[1]
+    # Only tighten: loosening short runs hurt short inversions and gradient checks
+    scaled = abstol * F(ABSTOL_REFERENCE_YEARS / max(years, ABSTOL_REFERENCE_YEARS))
+    verbose && scaled != abstol &&
+        @info "Tightening abstol for a $(round(years; digits = 1)) year run" abstol scaled
+    return scaled
+end
+
+"""
+    MB_solver_stops(simulation, tstops::Vector{F}) where {F <: AbstractFloat}
+
+Times the solver must stop at, and times it must save at, for a given result grid `tstops`.
+
+Saving must be asked for explicitly now: no callback runs on the result grid any more, and a
+`PeriodicCallback` used to save either side of itself as a side effect — the mass balance
+one did this even on runs without mass balance. `create_results` reads the result grid out
+of the solution and fails on states that are missing.
+
+With mass balance in the right hand side, the solver must also stop at every window edge
+(`ṁ` is piecewise constant in time, so the right hand side jumps there), and those edge
+states are saved for [`MB_diagnostics`](@ref) to read.
+"""
+function MB_solver_stops(simulation, tstops::Vector{F}) where {F <: AbstractFloat}
+    mb_cache_active(simulation.cache.mass_balance) || return tstops, tstops
+    params = simulation.parameters
+    edges = define_callback_steps(params.simulation.tspan, params.simulation.step_MB)
+    solver_tstops = sort(unique(vcat(tstops, edges)))
+    return solver_tstops, solver_tstops
+end
+
+"""
+    MB_diagnostics(simulation, iceflow_sol)
+
+Mass balance accumulated over each mass balance window, and the times it's reported at.
+
+Populates the `MB` and `t_MB` fields of `Results`. With mass balance in the ice flow right
+hand side, no snapshot is recorded during the solve, so it's rebuilt from the states saved on
+window edges with a midpoint rule,
+
+```math
+MB_k ≈ ṁ\\left(\\frac{H_{k-1} + H_k}{2}, \\frac{t_{k-1} + t_k}{2}\\right) (t_k - t_{k-1})
+```
+
+on the window grid, not the result grid — `MB` and `t_MB` don't depend on `step`. Otherwise
+the snapshots recorded during the solve are returned unchanged.
+"""
+function MB_diagnostics(simulation, iceflow_sol)
+    cache = simulation.cache
+    mb_cache = cache.mass_balance
+    mb_cache_active(mb_cache) || return cache.iceflow.MB_history, cache.iceflow.MB_times
+
+    glacier_idx = cache.iceflow.glacier_idx
+    glacier = simulation.glaciers[glacier_idx]
+    mb_model = get_mb_model(simulation.model.mass_balance, glacier_idx)
+
+    params = simulation.parameters
+    tspan = params.simulation.tspan
+    edges = define_callback_steps(tspan, params.simulation.step_MB)
+    H = iceflow_sol.u[Sleipnir.indFromT(tspan, edges, iceflow_sol.t)]
+
+    F = eltype(edges)
+    n = length(edges) - 1
+    MB = Vector{Matrix{F}}(undef, max(n, 0))
+    t_MB = Vector{F}(undef, max(n, 0))
+    for k in 1:n
+        MB_rate!(mb_cache.ṁ, 0.5 .* (H[k] .+ H[k + 1]), mb_cache, mb_model, glacier,
+            0.5 * (edges[k] + edges[k + 1]))
+        MB[k] = mb_cache.ṁ .* (edges[k + 1] - edges[k])
+        t_MB[k] = edges[k + 1]
+    end
+    return MB, t_MB
+end
+
 function SIA2D_PDE!(_dH::Matrix{R}, _H::Matrix{R}, simulation::SIM,
-        t::R) where {R <: Real, SIM <: Simulation}
+        t::Real) where {R <: Real, SIM <: Simulation}
     SIA2D!(_dH, _H, simulation, t, nothing)
     return nothing
 end

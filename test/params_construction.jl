@@ -39,6 +39,11 @@ function params_constructor_default(save_refs::Bool = false)
     @test check_concrete_types(solver_params; show = false)
     @test check_field_types(typeof(solver_params); show = false)
 
+    # Solver shortcuts are opt-in: nothing rewrites the algorithm unless asked for
+    @test solver_params.supply_eigen_est == false
+    @test Huginn.with_eigen_est(solver_params.solver, nothing) === solver_params.solver
+    @test SolverParameters(supply_eigen_est = true).supply_eigen_est == true
+
     if save_refs
         jldsave(joinpath(Huginn.root_dir, "test/data/params/solver_params_default.jld2"); solver_params)
     end
@@ -46,4 +51,38 @@ function params_constructor_default(save_refs::Bool = false)
     solver_params_ref = load(joinpath(Huginn.root_dir, "test/data/params/solver_params_default.jld2"))["solver_params"]
 
     @test solver_params == solver_params_ref
+end
+
+function effective_abstol_test()
+    atol = 1e-3
+    ref = Huginn.ABSTOL_REFERENCE_YEARS
+
+    # A run of exactly the reference length keeps the tolerance it was given
+    @test Huginn.effective_abstol(atol, (2010.0, 2010.0 + ref); verbose = false) == atol
+
+    # Longer runs are tightened in proportion to the run length
+    @test Huginn.effective_abstol(atol, (2010.0, 2010.0 + 2 * ref); verbose = false) ≈
+          atol / 2
+    @test Huginn.effective_abstol(atol, (1990.0, 2020.0); verbose = false) ≈ atol * ref / 30
+
+    # Shorter runs keep the tolerance they were given
+    @test Huginn.effective_abstol(atol, (2010.0, 2012.0); verbose = false) == atol
+    @test Huginn.effective_abstol(atol, (2010.0, 2010.1); verbose = false) == atol
+
+    # Never loosened, and monotone in the run length
+    prev = atol
+    for years in (1.0, ref, 10.0, 30.0, 100.0)
+        cur = Huginn.effective_abstol(atol, (2010.0, 2010.0 + years); verbose = false)
+        @test cur <= atol
+        @test cur <= prev
+        prev = cur
+    end
+
+    # The float type of abstol is preserved
+    @test Huginn.effective_abstol(Float32(atol), (1990.0, 2020.0); verbose = false) isa
+          Float32
+
+    # The flag round-trips and is respected by the constructor
+    @test SolverParameters(scale_abstol = false).scale_abstol == false
+    @test SolverParameters().scale_abstol == true
 end
