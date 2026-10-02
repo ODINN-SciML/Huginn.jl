@@ -172,29 +172,26 @@ end
 """
     with_eigen_est(alg, simulation)
 
-Give a stabilised solver the spectral radius instead of letting it estimate one. Applied only
-when `supply_eigen_est` is set in [`SolverParameters`](@ref); every algorithm other than
-`ROCK2` and `ROCK4` is returned unchanged either way.
+Give `ROCK2` and `ROCK4` our own estimate of the spectral radius, computed with
+[`spectral_radius`](@ref), instead of letting them compute it. Other solvers are returned
+unchanged. It is only used when `supply_eigen_est = true` in [`SolverParameters`](@ref).
 
-`ROCK2` otherwise power-iterates the spectral radius. The estimate is then the result of an
-iteration with its own convergence tolerance, so neighbouring states can return slightly
-different values for a state-dependent number of right hand side calls. The stage count is a
-step function of the estimate, so it can flip between two nearby parameter values — which is
-invisible in a forward run but puts a noise floor under the loss that is fatal for finite
-differences. [`spectral_radius`](@ref) is not state-independent either, since `D` depends on
-`H`, but it maps a given state to one value smoothly rather than through an iteration.
+By default, ROCK estimates the spectral radius with a power iteration. The result of this
+iteration changes slightly between two close parameter values, and so can the number of
+stages used by the solver. This doesn't matter for a forward run, but it adds noise to the
+loss, which breaks finite difference gradient checks. Our estimate doesn't have this problem.
 
-Not a speed optimisation: measured on RGI60-11.03638 over 2010–2015, supplying the bound cost
-1130 right hand side evaluations against 1157 for the power iteration, a 2% saving, with no
-rejected steps either way. Safety factors of 2x and 5x on the bound cost 25% and 83% more.
+This is not a speed-up. On RGI60-11.03638 over 2010–2015, the solver needed 1130 RHS
+evaluations with our estimate and 1157 without it. Multiplying our estimate by 2 or 5 to be
+on the safe side costs 25% and 83% more evaluations.
 
 !!! warning
 
-    [`spectral_radius`](@ref) bounds the frozen-coefficient diffusion, not the full Jacobian
-    of a nonlinear diffusion, and it is read from the previous right hand side evaluation. It
-    held on the run above, but an underestimate leaves `ROCK2` with too few stages. With
-    `adaptive = true` the resulting step is rejected and the solver recovers; with
-    `adaptive = false` there is no such safety net.
+    [`spectral_radius`](@ref) is not a guaranteed upper bound. It uses the `D` from the last
+    RHS evaluation, but `D` also depends on `∇S`, so along the flow the true value can be up
+    to about `n` times larger. If the estimate is too low, the solver uses too few stages and
+    can become unstable. With `adaptive = true` such a step is usually rejected, but with
+    `adaptive = false` nothing catches it.
 """
 function with_eigen_est(alg::ROCK2, simulation)
     return ROCK2(min_stages = alg.min_stages, max_stages = alg.max_stages,
@@ -209,44 +206,38 @@ with_eigen_est(alg, simulation) = alg
 """
     ABSTOL_REFERENCE_YEARS
 
-Run length `abstol` is quoted for. [`effective_abstol`](@ref) rescales `abstol` relative to
-this, so a run of exactly this length uses it unchanged.
+Length of the run, in years, for which `abstol` is given. See [`effective_abstol`](@ref).
 """
 const ABSTOL_REFERENCE_YEARS = 5.0
 
 """
     effective_abstol(abstol, tspan; verbose = true)
 
-Absolute tolerance handed to the solver, rescaled with the length of the run.
+Rescale `abstol` with the length of the run. `abstol` is given for a run of
+[`ABSTOL_REFERENCE_YEARS`](@ref), and it is divided by how many times longer the run is. A
+30 year run uses `abstol / 6`, and a 1 year run `abstol * 5`. Runs shorter than a year are
+treated as 1 year runs, so `abstol` is never more than 5 times looser.
 
-`abstol` is quoted for a run of [`ABSTOL_REFERENCE_YEARS`](@ref) and divided by the run
-length relative to it: a 30 year run uses `abstol / 6`, a 1 year run `abstol * 5`.
+We do this because the solver error grows with the length of the run. On RGI60-11.03638,
+with `abstol = 1e-3`, the RMS error in `H` was 0.016, 0.129 and 0.223 m after 5, 15 and 30
+years, compared to a converged reference (`RDPK3Sp35`, `abstol = 1e-10`, fixed
+`dt = 1/2400`). Between 5 and 30 years this is roughly `t^1.4`. Tightening `abstol` helps
+less than one would expect, since the error only went down as `abstol^0.4`. This is
+probably because the mass balance is not smooth in `H` (linear interpolation in the
+elevation lookup table and accumulation ramp). With this rescaling, the error grows roughly
+linearly with the length of the run. Keeping it constant would need a tolerance hundreds of
+times smaller for 30 years, which would be too expensive.
 
-The tolerance controls the error made at each step, and these errors add up over the run.
-On the glacier below, at a fixed `abstol`, the error grew roughly as `t^1.4` with the run
-length and dropped only as `abstol^0.4` with the tolerance. Dividing `abstol` by the run
-length brings the growth down to about linear in the run length. Keeping the error constant
-instead would need a tolerance some hundreds of times tighter for a 30 year run, with a
-cost to match.
+These numbers come from a single glacier, and runs shorter than 5 years were not tested. If
+you need a given accuracy, set `abstol` yourself and `scale_abstol = false` in
+[`SolverParameters`](@ref).
 
-Set `scale_abstol = false` in [`SolverParameters`](@ref) to use `abstol` exactly as given.
-The adjustment is logged; pass `verbose = false` to silence it.
-
-!!! note
-
-    These rates come from a single glacier (RGI60-11.03638), compared against a converged
-    reference (`RDPK3Sp35`, `abstol = 1e-10`, fixed `dt = 1/2400`). At `abstol = 1e-3` the
-    RMS error in `H` was 0.016, 0.129 and 0.223 m over 5, 15 and 30 years. `t^1.4` is the
-    rate between 5 and 30 years; the 15 year run sits above it. The error responds to the
-    tolerance less than the order of the solver suggests, probably because the mass balance
-    is not smooth in `H` (piecewise linear elevation lookup table and accumulation ramp).
-    Runs shorter than 5 years were not measured, so loosening them is an extrapolation.
-    Take these numbers as the shape of the rule, not a guarantee: a run that needs a given
-    accuracy should set `abstol` with `scale_abstol = false`.
+The rescaling is logged, use `verbose = false` to silence it.
 """
 function effective_abstol(abstol::F, tspan; verbose::Bool = true) where {F}
     years = tspan[2] - tspan[1]
-    scaled = abstol * F(ABSTOL_REFERENCE_YEARS / years)
+    # Floor at 1 year so very short runs don't get an arbitrarily loose tolerance
+    scaled = abstol * F(ABSTOL_REFERENCE_YEARS / max(years, 1))
     verbose && scaled != abstol &&
         @info "Rescaling abstol for a $(round(years; digits = 1)) year run" abstol scaled
     return scaled

@@ -67,6 +67,11 @@ function effective_abstol_test()
     @test Huginn.effective_abstol(atol, (2010.0, 2010.0 + ref / 5); verbose = false) ≈
           atol * 5
 
+    # Runs shorter than a year are scaled as a 1 year run
+    @test Huginn.effective_abstol(atol, (2010.0, 2010.1); verbose = false) ≈ atol * ref
+    @test Huginn.effective_abstol(atol, (2010.0, 2010.5); verbose = false) ==
+          Huginn.effective_abstol(atol, (2010.0, 2011.0); verbose = false)
+
     # Monotone in the run length
     prev = Inf
     for years in (1.0, ref, 10.0, 30.0, 100.0)
