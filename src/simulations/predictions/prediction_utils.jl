@@ -99,7 +99,8 @@ function simulate_iceflow_PDE!(
         du, cache.iceflow.H, params.simulation.tspan, simulation; tstops = solver_tstops)
 
     iceflow_sol = solve(iceflow_prob,
-        with_eigen_est(params.solver.solver, simulation);
+        params.solver.supply_eigen_est ?
+        with_eigen_est(params.solver.solver, simulation) : params.solver.solver;
         callback = cb,
         reltol = params.solver.reltol,
         abstol = params.solver.scale_abstol ?
@@ -171,12 +172,29 @@ end
 """
     with_eigen_est(alg, simulation)
 
-Give a stabilised solver the spectral radius instead of letting it estimate one.
+Give a stabilised solver the spectral radius instead of letting it estimate one. Applied only
+when `supply_eigen_est` is set in [`SolverParameters`](@ref); every algorithm other than
+`ROCK2` and `ROCK4` is returned unchanged either way.
 
-`ROCK2` otherwise power-iterates it, costing extra right hand side evaluations and — since
-the iteration depends on the state — making the solution jitter with the parameters.
-Invisible in a forward run, but it puts a noise floor under the loss that's fatal for finite
-differences. Every other algorithm is returned unchanged.
+`ROCK2` otherwise power-iterates the spectral radius. The estimate is then the result of an
+iteration with its own convergence tolerance, so neighbouring states can return slightly
+different values for a state-dependent number of right hand side calls. The stage count is a
+step function of the estimate, so it can flip between two nearby parameter values — which is
+invisible in a forward run but puts a noise floor under the loss that is fatal for finite
+differences. [`spectral_radius`](@ref) is not state-independent either, since `D` depends on
+`H`, but it maps a given state to one value smoothly rather than through an iteration.
+
+Not a speed optimisation: measured on RGI60-11.03638 over 2010–2015, supplying the bound cost
+1130 right hand side evaluations against 1157 for the power iteration, a 2% saving, with no
+rejected steps either way. Safety factors of 2x and 5x on the bound cost 25% and 83% more.
+
+!!! warning
+
+    [`spectral_radius`](@ref) bounds the frozen-coefficient diffusion, not the full Jacobian
+    of a nonlinear diffusion, and it is read from the previous right hand side evaluation. It
+    held on the run above, but an underestimate leaves `ROCK2` with too few stages. With
+    `adaptive = true` the resulting step is rejected and the solver recovers; with
+    `adaptive = false` there is no such safety net.
 """
 function with_eigen_est(alg::ROCK2, simulation)
     return ROCK2(min_stages = alg.min_stages, max_stages = alg.max_stages,
@@ -191,40 +209,46 @@ with_eigen_est(alg, simulation) = alg
 """
     ABSTOL_REFERENCE_YEARS
 
-Run length the default `abstol` was chosen for. Longer runs are tightened relative to it by
-[`effective_abstol`](@ref).
+Run length `abstol` is quoted for. [`effective_abstol`](@ref) rescales `abstol` relative to
+this, so a run of exactly this length uses it unchanged.
 """
 const ABSTOL_REFERENCE_YEARS = 5.0
 
 """
     effective_abstol(abstol, tspan; verbose = true)
 
-Absolute tolerance handed to the solver, tightened linearly with run length.
+Absolute tolerance handed to the solver, rescaled with the length of the run.
 
-Solver error accumulates — on a test glacier as roughly `t^1.4` — so a tolerance sized for a
-few years is too loose for several decades. At the default `abstol`, a 30 year run reached
-RMS error 0.22 m and local error 3.8 m, against 0.02 m and 0.16 m over five years.
+`abstol` is quoted for a run of [`ABSTOL_REFERENCE_YEARS`](@ref) and divided by the run
+length relative to it: a 30 year run uses `abstol / 6`, a 1 year run `abstol * 5`.
 
-Linear scaling lands near what that measurement recommends for a multi-decade run, at
-roughly twice the cost. It's deliberately not the scaling that holds error constant: error
-responds weakly to tolerance (about `abstol^0.4`), so a constant-error rule would need a
-tolerance some hundreds of times tighter, and a cost to match.
+The tolerance controls the error made at each step, and these errors add up over the run.
+On the glacier below, at a fixed `abstol`, the error grew roughly as `t^1.4` with the run
+length and dropped only as `abstol^0.4` with the tolerance. Dividing `abstol` by the run
+length brings the growth down to about linear in the run length. Keeping the error constant
+instead would need a tolerance some hundreds of times tighter for a 30 year run, with a
+cost to match.
 
-Only ever tightens, never loosens; the adjustment is logged. Pass `verbose = false` to
-silence it.
+Set `scale_abstol = false` in [`SolverParameters`](@ref) to use `abstol` exactly as given.
+The adjustment is logged; pass `verbose = false` to silence it.
 
 !!! note
 
-    These exponents were measured on one glacier over three run lengths. They set the shape
-    of the rule, not a guarantee — a run needing a specific accuracy should set `abstol`
-    explicitly.
+    These rates come from a single glacier (RGI60-11.03638), compared against a converged
+    reference (`RDPK3Sp35`, `abstol = 1e-10`, fixed `dt = 1/2400`). At `abstol = 1e-3` the
+    RMS error in `H` was 0.016, 0.129 and 0.223 m over 5, 15 and 30 years. `t^1.4` is the
+    rate between 5 and 30 years; the 15 year run sits above it. The error responds to the
+    tolerance less than the order of the solver suggests, probably because the mass balance
+    is not smooth in `H` (piecewise linear elevation lookup table and accumulation ramp).
+    Runs shorter than 5 years were not measured, so loosening them is an extrapolation.
+    Take these numbers as the shape of the rule, not a guarantee: a run that needs a given
+    accuracy should set `abstol` with `scale_abstol = false`.
 """
 function effective_abstol(abstol::F, tspan; verbose::Bool = true) where {F}
     years = tspan[2] - tspan[1]
-    years > ABSTOL_REFERENCE_YEARS || return abstol
     scaled = abstol * F(ABSTOL_REFERENCE_YEARS / years)
-    verbose &&
-        @info "Tightening abstol for a $(round(years; digits = 1)) year run" abstol scaled
+    verbose && scaled != abstol &&
+        @info "Rescaling abstol for a $(round(years; digits = 1)) year run" abstol scaled
     return scaled
 end
 

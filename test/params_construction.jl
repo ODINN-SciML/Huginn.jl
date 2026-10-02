@@ -39,6 +39,11 @@ function params_constructor_default(save_refs::Bool = false)
     @test check_concrete_types(solver_params; show = false)
     @test check_field_types(typeof(solver_params); show = false)
 
+    # Solver shortcuts are opt-in: nothing rewrites the algorithm unless asked for
+    @test solver_params.supply_eigen_est == false
+    @test Huginn.with_eigen_est(solver_params.solver, nothing) === solver_params.solver
+    @test SolverParameters(supply_eigen_est = true).supply_eigen_est == true
+
     if save_refs
         jldsave(joinpath(Huginn.root_dir, "test/data/params/solver_params_default.jld2"); solver_params)
     end
@@ -52,21 +57,21 @@ function effective_abstol_test()
     atol = 1e-3
     ref = Huginn.ABSTOL_REFERENCE_YEARS
 
-    # Short runs keep the tolerance they were given, boundary included
-    @test Huginn.effective_abstol(atol, (2010.0, 2011.0); verbose = false) == atol
+    # A run of exactly the reference length keeps the tolerance it was given
     @test Huginn.effective_abstol(atol, (2010.0, 2010.0 + ref); verbose = false) == atol
 
-    # Longer runs are tightened in proportion to the run length
+    # Longer runs are tightened and shorter ones loosened, in inverse proportion
     @test Huginn.effective_abstol(atol, (2010.0, 2010.0 + 2 * ref); verbose = false) ≈
           atol / 2
     @test Huginn.effective_abstol(atol, (1990.0, 2020.0); verbose = false) ≈ atol * ref / 30
+    @test Huginn.effective_abstol(atol, (2010.0, 2010.0 + ref / 5); verbose = false) ≈
+          atol * 5
 
-    # Never loosened, and monotone in the run length
-    prev = atol
+    # Monotone in the run length
+    prev = Inf
     for years in (1.0, ref, 10.0, 30.0, 100.0)
         cur = Huginn.effective_abstol(atol, (2010.0, 2010.0 + years); verbose = false)
-        @test cur <= atol
-        @test cur <= prev
+        @test cur < prev
         prev = cur
     end
 
