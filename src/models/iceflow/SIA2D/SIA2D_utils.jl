@@ -5,7 +5,7 @@ import Sleipnir: apply_all_non_callback_laws!, apply_all_callback_laws!
         dH::Matrix{R},
         H::Matrix{R},
         simulation::SIM,
-        t::R,
+        t::Real,
         θ,
     ) where {R <:Real, SIM <: Simulation}
 
@@ -16,7 +16,7 @@ Simulates the evolution of ice thickness in a 2D shallow ice approximation (SIA)
   - `dH::Matrix{R}`: Matrix to store the rate of change of ice thickness.
   - `H::Matrix{R}`: Matrix representing the ice thickness.
   - `simulation::SIM`: Simulation object containing model parameters and state.
-  - `t::R`: Current simulation time.
+  - `t::Real`: Current simulation time. Deliberately not tied to the element type of the state, so that the state can be dual or tracked while time stays a plain float.
   - `θ`: Parameters of the laws to be used in the SIA. Can be `nothing` when no learnable laws are used.
 
 # Details
@@ -24,6 +24,7 @@ Simulates the evolution of ice thickness in a 2D shallow ice approximation (SIA)
 This function updates the ice thickness `H` and computes the rate of change `dH` using the shallow ice approximation in 2D.
 It retrieves necessary parameters from the `simulation` object, enforces positive ice thickness values, updates glacier surface altimetry and computes surface gradients.
 It then applies the necessary laws that are not updated via callbacks (`A`, `C`, `n` or `U` depending on the use-case) and computes the flux components, and flux divergence.
+Finally it adds the surface mass balance source term (see [`add_MB!`](@ref)).
 
 # Notes
 
@@ -37,7 +38,7 @@ function SIA2D!(
         dH::Matrix{R},
         H::Matrix{R},
         simulation::SIM,
-        t::R,
+        t::Real,
         θ
 ) where {R <: Real, SIM <: Simulation}
     SIA2D_model = simulation.model.iceflow
@@ -128,11 +129,17 @@ function SIA2D!(
     diff_x!(Fxx, Fx, Δx)
     diff_y!(Fyy, Fy, Δy)
     inn(dH) .= .-(Fxx .+ Fyy)
+
+    add_MB!(dH, H, simulation, t)
+    return nothing
 end
 
-# Dummy function to bypass ice flow
+# Dummy function to bypass ice flow. Mass balance still drives the surface on its own.
 function noSIA2D!(dH::Matrix{R}, H::Matrix{R}, simulation::SIM,
-        t::R) where {R <: Real, SIM <: Simulation}
+        t::Real) where {R <: Real, SIM <: Simulation}
+    # `dH` is a solver work array reused across steps, and nothing else writes it here
+    dH .= zero(R)
+    add_MB!(dH, H, simulation, t)
     return nothing
 end
 
