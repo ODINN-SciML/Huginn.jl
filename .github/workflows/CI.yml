@@ -54,6 +54,13 @@ jobs:
           - macos-latest
         arch:
           - x64
+          - aarch64
+        # macos-latest is Apple Silicon: run it natively, not as x64 under Rosetta
+        exclude:
+          - os: ubuntu-latest
+            arch: aarch64
+          - os: macos-latest
+            arch: x64
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2
