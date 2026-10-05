@@ -148,10 +148,11 @@ end
 """
     spectral_radius(simulation)
 
-Bound on the spectral radius of the ice flow right hand side, in yr⁻¹.
+Estimate of the spectral radius of the ice flow right hand side, in yr⁻¹. It is not a
+guaranteed upper bound, see the warning in [`with_eigen_est`](@ref).
 
-Two terms contribute: the flux divergence, a diffusion bounded by `4 D (1/Δx² + 1/Δy²)`, and
-the mass balance source's diagonal Jacobian `∂ṁ/∂H`.
+Two terms contribute: the flux divergence, a diffusion estimated as `4 D (1/Δx² + 1/Δy²)`
+with the largest `D`, and the mass balance source's diagonal Jacobian `∂ṁ/∂H`.
 
 The mass balance term isn't a correction — where ice is thin the ramp makes `∂ṁ/∂H` large,
 and where `A` is small `D` is negligible, so mass balance can be the only term. Dropping it
@@ -247,10 +248,9 @@ end
 
 Times the solver must stop at, and times it must save at, for a given result grid `tstops`.
 
-Saving must be asked for explicitly now: no callback runs on the result grid any more, and a
-`PeriodicCallback` used to save either side of itself as a side effect — the mass balance
-one did this even on runs without mass balance. `create_results` reads the result grid out
-of the solution and fails on states that are missing.
+No callback saves the solution on the result grid, so saving has to be asked for explicitly:
+`create_results` reads the result grid out of the solution and fails on states that are
+missing. This applies to every run, with or without mass balance.
 
 With mass balance in the right hand side, the solver must also stop at every window edge
 (`ṁ` is piecewise constant in time, so the right hand side jumps there), and those edge
@@ -277,8 +277,8 @@ window edges with a midpoint rule,
 MB_k ≈ ṁ\\left(\\frac{H_{k-1} + H_k}{2}, \\frac{t_{k-1} + t_k}{2}\\right) (t_k - t_{k-1})
 ```
 
-on the window grid, not the result grid — `MB` and `t_MB` don't depend on `step`. Otherwise
-the snapshots recorded during the solve are returned unchanged.
+on the window grid, not the result grid — `MB` and `t_MB` don't depend on `step`. Without mass
+balance in the right hand side (`use_MB = false`) nothing is recorded, so both are empty.
 """
 function MB_diagnostics(simulation, iceflow_sol)
     cache = simulation.cache
