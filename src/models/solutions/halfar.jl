@@ -13,7 +13,7 @@ Holds parameters for the Halfar similarity solution of the shallow ice approxima
   - `n::AbstractFloat=3.0`: Glen flow law exponent.
   - `A::AbstractFloat=1e-16`: Flow rate factor in Glen's law [Pa⁻ⁿ yr⁻¹].
   - `f::AbstractFloat=0.0`: Fraction of isostatic bed depression (0 for fully grounded ice).
-  - `ρ::AbstractFloat=900.0`: Ice density [kg/m³] (same default as `Sleipnir.PhysicalParameters`).
+  - `ρ::AbstractFloat=900.0`: Ice density in kg/m³ (same default as `Sleipnir.PhysicalParameters`).
   - `g::AbstractFloat=9.81`: Gravitational acceleration [m/s²].
 
 # Notes
