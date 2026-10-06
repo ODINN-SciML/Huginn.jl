@@ -215,7 +215,7 @@ const ABSTOL_REFERENCE_YEARS = 5.0
     effective_abstol(abstol, tspan; verbose = true)
 
 Tighten `abstol` for long runs. `abstol` is given for a run of
-[`ABSTOL_REFERENCE_YEARS`](@ref), and it is divided by how many times longer the run is: a
+`ABSTOL_REFERENCE_YEARS` (5 years), and it is divided by how many times longer the run is: a
 30 year run uses `abstol / 6`. Shorter runs keep `abstol` as it is. We tried loosening it
 for them too, but that made short inversions and gradient checks noticeably less accurate.
 
