@@ -1,7 +1,7 @@
 export HalfarParameters, Halfar
 
 """
-    HalfarParameters(; λ=0.0, H₀=3600.0, R₀=750000.0, n=3.0, A=1e-16, f=0.0, ρ=910.0, g=9.81)
+    HalfarParameters(; λ=0.0, H₀=3600.0, R₀=750000.0, n=3.0, A=1e-16, f=0.0, ρ=900.0, g=9.81)
 
 Holds parameters for the Halfar similarity solution of the shallow ice approximation (SIA).
 
@@ -13,7 +13,7 @@ Holds parameters for the Halfar similarity solution of the shallow ice approxima
   - `n::AbstractFloat=3.0`: Glen flow law exponent.
   - `A::AbstractFloat=1e-16`: Flow rate factor in Glen's law [Pa⁻ⁿ yr⁻¹].
   - `f::AbstractFloat=0.0`: Fraction of isostatic bed depression (0 for fully grounded ice).
-  - `ρ::AbstractFloat=910.0`: Ice density [kg/m³].
+  - `ρ::AbstractFloat=900.0`: Ice density in kg/m³ (same default as `Sleipnir.PhysicalParameters`).
   - `g::AbstractFloat=9.81`: Gravitational acceleration [m/s²].
 
 # Notes
@@ -33,7 +33,7 @@ models for isothermalice sheets", experiment B.
     A::F = 1e-16 # 3.16880e-24 # = 1e-16 Pa^{-3} yr^{-1}
     # Fraction for isostatic bed depression (equals zero for grounded ice)
     f::F = 0.0
-    ρ::F = 910.0
+    ρ::F = 900.0
     g::F = 9.81
 end
 

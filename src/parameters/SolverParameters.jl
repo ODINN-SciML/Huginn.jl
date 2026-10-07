@@ -10,10 +10,11 @@ A mutable struct that holds parameters for the solver.
 # Fields
 
   - `solver::ST`: The algorithm used for solving differential equations.
+  - `supply_eigen_est::Bool`: Whether to give `ROCK2` and `ROCK4` our own estimate of the spectral radius instead of letting them compute it (see [`with_eigen_est`](@ref)). Other solvers ignore it. Only useful for finite difference gradient checks.
   - `reltol::F`: The relative tolerance for the solver.
-  - `abstol::F`: The absolute tolerance for the solver, in metres of ice. This is the tolerance that binds in practice: with `reltol` as tight as the default, `reltol * H` sits far below `abstol` over most of a glacier, so `abstol` alone sets the error floor and the step size. The solver error accumulates over a run, roughly as `t^1.4`, so the default suits runs of a few years and **longer runs want a tighter value**: over 30 years the default reaches an RMS error of 0.22 m and a local error of 3.8 m, against 0.08 m and 3.2 m at `1e-4`.
-  - `scale_abstol::Bool`: Whether `abstol` is tightened in proportion to the run length. Solver error accumulates, so a tolerance suited to a few years is too loose for several decades; see `effective_abstol`. Set to `false` to use `abstol` exactly as given.
-  - `adaptive::Bool`: Whether the solver chooses its own step size. Adaptive stepping makes the solution a *discontinuous* function of the parameters, because an arbitrarily small change can flip which steps are accepted. That is harmless for a forward run but it makes finite differences meaningless, so gradient checks want `adaptive = false` even though production runs do not.
+  - `abstol::F`: The absolute tolerance for the solver, in metres of ice. This is the tolerance that matters in practice, since `reltol * H` is much smaller over most of the glacier. It is tightened for runs longer than 5 years unless `scale_abstol` is `false` (see [`effective_abstol`](@ref)).
+  - `scale_abstol::Bool`: Whether to tighten `abstol` for long runs (see [`effective_abstol`](@ref)). Set to `false` to use `abstol` as it is.
+  - `adaptive::Bool`: Whether the solver chooses its own step size. Adaptive stepping makes the solution discontinuous in the parameters — an arbitrarily small change can flip which steps are accepted — which is harmless for a forward run but makes finite differences meaningless. Gradient checks want `adaptive = false`; forward runs don't.
   - `dt::F`: Fixed step size used when `adaptive` is `false`, in years. Ignored otherwise.
   - `step::F`: The step size that controls at which frequency the results must be saved.
   - `tstops::Vector{F}`: Optional vector of time points where the solver should stop to store the results.
@@ -25,6 +26,7 @@ A mutable struct that holds parameters for the solver.
 mutable struct SolverParameters{F <: AbstractFloat, I <: Integer,
     ST <: OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm} <: AbstractParameters
     solver::ST
+    supply_eigen_est::Bool
     reltol::F
     abstol::F
     scale_abstol::Bool
@@ -43,6 +45,7 @@ Constructs a `SolverParameters` object with the specified parameters or using de
 
     SolverParameters(;
         solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm = RDPK3Sp35(),
+        supply_eigen_est::Bool = false,
         reltol::F = 1e-12,
         abstol::F = 1e-3,
         scale_abstol::Bool = true,
@@ -59,9 +62,10 @@ Constructs a `SolverParameters` object with the specified parameters or using de
 # Arguments
 
   - `solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm`: The ODE solver algorithm to use. Defaults to `RDPK3Sp35()`.
+  - `supply_eigen_est::Bool`: Whether to give `ROCK2` and `ROCK4` our own estimate of the spectral radius (see [`with_eigen_est`](@ref)). Only useful for finite difference gradient checks. Defaults to `false`.
   - `reltol::F`: The relative tolerance for the solver. Defaults to `1e-12`.
-  - `abstol::F`: The absolute tolerance, in metres of ice, and the one that binds in practice. Defaults to `1e-3`, which suits runs of a few years.
-  - `scale_abstol::Bool`: Whether to tighten `abstol` in proportion to the run length, since solver error accumulates. Defaults to `true`.
+  - `abstol::F`: The absolute tolerance for the solver, in metres of ice. Defaults to `1e-3`, for a run of 5 years (see [`effective_abstol`](@ref)).
+  - `scale_abstol::Bool`: Whether to tighten `abstol` for long runs. Defaults to `true`.
   - `adaptive::Bool`: Whether the solver picks its own step size. Defaults to `true`; gradient checks against finite differences need `false`.
   - `dt::F`: Fixed step in years, used only when `adaptive` is `false`. Defaults to `1.0/120.0`.
   - `step::F`: The step size that controls at which frequency the solution should be computed and returned in the results.
@@ -78,6 +82,7 @@ Constructs a `SolverParameters` object with the specified parameters or using de
 """
 function SolverParameters(;
         solver::OrdinaryDiffEqCore.OrdinaryDiffEqAdaptiveAlgorithm = RDPK3Sp35(),
+        supply_eigen_est::Bool = false,
         reltol::F = 1e-12,
         abstol::F = 1e-3,
         scale_abstol::Bool = true,
@@ -93,6 +98,7 @@ function SolverParameters(;
     # Build the solver parameters based on input values
     return SolverParameters{Sleipnir.Float, Sleipnir.Int, typeof(solver)}(
         solver,
+        supply_eigen_est,
         Sleipnir.Float(reltol),
         Sleipnir.Float(abstol),
         scale_abstol,
@@ -108,7 +114,8 @@ function SolverParameters(;
 end
 
 function Base.:(==)(a::SolverParameters, b::SolverParameters)
-    a.solver == b.solver && a.reltol == b.reltol && a.abstol == b.abstol &&
+    a.solver == b.solver && a.supply_eigen_est == b.supply_eigen_est &&
+        a.reltol == b.reltol && a.abstol == b.abstol &&
         a.scale_abstol == b.scale_abstol &&
         a.adaptive == b.adaptive && a.dt == b.dt &&
         a.step == b.step &&

@@ -261,9 +261,8 @@ so the solver integrates it together with the flux divergence and controls its e
 the same tolerances. Because `ṁ` reads the surface elevation `S = B + H`, the elevation
 feedback `∂ṁ/∂H` is part of the Jacobian and is picked up by the adjoint.
 
-Ice flow right hand sides call this unconditionally. It returns immediately when the mass
-balance cache is inactive, which is the case whenever the simulation carries no mass balance
-to evaluate in the right hand side.
+Ice flow right hand sides call this unconditionally; it returns immediately when the mass
+balance cache is inactive.
 
 # Arguments
 
