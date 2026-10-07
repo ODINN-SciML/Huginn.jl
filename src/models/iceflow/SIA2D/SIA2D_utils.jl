@@ -330,8 +330,9 @@ function avg_surface_V!(simulation::SIM, t::R, θ) where {SIM <: Simulation, R <
     Vx₀, Vy₀ = surface_V!(iceflow_cache.H₀, simulation, t, θ)
     Vx, Vy = surface_V!(iceflow_cache.H, simulation, t, θ)
 
-    inn1(iceflow_cache.Vx) .= (Vx₀ .+ Vx) ./ 2.0
-    inn1(iceflow_cache.Vy) .= (Vy₀ .+ Vy) ./ 2.0
+    # Same H-grid placement as the default of `V_from_H`
+    inn(iceflow_cache.Vx) .= avg((Vx₀ .+ Vx) ./ 2.0)
+    inn(iceflow_cache.Vy) .= avg((Vy₀ .+ Vy) ./ 2.0)
     iceflow_cache.V .= (iceflow_cache.Vx .^ 2 .+ iceflow_cache.Vy .^ 2) .^ (1/2)
 end
 
@@ -460,8 +461,8 @@ end
     surface_V_inplace!(Vx, Vy, H, simulation, t, θ)
 
 In-place variant of [`surface_V!`](@ref) that writes the surface velocity
-components into the preallocated H-sized buffers `Vx`, `Vy` (staggered values in
-their interior, via `inn1`) and returns `nothing`. This mirrors the in-place,
+components into the preallocated H-sized buffers `Vx`, `Vy` (staggered values averaged
+back to the H grid, like the default placement of [`V_from_H`](@ref)) and returns `nothing`. This mirrors the in-place,
 no-tuple-return shape of `SIA2D!`, which Enzyme differentiates cleanly, whereas
 the tuple-returning `surface_V!` trips Enzyme's verifier in reverse mode. It is
 the Enzyme target for the automatic velocity VJP (the `V_from_H` rrule in ODINN)
@@ -536,9 +537,10 @@ function surface_V_inplace!(
         @. D = sliding_term + rheology_term
     end
 
-    # Write staggered velocities into the interior of the H-sized output buffers.
-    inn1(Vx) .= .-D .* ∇Sx
-    inn1(Vy) .= .-D .* ∇Sy
+    # Average back to the H grid, as the default (:centered) placement of `V_from_H` does:
+    # the rrule takes its value from there, so the two have to match.
+    inn(Vx) .= avg(.-D .* ∇Sx)
+    inn(Vy) .= avg(.-D .* ∇Sy)
     return nothing
 end
 

@@ -118,10 +118,11 @@ function Halfar_velocity(
     function _halfar_velocity(x, y, t)
         r = (x^2 + y^2)^0.5
         if r < R₀ * (t / t₀)^β
+            # The exponent is -1 only without mass balance (λ = 0)
             vabs = 2 * A * (ρ * g)^n / (n + 1) *
-                ((n + 1) / (2 * n + 1))^n *
-                H₀^(2 * n + 1) / R₀^(n + 1) *
-                t₀ / t
+                   ((n + 1) / (2 * n + 1))^n *
+                   H₀^(2 * n + 1) / R₀^(n + 1) *
+                   (t / t₀)^(-(α * (2 * n + 1) + β * (n + 1)))
             return vabs .* [x, y]
         else
             return [0.0, 0.0]
