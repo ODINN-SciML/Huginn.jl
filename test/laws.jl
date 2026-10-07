@@ -74,6 +74,30 @@ function test_SyntheticC()
     @test all(cache.value .<= params.physical.maxC)
 end
 
+function test_sliding_split()
+    # At C = sliding_scale, sliding and deformation give the same flux
+    A, H = 5e-17, 300.0
+    C = Huginn.sliding_scale(A, H)
+    @test Huginn.sliding_fraction([C], [H], A; basis = :flux)[1] ≈ 0.5
+    @test isnan(Huginn.sliding_fraction([C], [0.0], A)[1])
+    @test_throws AssertionError Huginn.sliding_scale(A, H; p = 2.0)
+
+    # The two parts add up to the velocity of `surface_V`
+    rgi_ids = ["RGI60-11.03638"]
+    params = Parameters(simulation = SimulationParameters(test_mode = true,
+        use_velocities = false, rgi_paths = get_rgi_paths()))
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = nothing)
+    glaciers = initialize_glaciers(rgi_ids, params)
+    glacier = glaciers[1]
+    glacier.C = Huginn.sliding_scale(glacier.A, H; p = glacier.p, q = glacier.q)
+    simulation = Prediction(model, glaciers, params)
+    simulation.cache = init_cache(model, simulation, 1, nothing)
+    Vx, Vy = Huginn.surface_V(glacier.H₀, simulation, 2010.0, nothing)
+    (; V_slide, V_deform) = Huginn.velocity_split(glacier.H₀, simulation, 2010.0, nothing)
+    @test any(V_slide .> 0)
+    @test V_slide .+ V_deform≈sqrt.(Vx .^ 2 .+ Vy .^ 2) rtol=1e-6
+end
+
 function test_iTopoRough()
     # Dummy structs for simulation and glacier
     rgi_ids = ["RGI60-11.03638"]

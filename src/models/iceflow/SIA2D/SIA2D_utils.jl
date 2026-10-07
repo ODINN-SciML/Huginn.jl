@@ -656,6 +656,162 @@ function surface_V(
 end
 
 """
+    velocity_split(
+        H::Matrix{R},
+        simulation::SIM,
+        t::Real,
+        θ;
+        basis::Symbol = :surface,
+    ) where {R <: Real, SIM <: Simulation}
+
+Split the SIA velocity magnitude into its sliding and deformation contributions.
+
+Diagnostic counterpart of [`surface_V`](@ref): it runs the same geometry and the same
+`apply_all_non_callback_laws!` call, then returns the two terms of the diffusivity
+separately instead of summing them. Use it to tell whether a recovered `C` matters
+dynamically or is merely non-zero.
+
+# Arguments
+
+  - `H::Matrix{R}`: Ice thickness matrix.
+  - `simulation::SIM`: Simulation object containing parameters and model information.
+  - `t::Real`: Current simulation time.
+  - `θ`: Parameters of the laws. Can be `nothing` when no learnable laws are used.
+  - `basis::Symbol`: `:surface` (default) compares the two velocities at the ice surface,
+    which is what velocity observations see. `:flux` compares their depth averages, i.e.
+    their contribution to the column-wide flux. Sliding is plug flow so its term is the
+    same in both; only deformation changes, by `(n+1)` against `(n+2)`.
+
+# Returns
+
+A named tuple `(; V_slide, V_deform)` of staggered matrices of size `(nx-1, ny-1)`,
+the velocity magnitudes in m/yr. Their sum is `‖(Vx, Vy)‖` of `surface_V` when
+`basis = :surface`.
+
+# Notes
+
+  - A `U` law provides the total velocity with no split, so it throws.
+  - A `Y` law folds the rheology into a single term whose surface form already uses the
+    depth-averaged `(n+2)`, so `basis` has no effect there.
+"""
+function velocity_split(
+        H::Matrix{R},
+        simulation::SIM,
+        t::Real,
+        θ;
+        basis::Symbol = :surface
+) where {R <: Real, SIM <: Simulation}
+    @assert basis in (:surface, :flux) "basis must be :surface or :flux, got $(basis)"
+    params::Sleipnir.Parameters = simulation.parameters
+    iceflow_model = simulation.model.iceflow
+    iceflow_cache = simulation.cache.iceflow
+    glacier_idx = iceflow_cache.glacier_idx
+    glacier = simulation.glaciers[glacier_idx]
+    B = glacier.B
+    Δx = glacier.Δx
+    Δy = glacier.Δy
+    (; ρ, g, ϵ) = params.physical
+
+    # Geometry identical to `surface_V`, including the ϵ regularization of ∇S
+    S = B .+ H
+    dSdx = diff_x(S) / Δx
+    dSdy = diff_y(S) / Δy
+    ∇S = (avg_y(dSdx) .^ 2 .+ avg_x(dSdy) .^ 2 .+ ϵ) .^ (1/2)
+    H̄ = avg(H)
+
+    iceflow_cache.∇S .= ∇S
+    iceflow_cache.H̄ .= H̄
+
+    apply_all_non_callback_laws!(
+        iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
+    (; A, n, C, p, q, Y, U) = iceflow_cache
+
+    iceflow_model.U_is_provided && throw(ArgumentError(
+        "velocity_split: a U law provides the total velocity, it cannot be split into \
+         sliding and deformation."))
+
+    gravity_term = ρ * g
+
+    # Plug flow: the sliding velocity is depth independent, so it is the same in both bases
+    D_slide = if any(C.value .> 0)
+        @. C.value * gravity_term^(p.value - q.value) *
+           H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
+    else
+        zero(H̄)
+    end
+
+    D_deform = if iceflow_model.Y_is_provided
+        n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
+        n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
+        @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) / (n.value + 2)
+    else
+        # (n+1) is the surface deformation velocity, (n+2) its depth average
+        shape = basis === :surface ? 1 : 2
+        @. (2.0 * A.value * gravity_term^n.value / (n.value + shape)) *
+           H̄^(n.value + 1) * ∇S ^ (n.value - 1)
+    end
+
+    return (; V_slide = D_slide .* ∇S, V_deform = D_deform .* ∇S)
+end
+
+"""
+    sliding_fraction(
+        H::Matrix{R},
+        simulation::SIM,
+        t::Real,
+        θ;
+        basis::Symbol = :surface,
+    ) where {R <: Real, SIM <: Simulation}
+
+Share of the SIA velocity due to sliding rather than deformation, on the staggered grid.
+
+Thin wrapper on [`velocity_split`](@ref); see it for the meaning of `basis`. Cells with no
+ice return `NaN` rather than a number: deformation vanishes with `H` there, so the ratio
+would be `0/0` and naive averaging reports a fully sliding glacier. Mask or use `nanmean`.
+"""
+function sliding_fraction(
+        H::Matrix{R},
+        simulation::SIM,
+        t::Real,
+        θ;
+        basis::Symbol = :surface
+) where {R <: Real, SIM <: Simulation}
+    (; V_slide, V_deform) = velocity_split(H, simulation, t, θ; basis = basis)
+    total = V_slide .+ V_deform
+    return ifelse.(avg(H) .> 0, V_slide ./ total, NaN)
+end
+
+"""
+    sliding_fraction(
+        C::AbstractArray, H::AbstractArray, A::Real;
+        p = 3.0, q = 0.0, n = 3.0, ρg = 900.0 * 9.81, basis = :surface,
+    )
+
+Closed-form sliding fraction from `C`, `H` and `A` alone, with no simulation.
+
+Same quantity as the `(H, simulation, t, θ)` method, for when only the fields are at hand —
+sweeping λ over saved `C` arrays, for instance. It needs `p == n` so the `∇S^(p-1)` and
+`∇S^(n-1)` factors cancel and the surface slope drops out; when they differ, the split is
+slope dependent and only the simulation-based method is correct.
+
+`H` must already be on the staggered grid (`avg` of the H-grid field, as `H̄` in `SIA2D!`),
+matching the shape of a gridded `C`. Cells with no ice return `NaN`, as in the other method.
+"""
+function sliding_fraction(
+        C::AbstractArray, H::AbstractArray, A::Real;
+        p::Real = 3.0, q::Real = 0.0, n::Real = 3.0, ρg::Real = 900.0 * 9.81,
+        basis::Symbol = :surface
+)
+    @assert basis in (:surface, :flux) "basis must be :surface or :flux, got $(basis)"
+    @assert p==n "sliding_fraction: the closed form needs p == n so ∇S cancels (got \
+                  p = $(p), n = $(n)). Use the simulation-based method instead."
+    shape = basis === :surface ? 1 : 2
+    slide = @. C * ρg^(p - q) * H^(p - q)
+    deform = @. 2 * A * ρg^n * H^(n + 1) / (n + shape)
+    return @. ifelse(H > 0, slide / (slide + deform), NaN)
+end
+
+"""
     V_from_H(
         simulation::SIM,
         H::Matrix{F},

@@ -131,6 +131,7 @@ ENV["GKSwstype"]="nul"
             @testset "Laws" begin
                 test_SyntheticC()
             end
+            @testset "Sliding and deformation split" test_sliding_split()
         end
     end
 

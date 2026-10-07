@@ -43,6 +43,30 @@ function polyA_PatersonCuffey()
 end
 
 """
+    sliding_scale(A, H; p = 3.0, q = 0.0, n = 3.0, ρg = 900.0 * 9.81)
+
+Value of `C` at which sliding and deformation contribute equally to the SIA diffusivity.
+
+`SIA2D!` splits the diffusivity as `C(ρg)^(p-q) H^(p-q+1) ∇S^(p-1)` against
+`2A(ρg)ⁿHⁿ⁺²∇Sⁿ⁻¹/(n+2)`, so the crossover depends on the sliding law. It sets both a
+sensible bound on `C` and the scale of its regularization, which is why it is needed before
+any `C` inversion: `C` spans orders of magnitude between sliding laws and a λ chosen for one
+is meaningless for another. The `∇S` powers cancel when `p-1 = n-1`, so the scale depends
+only on the thickness `H` at which the comparison is made.
+
+Defaults are Weertman sliding (`q = 0`) in Glen's flow law with `n = 3`.
+"""
+function sliding_scale(
+        A::Real, H::Real;
+        p::Real = 3.0, q::Real = 0.0, n::Real = 3.0, ρg::Real = 900.0 * 9.81
+)
+    @assert p==n "sliding_scale: the ∇S factors only cancel when p == n (got p = $(p), n = $(n))."
+    deformation = 2 * A * ρg^n * H^(n + 2) / (n + 2)
+    sliding_unit_C = ρg^(p - q) * H^(p - q + 1)
+    return deformation / sliding_unit_C
+end
+
+"""
     CuffeyPaterson(; scalar::Bool = true)
 
 Create a rheology law for the flow rate factor `A`.
