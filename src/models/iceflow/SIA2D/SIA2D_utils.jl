@@ -1,3 +1,5 @@
+export velocity_split, sliding_fraction
+
 import Sleipnir: apply_all_non_callback_laws!, apply_all_callback_laws!
 
 """
@@ -318,6 +320,7 @@ Calculate the average surface velocity for a given simulation.
 This function computes the average surface velocity components (`Vx` and `Vy`) and the resultant velocity (`V`)
 for the ice flow model within the given simulation. It first calculates the surface velocities at the initial
 and current states, then averages these velocities and updates the ice flow model's velocity fields.
+The velocities are placed on the grid of `H` (centred on the cells), as in [`V_from_H`](@ref).
 
 # Notes
 
@@ -327,8 +330,8 @@ function avg_surface_V!(simulation::SIM, t::R, θ) where {SIM <: Simulation, R <
     # TODO: Add more datapoints to better interpolate this
     iceflow_cache = simulation.cache.iceflow
 
-    Vx₀, Vy₀ = surface_V!(iceflow_cache.H₀, simulation, t, θ)
-    Vx, Vy = surface_V!(iceflow_cache.H, simulation, t, θ)
+    Vx₀, Vy₀ = surface_V(iceflow_cache.H₀, simulation, t, θ)
+    Vx, Vy = surface_V(iceflow_cache.H, simulation, t, θ)
 
     # Same H-grid placement as the default of `V_from_H`
     inn(iceflow_cache.Vx) .= avg((Vx₀ .+ Vx) ./ 2.0)
@@ -337,76 +340,37 @@ function avg_surface_V!(simulation::SIM, t::R, θ) where {SIM <: Simulation, R <
 end
 
 """
-    surface_V!(H::Matrix{<:Real}, simulation::SIM, t::R, θ) where {SIM <: Simulation, R <: Real}
+    surface_V_diffusivity!(D_slide, D_deform, H, simulation, t, θ; basis = :surface)
 
-Compute the surface velocities of a glacier using the Shallow Ice Approximation (SIA) in 2D.
+Diffusivity of the surface velocity, split in its sliding and deformation parts: the surface
+velocity on the staggered grid is `-(D_slide + D_deform) .* (∇Sx, ∇Sy)`. It also computes
+the geometry of `H` (`∇Sx`, `∇Sy`, `∇S` and `H̄`) in the ice flow cache and applies the laws.
+It is used by [`surface_V`](@ref) and [`velocity_split`](@ref).
+[`surface_V_inplace!`](@ref) has its own copy of the formulas, since Enzyme fails in reverse
+mode on this function: a change here must be made there too.
 
-# Arguments
-
-  - `H::Matrix{<:Real}`: The ice thickness matrix.
-  - `simulation::SIM`: The simulation object containing parameters and model information.
-  - `t::R`: Current simulation time.
-  - `θ`: Parameters of the laws to be used in the SIA. Can be `nothing` when no learnable laws are used.
-
-# Returns
-
-  - `Vx`: The x-component of the surface velocity.
-  - `Vy`: The y-component of the surface velocity.
-
-# Description
-
-This function updates the glacier surface altimetry and computes the surface gradients on edges using a staggered grid. It then calculates the surface velocities based on the Shallow Ice Approximation (SIA) model.
-
-# Details
-
-  - `params`: The simulation parameters.
-  - `iceflow_model`: The ice flow model from the simulation.
-  - `glacier`: The glacier object from the simulation.
-  - `B`: The bedrock elevation matrix.
-  - `H̄`: The average ice thickness matrix.
-  - `dSdx`, `dSdy`: The surface gradient matrices in x and y directions.
-  - `∇S`, `∇Sx`, `∇Sy`: The gradient magnitude and its components.
-  - `Γꜛ`: The surface stress.
-  - `D`: The diffusivity matrix.
-  - `A`: The flow rate factor.
-  - `n`: The flow law exponent.
-  - `C`: The sliding coefficient.
-  - `Δx`, `Δy`: The grid spacing in x and y directions.
-  - `ρ`: The ice density.
-  - `g`: The gravitational acceleration.
-
-The function computes the surface gradients, averages the ice thickness, and calculates the surface stress and diffusivity. Finally, it computes the surface velocities `Vx` and `Vy` based on the gradients and diffusivity.
+`D_slide` and `D_deform` are staggered buffers. `basis = :flux` gives the depth average of the
+deformation `(n+2)` instead of its surface value `(n+1)`. A `U` law gives the total, in
+`D_deform`. The sliding term needs `p > q`, otherwise the cells without ice have a velocity.
+It writes the geometry in the ice flow cache, and it does not clip `H` to zero, as the old
+`surface_V` did not.
 """
-function surface_V!(
-        H::Matrix{<:Real}, simulation::SIM, t::R, θ) where {SIM <: Simulation, R <: Real}
+function surface_V_diffusivity!(
+        D_slide, D_deform, H, simulation, t, θ; basis::Symbol = :surface)
     params::Sleipnir.Parameters = simulation.parameters
     iceflow_model = simulation.model.iceflow
     iceflow_cache = simulation.cache.iceflow
     glacier_idx = iceflow_cache.glacier_idx
     glacier = simulation.glaciers[glacier_idx]
-    B = glacier.B
-    H̄ = iceflow_cache.H̄
-    dSdx = iceflow_cache.dSdx
-    dSdy = iceflow_cache.dSdy
-    ∇S = iceflow_cache.∇S
-    ∇Sx = iceflow_cache.∇Sx
-    ∇Sy = iceflow_cache.∇Sy
-    Γꜛ = iceflow_cache.Γ
-    Δx = glacier.Δx
-    Δy = glacier.Δy
+    (; H̄, dSdx, dSdy, ∇S, ∇Sx, ∇Sy) = iceflow_cache
     (; ρ, g, ϵ) = params.physical
 
-    # Update glacier surface altimetry
-    S = B .+ H
-
-    # All grid variables computed in a staggered grid
-    # Compute surface gradients on edges
-    diff_x!(dSdx, S, Δx)
-    diff_y!(dSdy, S, Δy)
+    # Geometry on the staggered grid, with ϵ as in SIA2D!
+    S = glacier.B .+ H
+    diff_x!(dSdx, S, glacier.Δx)
+    diff_y!(dSdy, S, glacier.Δy)
     avg_y!(∇Sx, dSdx)
     avg_x!(∇Sy, dSdy)
-    # ϵ as in `SIA2D!`, `surface_V` and `surface_V_inplace!`: all four have to agree, or the
-    # velocity a path reports depends on which one it happened to call.
     ∇S .= (∇Sx .^ 2 .+ ∇Sy .^ 2 .+ ϵ) .^ (1/2)
     avg!(H̄, H)
 
@@ -414,59 +378,42 @@ function surface_V!(
         iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
     (; A, n, C, p, q, Y, U) = iceflow_cache
 
-    D = if iceflow_model.U_is_provided
-        # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        # Shape factor relating average velocity and surface velocity
-        f = simulation.parameters.simulation.f_surface_velocity_factor
-        U.value ./ f
-    elseif iceflow_model.Y_is_provided
-        # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
+    fill!(D_slide, zero(eltype(D_slide)))
+    if iceflow_model.U_is_provided
+        # U is depth averaged: the surface velocity is approximated with a shape factor
+        @. D_deform = U.value / params.simulation.f_surface_velocity_factor
+        return nothing
+    end
+    gravity_term = ρ * g
+    # Plug flow: sliding velocity = sliding flux of SIA2D! / H̄ = C τ^p / N^q
+    if any(C.value .> 0)
+        @. D_slide = C.value * gravity_term^(p.value - q.value) *
+                     H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
+    end
+    if iceflow_model.Y_is_provided
+        # Y cannot be integrated over the depth, so this is always the depth average (n+2)
         n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
         n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
-        gravity_term = ρ * g
-        rheology_term = @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) /
-                           (n.value + 2)
-        # Plug flow: the surface sliding velocity is the depth average, i.e. the flux term
-        # of SIA2D! divided by H̄, which recovers u_b = C τ^p / N^q
-        sliding_term = if any(C.value .> 0)
-            @. C.value * gravity_term^(p.value - q.value) *
-               H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
-        else
-            zero(H̄)
-        end
-        sliding_term + rheology_term
+        @. D_deform = 2.0 * gravity_term^n.value * Y.value * H̄^(n_H + 1) *
+                      ∇S^(n_∇S - 1) / (n.value + 2)
     else
-        gravity_term = ρ * g
-        rheology_term = @. (2.0 * A.value * gravity_term^n.value / (n.value+1)) *
-                           H̄^(n.value + 1) * ∇S ^ (n.value - 1)
-        # Plug flow: the surface sliding velocity is the depth average, i.e. the flux term
-        # of SIA2D! divided by H̄, which recovers u_b = C τ^p / N^q
-        sliding_term = if any(C.value .> 0)
-            @. C.value * gravity_term^(p.value - q.value) *
-               H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
-        else
-            zero(H̄)
-        end
-        sliding_term + rheology_term
+        # (n+1) is the surface deformation velocity, (n+2) its depth average
+        shape = basis === :surface ? 1 : 2
+        @. D_deform = (2.0 * A.value * gravity_term^n.value / (n.value + shape)) *
+                      H̄^(n.value + 1) * ∇S ^ (n.value - 1)
     end
-
-    # Compute averaged surface velocities
-    Vx = .-D .* ∇Sx
-    Vy = .-D .* ∇Sy
-
-    return Vx, Vy
+    return nothing
 end
 
 """
     surface_V_inplace!(Vx, Vy, H, simulation, t, θ)
 
-In-place variant of [`surface_V!`](@ref) that writes the surface velocity
-components into the preallocated H-sized buffers `Vx`, `Vy` (staggered values averaged
-back to the H grid, like the default placement of [`V_from_H`](@ref)) and returns `nothing`. This mirrors the in-place,
-no-tuple-return shape of `SIA2D!`, which Enzyme differentiates cleanly, whereas
-the tuple-returning `surface_V!` trips Enzyme's verifier in reverse mode. It is
-the Enzyme target for the automatic velocity VJP (the `V_from_H` rrule in ODINN)
-and, like `surface_V!`, dispatches on the iceflow model so it stays universal.
+In-place variant of [`surface_V`](@ref): it writes the surface velocity components in the
+H-sized buffers `Vx`, `Vy`, with the same placement as [`V_from_H`](@ref), and returns
+`nothing`. Only the inner cells are written, so the buffers must start at zero. Enzyme
+differentiates it in the `V_from_H` rrule of ODINN; a function that returns a tuple fails
+in Enzyme in reverse mode. It does not call [`surface_V_diffusivity!`](@ref), which also fails
+in Enzyme in reverse mode, so the formulas of both must be kept the same.
 """
 function surface_V_inplace!(
         Vx, Vy, H::Matrix{<:Real}, simulation::SIM,
@@ -504,7 +451,7 @@ function surface_V_inplace!(
         iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
     (; A, n, C, p, q, Y, U) = iceflow_cache
 
-    # Typed buffer for D (see surface_V! for why a `D = if ... end` Union breaks Enzyme).
+    # Typed buffer for D: a `D = if ... end` Union breaks Enzyme
     D = zero(H̄)
     if iceflow_model.U_is_provided
         f = simulation.parameters.simulation.f_surface_velocity_factor
@@ -513,8 +460,8 @@ function surface_V_inplace!(
         n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
         n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
         gravity_term = ρ * g
-        rheology_term = @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) /
-                           (n.value + 2)
+        rheology_term = @. 2.0 * gravity_term^n.value * Y.value * H̄^(n_H + 1) *
+                           ∇S^(n_∇S - 1) / (n.value + 2)
         # Plug flow: the surface sliding velocity is the depth average, i.e. the flux term
         # of SIA2D! divided by H̄, which recovers u_b = C τ^p / N^q
         sliding_term = zero(H̄)
@@ -573,6 +520,11 @@ This function computes the surface velocities of a glacier by updating the glaci
 # Notes
 
   - The function assumes that the `simulation` object contains the necessary parameters and model information.
+  - With `A`, the deformation is the velocity at the surface, `(n+1)`. With a `Y` law it
+    is the depth average, `(n+2)`, since `Y` cannot be integrated over the depth.
+  - `∇S` has a small `ϵ` inside, as in `SIA2D!`. The geometry is written in the ice flow cache.
+  - The velocities are on the corners of the cells of `H`, with size `(nx-1, ny-1)`. Use
+    [`V_from_H`](@ref) to get them on the grid of `H`.
 """
 function surface_V(
         H::Matrix{R},
@@ -580,79 +532,11 @@ function surface_V(
         t::Real,
         θ
 ) where {R <: Real, SIM <: Simulation}
-    params::Sleipnir.Parameters = simulation.parameters
-    iceflow_model = simulation.model.iceflow
-    iceflow_cache = simulation.cache.iceflow
-    glacier_idx = iceflow_cache.glacier_idx
-    glacier = simulation.glaciers[glacier_idx]
-    B = glacier.B
-    Δx = glacier.Δx
-    Δy = glacier.Δy
-    (; ρ, g, ϵ) = params.physical
-
-    # Update glacier surface altimetry
-    S = B .+ H
-
-    # All grid variables computed in a staggered grid
-    # Compute surface gradients on edges
-    dSdx = diff_x(S) / Δx
-    dSdy = diff_y(S) / Δy
-    # ϵ has to match `surface_V_inplace!` (and `SIA2D!`): the `V_from_H` rrule takes its value
-    # from here but computes its pullback by differentiating `surface_V_inplace!`, so without
-    # the same regularization the pullback is the derivative of a different function than the
-    # primal it is attached to. It also keeps laws reading `cache.∇S` consistent across paths.
-    ∇S = (avg_y(dSdx) .^ 2 .+ avg_x(dSdy) .^ 2 .+ ϵ) .^ (1/2)
-    H̄ = avg(H)
-
-    # Store temporary variables for use with the laws
-    iceflow_cache.∇S .= ∇S
-    iceflow_cache.H̄ .= H̄
-
-    apply_all_non_callback_laws!(
-        iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
-    (; A, n, C, p, q, Y, U) = iceflow_cache
-
-    D = if iceflow_model.U_is_provided
-        # With a U law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        # Shape factor relating average velocity and surface velocity
-        f = simulation.parameters.simulation.f_surface_velocity_factor
-        U.value ./ f
-    elseif iceflow_model.Y_is_provided
-        # With a Y law we can only compute the surface velocity with an approximation as it would require to integrate the diffusivity wrt H
-        n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
-        n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
-        gravity_term = ρ * g
-        rheology_term = @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) /
-                           (n.value + 2)
-        # Plug flow: the surface sliding velocity is the depth average, i.e. the flux term
-        # of SIA2D! divided by H̄, which recovers u_b = C τ^p / N^q
-        sliding_term = if any(C.value .> 0)
-            @. C.value * gravity_term^(p.value - q.value) *
-               H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
-        else
-            zero(H̄)
-        end
-        sliding_term + rheology_term
-    else
-        gravity_term = ρ * g
-        rheology_term = @. (2.0 * A.value * gravity_term^n.value / (n.value+1)) *
-                           H̄^(n.value + 1) * ∇S ^ (n.value - 1)
-        # Plug flow: the surface sliding velocity is the depth average, i.e. the flux term
-        # of SIA2D! divided by H̄, which recovers u_b = C τ^p / N^q
-        sliding_term = if any(C.value .> 0)
-            @. C.value * gravity_term^(p.value - q.value) *
-               H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
-        else
-            zero(H̄)
-        end
-        sliding_term + rheology_term
-    end
-
-    # Compute averaged surface velocities
-    Vx = - D .* avg_y(dSdx)
-    Vy = - D .* avg_x(dSdy)
-
-    return Vx, Vy
+    (; H̄, ∇Sx, ∇Sy) = simulation.cache.iceflow
+    D_slide, D_deform = zero(H̄), zero(H̄)
+    surface_V_diffusivity!(D_slide, D_deform, H, simulation, t, θ)
+    D = D_slide .+ D_deform
+    return .-D .* ∇Sx, .-D .* ∇Sy
 end
 
 """
@@ -666,10 +550,8 @@ end
 
 Split the SIA velocity magnitude into its sliding and deformation contributions.
 
-Diagnostic counterpart of [`surface_V`](@ref): it runs the same geometry and the same
-`apply_all_non_callback_laws!` call, then returns the two terms of the diffusivity
-separately instead of summing them. Use it to tell whether a recovered `C` matters
-dynamically or is merely non-zero.
+It computes the same geometry and laws as [`surface_V`](@ref), and returns the two terms
+of the diffusivity separately. Use it to see if an inverted `C` really changes the flow.
 
 # Arguments
 
@@ -678,21 +560,21 @@ dynamically or is merely non-zero.
   - `t::Real`: Current simulation time.
   - `θ`: Parameters of the laws. Can be `nothing` when no learnable laws are used.
   - `basis::Symbol`: `:surface` (default) compares the two velocities at the ice surface,
-    which is what velocity observations see. `:flux` compares their depth averages, i.e.
-    their contribution to the column-wide flux. Sliding is plug flow so its term is the
-    same in both; only deformation changes, by `(n+1)` against `(n+2)`.
+    as seen by velocity observations. `:flux` compares their depth averages, that is their
+    part of the flux. The sliding velocity does not depend on depth, so only the
+    deformation term changes, with `(n+1)` or `(n+2)`.
 
 # Returns
 
 A named tuple `(; V_slide, V_deform)` of staggered matrices of size `(nx-1, ny-1)`,
 the velocity magnitudes in m/yr. Their sum is `‖(Vx, Vy)‖` of `surface_V` when
-`basis = :surface`.
+`basis = :surface` (up to the small `ϵ` added to `∇S`).
 
 # Notes
 
-  - A `U` law provides the total velocity with no split, so it throws.
-  - A `Y` law folds the rheology into a single term whose surface form already uses the
-    depth-averaged `(n+2)`, so `basis` has no effect there.
+  - A `U` law gives the total velocity, which cannot be split, so it throws.
+  - With a `Y` law the deformation term always uses the depth average `(n+2)`, so `basis`
+    has no effect.
 """
 function velocity_split(
         H::Matrix{R},
@@ -701,56 +583,14 @@ function velocity_split(
         θ;
         basis::Symbol = :surface
 ) where {R <: Real, SIM <: Simulation}
-    @assert basis in (:surface, :flux) "basis must be :surface or :flux, got $(basis)"
-    params::Sleipnir.Parameters = simulation.parameters
-    iceflow_model = simulation.model.iceflow
-    iceflow_cache = simulation.cache.iceflow
-    glacier_idx = iceflow_cache.glacier_idx
-    glacier = simulation.glaciers[glacier_idx]
-    B = glacier.B
-    Δx = glacier.Δx
-    Δy = glacier.Δy
-    (; ρ, g, ϵ) = params.physical
-
-    # Geometry identical to `surface_V`, including the ϵ regularization of ∇S
-    S = B .+ H
-    dSdx = diff_x(S) / Δx
-    dSdy = diff_y(S) / Δy
-    ∇S = (avg_y(dSdx) .^ 2 .+ avg_x(dSdy) .^ 2 .+ ϵ) .^ (1/2)
-    H̄ = avg(H)
-
-    iceflow_cache.∇S .= ∇S
-    iceflow_cache.H̄ .= H̄
-
-    apply_all_non_callback_laws!(
-        iceflow_model, iceflow_cache, simulation, glacier_idx, t, θ)
-    (; A, n, C, p, q, Y, U) = iceflow_cache
-
-    iceflow_model.U_is_provided && throw(ArgumentError(
+    basis in (:surface, :flux) ||
+        throw(ArgumentError("basis must be :surface or :flux, got $(basis)"))
+    simulation.model.iceflow.U_is_provided && throw(ArgumentError(
         "velocity_split: a U law provides the total velocity, it cannot be split into \
          sliding and deformation."))
-
-    gravity_term = ρ * g
-
-    # Plug flow: the sliding velocity is depth independent, so it is the same in both bases
-    D_slide = if any(C.value .> 0)
-        @. C.value * gravity_term^(p.value - q.value) *
-           H̄^(p.value - q.value) * ∇S ^ (p.value - 1)
-    else
-        zero(H̄)
-    end
-
-    D_deform = if iceflow_model.Y_is_provided
-        n_H = iceflow_model.n_H_is_provided ? iceflow_cache.n_H : n.value
-        n_∇S = iceflow_model.n_∇S_is_provided ? iceflow_cache.n_∇S : n.value
-        @. 2.0 * gravity_term^n.value * H̄^(n_H + 1) * ∇S^(n_∇S - 1) / (n.value + 2)
-    else
-        # (n+1) is the surface deformation velocity, (n+2) its depth average
-        shape = basis === :surface ? 1 : 2
-        @. (2.0 * A.value * gravity_term^n.value / (n.value + shape)) *
-           H̄^(n.value + 1) * ∇S ^ (n.value - 1)
-    end
-
+    (; H̄, ∇S) = simulation.cache.iceflow
+    D_slide, D_deform = zero(H̄), zero(H̄)
+    surface_V_diffusivity!(D_slide, D_deform, H, simulation, t, θ; basis = basis)
     return (; V_slide = D_slide .* ∇S, V_deform = D_deform .* ∇S)
 end
 
@@ -765,9 +605,8 @@ end
 
 Share of the SIA velocity due to sliding rather than deformation, on the staggered grid.
 
-Thin wrapper on [`velocity_split`](@ref); see it for the meaning of `basis`. Cells with no
-ice return `NaN` rather than a number: deformation vanishes with `H` there, so the ratio
-would be `0/0` and naive averaging reports a fully sliding glacier. Mask or use `nanmean`.
+Uses [`velocity_split`](@ref), see it for the meaning of `basis`. Cells with no ice return
+`NaN`, since the ratio is `0/0` there. Mask them before averaging.
 """
 function sliding_fraction(
         H::Matrix{R},
@@ -789,10 +628,9 @@ end
 
 Closed-form sliding fraction from `C`, `H` and `A` alone, with no simulation.
 
-Same quantity as the `(H, simulation, t, θ)` method, for when only the fields are at hand —
-sweeping λ over saved `C` arrays, for instance. It needs `p == n` so the `∇S^(p-1)` and
-`∇S^(n-1)` factors cancel and the surface slope drops out; when they differ, the split is
-slope dependent and only the simulation-based method is correct.
+Same quantity as the `(H, simulation, t, θ)` method, for saved fields (for example the `C`
+of several inversions). It needs `p == n`, so that the surface slope cancels. Otherwise the
+split depends on the slope, and only the method with a simulation is correct.
 
 `H` must already be on the staggered grid (`avg` of the H-grid field, as `H̄` in `SIA2D!`),
 matching the shape of a gridded `C`. Cells with no ice return `NaN`, as in the other method.
@@ -802,9 +640,10 @@ function sliding_fraction(
         p::Real = 3.0, q::Real = 0.0, n::Real = 3.0, ρg::Real = 900.0 * 9.81,
         basis::Symbol = :surface
 )
-    @assert basis in (:surface, :flux) "basis must be :surface or :flux, got $(basis)"
-    @assert p==n "sliding_fraction: the closed form needs p == n so ∇S cancels (got \
-                  p = $(p), n = $(n)). Use the simulation-based method instead."
+    basis in (:surface, :flux) ||
+        throw(ArgumentError("basis must be :surface or :flux, got $(basis)"))
+    p == n || throw(ArgumentError("sliding_fraction: the closed form needs p == n so ∇S \
+        cancels (got p = $(p), n = $(n)). Use the simulation-based method instead."))
     shape = basis === :surface ? 1 : 2
     slide = @. C * ρg^(p - q) * H^(p - q)
     deform = @. 2 * A * ρg^n * H^(n + 1) / (n + shape)
@@ -816,7 +655,8 @@ end
         simulation::SIM,
         H::Matrix{F},
         t::Real,
-        θ,
+        θ;
+        padding_method = :centered,
     ) where {F <: AbstractFloat, SIM <: Simulation}
 
 Compute surface velocity from ice thickness using the SIA model.
@@ -830,6 +670,9 @@ Arguments:
   - `H::Matrix{F}`: The ice thickness matrix.
   - `t::R`: Current simulation time.
   - `θ`: Parameters of the laws to be used in the SIA. Can be `nothing` when no learnable laws are used.
+  - `padding_method`: How the velocities, computed on the cell corners, are put on the grid of
+    `H`. `:centered` (default) averages the four corners of each cell. `:bottom_right` puts
+    them half a cell off; it is not supported by the automatic adjoint in ODINN.
 
 Returns:
 
@@ -847,7 +690,7 @@ function V_from_H(
     Vx_in, Vy_in = surface_V(H, simulation, t, θ)
     Vx = zero(H)
     Vy = zero(H)
-    # We include the velocities in the larger matrix by adding extra empty column
+    # The velocities on the cell corners are put on the larger grid of H, with zero borders
     if padding_method == :centered
         inn(Vx) .= avg(Vx_in)
         inn(Vy) .= avg(Vy_in)
@@ -855,7 +698,7 @@ function V_from_H(
         inn1(Vx) .= Vx_in
         inn1(Vy) .= Vy_in
     else
-        @error "Padding method not specified."
+        throw(ArgumentError("padding_method must be :centered or :bottom_right, got $(padding_method)."))
     end
     V = (Vx .^ 2 .+ Vy .^ 2) .^ (1/2)
     return Vx, Vy, V
@@ -880,7 +723,8 @@ Arguments:
   - `simulation::SIM`: The simulation structure used to retrieve the physical
     parameters.
   - `tspan_velocity::Tuple{F,F}`: Time window over which the average surface velocity is computed. It can be different than the simulation period.
-  - `step::F`: Constant time step used to compute the average surface velocity.
+  - `step::F`: Constant time step used to compute the average surface velocity. If the
+    window is not a whole number of steps, the last partial step is not in the average.
   - `ts::Vector{F}`: Vector representing time associated to each ice thickness matrix.
   - `Hs::Vector{Matrix{F}}`: Vector ice thickness matrices.
   - `H::Matrix{F}`: The ice thickness matrix.
@@ -904,7 +748,8 @@ function averageV(
     tLoss = collect(tspan_velocity[1]:step:tspan_velocity[2])
     dt = diff(tLoss)
     tLoss = tLoss[begin:(end - 1)] # Discard last point t=tspan_velocity[2]
-    ind_pred = Sleipnir.indFromT(simulation.parameters.simulation.tspan, tLoss, ts)
+    ind_pred = Sleipnir.indFromT(
+        glacier_tspan(simulation, simulation.cache.iceflow.glacier_idx), tLoss, ts)
     T = sum(dt)
 
     # 2. Compute the predicted velocity Vx_pred, Vy_pred, V_pred

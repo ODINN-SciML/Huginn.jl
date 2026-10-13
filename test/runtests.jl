@@ -95,6 +95,7 @@ ENV["GKSwstype"]="nul"
 
     if GROUP == "All" || GROUP == "Core3"
         @testset "Prediction instantiation" test_prediction_instantiation()
+        @testset "Glacier with its own time window" test_glacier_tspan()
         @testset "Run TI models in-place" TI_run_test!(false; rtol = 1e-5, atol = 1e-5)
     end
 
@@ -108,6 +109,7 @@ ENV["GKSwstype"]="nul"
 
     if GROUP == "All" || GROUP == "Core5"
         @testset "Analytical Halfar solution is correct" unit_halfar_is_solution()
+        @testset "Analytical Halfar velocity is correct" unit_halfar_velocity()
         @testset "Halfar Solutions" halfar_test()
     end
 
@@ -132,6 +134,7 @@ ENV["GKSwstype"]="nul"
                 test_SyntheticC()
             end
             @testset "Sliding and deformation split" test_sliding_split()
+            @testset "Velocity with Y and U laws" test_velocity_Y_U_laws()
         end
     end
 

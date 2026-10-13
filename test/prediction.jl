@@ -61,3 +61,62 @@ function test_prediction_instantiation()
     @test check_concrete_types(cache; show = false)
     @test_broken check_field_types(typeof(cache); show = false)
 end
+
+function test_glacier_tspan()
+    rgi_ids = ["RGI60-11.03638", "RGI60-11.01450"]
+    rgi_paths = get_rgi_paths()
+    rgi_paths = Dict(k => rgi_paths[k] for k in rgi_ids)
+    # Not on the grid of the mass balance steps, so the last window ends after 2011.9
+    window = (2010.55, 2011.9)
+
+    # A time of the user that is outside the window of the second glacier
+    t_user = 2010.2
+    function make_params(tspan, glacier_tspans)
+        Parameters(
+            simulation = SimulationParameters(
+                use_MB = true,
+                calibrate_MB = false,
+                use_velocities = false,
+                tspan = tspan,
+                glacier_tspans = glacier_tspans,
+                working_dir = Huginn.root_dir,
+                test_mode = true,
+                rgi_paths = rgi_paths
+            ),
+            solver = SolverParameters(reltol = 1e-8, step = 1/12, tstops = [t_user])
+        )
+    end
+    # The second glacier has its own window
+    params = make_params((2010.0, 2012.0), Dict(rgi_ids[2] => window))
+    # The same window for all glaciers
+    params_ref = make_params(window, Dict{String, Tuple{Float64, Float64}}())
+
+    glaciers = initialize_glaciers(rgi_ids, params)
+    prediction = Prediction(
+        Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params)),
+        deepcopy(glaciers), params)
+    prediction_ref = Prediction(
+        Model(iceflow = SIA2Dmodel(params_ref), mass_balance = TImodel1(params_ref)),
+        deepcopy(glaciers), params_ref)
+    run!(prediction)
+    run!(prediction_ref)
+
+    @test prediction.results[1].t[[begin, end]] == [2010.0, 2012.0]
+    @test t_user in prediction.results[1].t
+    @test !(t_user in prediction.results[2].t)
+    @test prediction.results[2].t == prediction_ref.results[2].t
+    @test prediction.results[2].Vx ≈ prediction_ref.results[2].Vx
+    @test prediction.results[2].t[[begin, end]] == [window...]
+    @test prediction.results[2].H ≈ prediction_ref.results[2].H
+    @test prediction.results[2].t_MB == prediction_ref.results[2].t_MB
+    @test prediction.results[2].t_MB[end] == window[2]
+    @test prediction.results[2].MB ≈ prediction_ref.results[2].MB
+
+    # The ground truth uses the same tstops for all the glaciers, so it refuses windows
+    model = Model(iceflow = SIA2Dmodel(params), mass_balance = TImodel1(params))
+    @test_throws ArgumentError generate_ground_truth(
+        deepcopy(glaciers), params, model, collect(2010.0:(1 / 12):2012.0))
+    # A window outside tspan is refused when the simulation is built
+    params.simulation.glacier_tspans[rgi_ids[2]] = (2009.0, 2011.0)
+    @test_throws ArgumentError Prediction(model, deepcopy(glaciers), params)
+end

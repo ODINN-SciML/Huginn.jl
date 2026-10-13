@@ -48,6 +48,29 @@ function unit_halfar_is_solution(; rtol = 1e-6, atol = 1e-6)
 end
 
 """
+    unit_halfar_velocity(; rtol = 1e-6)
+
+The analytical Halfar velocity is the SIA surface velocity of the Halfar thickness,
+`-2A(ρg)ⁿ/(n+1) Hⁿ⁺¹ |∇H|ⁿ⁻¹ ∇H` on a flat bed, with and without mass balance (λ).
+"""
+function unit_halfar_velocity(; rtol = 1e-6)
+    for λ in (0.0, 0.2)
+        halfar_param = HalfarParameters(λ = λ)
+        (; n, A, ρ, g, R₀) = halfar_param
+        halfar, t₀ = Halfar(halfar_param)
+        velocity = Huginn.Halfar_velocity(halfar_param)
+        for (x, y, t) in
+            Iterators.product(R₀ .* [0.01, -0.3], R₀ .* [0.1, 0.4], t₀ .* [1.1, 10])
+            ∇H = [ForwardDiff.derivative(_x -> halfar(_x, y, t), x),
+                ForwardDiff.derivative(_y -> halfar(x, _y, t), y)]
+            v_sia = -2A * (ρ * g)^n / (n + 1) * halfar(x, y, t)^(n + 1) *
+                    sum(abs2, ∇H)^((n - 1) / 2) .* ∇H
+            @test isapprox(velocity(x, y, t), v_sia; rtol = rtol)
+        end
+    end
+end
+
+"""
     unit_halfar_test(; kwargs...) -> Nothing
 
 Runs a unit test comparing a numerical shallow ice model (SIA) to the analytic Halfar
@@ -73,6 +96,7 @@ Fails if any error exceeds tolerance thresholds.
   - `dometol::Float64=0.20`: Maximum allowed dome height error [m].
   - `distance_to_border::Int=3`: Distance (in grid cells) from ice margin to exclude from error computation.
   - `save_plot::Bool=false`: If `true`, saves diagnostic plots comparing analytical and simulated solutions.
+  - `check_velocity::Bool=false`: If `true`, also checks the placement of the surface velocity of `V_from_H` against the analytical velocity.
 
 # Outputs
 
@@ -111,7 +135,8 @@ function unit_halfar_test(;
         masstol = 2e-4,
         dometol = 0.20,
         distance_to_border = 3,
-        save_plot = false
+        save_plot = false,
+        check_velocity = false
 )
     if use_MB
         λ = 5.0
@@ -248,6 +273,26 @@ function unit_halfar_test(;
     @test relative_error < reltol
     @test mass_error < masstol
     @test dome_error < dometol
+
+    if check_velocity
+        # The velocity of the analytical thickness, on the cell centres and away from the
+        # margin. The default placement must be much closer to it than the one that is half a
+        # cell off.
+        prediction.cache = init_cache(model, prediction, 1, nothing)
+        velocity = Huginn.Halfar_velocity(halfar_params)
+        V_exact = [velocity(x, y, t₁) for x in xs, y in ys]
+        ice = is_in_glacier(Hs[end], distance_to_border)
+        errors(padding_method) = begin
+            Vx, Vy,
+            _ = Huginn.V_from_H(
+                prediction, Hs[end], t₁, nothing; padding_method = padding_method)
+            maximum(abs.((Vx .- getindex.(V_exact, 1))[ice])) +
+            maximum(abs.((Vy .- getindex.(V_exact, 2))[ice]))
+        end
+        @show error_centered = errors(:centered)
+        @show error_shifted = errors(:bottom_right)
+        @test error_centered < 0.5 * error_shifted
+    end
 end
 
 """
@@ -257,7 +302,7 @@ Multiple tests using Halfar solution.
 """
 function halfar_test()#; rtol, atol, distance_to_border)
     # Default test as introduced in experiment B in Bueler et. al (2005)
-    unit_halfar_test()
+    unit_halfar_test(check_velocity = true)
     # Mass balance
     # unit_halfar_test(use_MB = true)
     # Changing A

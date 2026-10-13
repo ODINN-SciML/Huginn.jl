@@ -32,6 +32,7 @@ mutable struct Prediction{
             parameters::Sleipnir.Parameters,
             results::Vector{Results}
     )
+        check_glacier_tspans(parameters, glaciers)
         # Optionally calibrate the mass balance model per glacier (no-op unless
         # the model type defines a calibration routine, e.g. TImodel1).
         if parameters.simulation.use_MB && parameters.simulation.calibrate_MB

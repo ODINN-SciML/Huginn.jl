@@ -94,7 +94,7 @@ function plot_analysis_flow_parameters(
             end
         end
     end
-    start_year, end_year = round.(Int, simulation.parameters.simulation.tspan)
+    start_year, end_year = round.(Int, glacier_tspan(simulation, 1))
     fig[0, :] = Label(fig,
         "Ice Thickness difference ΔH for varying A and n from $start_year to $end_year")
 

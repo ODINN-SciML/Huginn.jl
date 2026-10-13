@@ -102,14 +102,17 @@ end
 
 Same as Halfar(halfar_params), but instead of returning a function that gives the ice
 thickness as a function of space and time, this returns the ice surface velocity according
-to the Shallow Ice Approximation.
+to the Shallow Ice Approximation: a function `(x, y, t) -> [vx, vy]`, in m/yr. It is only
+valid without isostatic bed depression (`f = 0`).
 """
 function Halfar_velocity(
         halfar_params::HalfarParameters
 )
-    H, t₀ = Halfar(halfar_params)
+    halfar_params.f == 0 || throw(ArgumentError(
+        "Halfar_velocity is only valid without isostatic bed depression (f = 0)."))
+    _, t₀ = Halfar(halfar_params)
 
-    (; λ, n, A, ρ, g, f, H₀, R₀) = halfar_params
+    (; λ, n, A, ρ, g, H₀, R₀) = halfar_params
 
     α = (2 - (n - 1) * λ) / (5 * n + 3)
     β = (1 + (2 * n + 1) * λ) / (5 * n + 3)

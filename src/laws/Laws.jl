@@ -1,4 +1,4 @@
-export ConstantA, CuffeyPaterson, SyntheticC, TemperateA
+export ConstantA, CuffeyPaterson, SyntheticC, TemperateA, sliding_scale
 
 """
     ConstantA(A::F) where {F <: AbstractFloat}
@@ -47,20 +47,22 @@ end
 
 Value of `C` at which sliding and deformation contribute equally to the SIA diffusivity.
 
-`SIA2D!` splits the diffusivity as `C(ρg)^(p-q) H^(p-q+1) ∇S^(p-1)` against
-`2A(ρg)ⁿHⁿ⁺²∇Sⁿ⁻¹/(n+2)`, so the crossover depends on the sliding law. It sets both a
-sensible bound on `C` and the scale of its regularization, which is why it is needed before
-any `C` inversion: `C` spans orders of magnitude between sliding laws and a λ chosen for one
-is meaningless for another. The `∇S` powers cancel when `p-1 = n-1`, so the scale depends
-only on the thickness `H` at which the comparison is made.
+In `SIA2D!` the diffusivity is `C(ρg)^(p-q) H^(p-q+1) ∇S^(p-1)` (sliding) plus
+`2A(ρg)ⁿHⁿ⁺²∇Sⁿ⁻¹/(n+2)` (deformation), so this value depends on the sliding law. Use it to
+choose the bound of `C` and the scale of its regularization in a `C` inversion: `C` changes by
+orders of magnitude between sliding laws, so a λ chosen for one law does not work for
+another. With `p == n` the `∇S` terms cancel, and the value only depends on the thickness `H`.
 
-Defaults are Weertman sliding (`q = 0`) in Glen's flow law with `n = 3`.
+Defaults are Weertman sliding (`q = 0`) in Glen's flow law with `n = 3`. The glaciers of
+`initialize_glaciers` use `q = 2` by default, so give `p` and `q` of the law you use. `ρg`
+must match `params.physical.ρ * params.physical.g` of the simulation.
 """
 function sliding_scale(
         A::Real, H::Real;
         p::Real = 3.0, q::Real = 0.0, n::Real = 3.0, ρg::Real = 900.0 * 9.81
 )
-    @assert p==n "sliding_scale: the ∇S factors only cancel when p == n (got p = $(p), n = $(n))."
+    p == n || throw(ArgumentError(
+        "sliding_scale: the ∇S factors only cancel when p == n (got p = $(p), n = $(n))."))
     deformation = 2 * A * ρg^n * H^(n + 2) / (n + 2)
     sliding_unit_C = ρg^(p - q) * H^(p - q + 1)
     return deformation / sliding_unit_C
