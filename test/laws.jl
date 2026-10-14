@@ -122,6 +122,12 @@ function test_velocity_Y_U_laws()
         model = Model(iceflow = SIA2Dmodel(params; laws...), mass_balance = nothing)
         simulation = Prediction(model, deepcopy(glaciers), params)
         simulation.cache = init_cache(model, simulation, 1, nothing)
+        # `surface_V_inplace!` has its own copy of the formulas
+        Vx, Vy = zero(H), zero(H)
+        Huginn.surface_V_inplace!(Vx, Vy, H, simulation, 2010.0, nothing)
+        Vx_ref, Vy_ref, _ = Huginn.V_from_H(simulation, H, 2010.0, nothing)
+        @test Vx ≈ Vx_ref
+        @test Vy ≈ Vy_ref
         return simulation, Huginn.surface_V(H, simulation, 2010.0, nothing)
     end
 
