@@ -122,6 +122,8 @@ function test_velocity_Y_U_laws()
         model = Model(iceflow = SIA2Dmodel(params; laws...), mass_balance = nothing)
         simulation = Prediction(model, deepcopy(glaciers), params)
         simulation.cache = init_cache(model, simulation, 1, nothing)
+        # Without an inverted bed, the bed of the ice flow is the one of the glacier
+        @test Huginn.bed(simulation, 1, nothing) === simulation.glaciers[1].B
         # `surface_V_inplace!` has its own copy of the formulas
         Vx, Vy = zero(H), zero(H)
         Huginn.surface_V_inplace!(Vx, Vy, H, simulation, 2010.0, nothing)

@@ -247,7 +247,16 @@ function project_curvatures(H, eₚ, eₛ)
 end
 
 """
-    add_MB!(dH, H, simulation, t::Real)
+    bed(simulation, glacier_idx, θ)
+
+Bed elevation used by the ice flow model for the glacier `glacier_idx`. By default it is
+`glacier.B`. ODINN adds a method for inversions that computes the bed from the parameters `θ`
+when the bed is inverted, so that the solver and the adjoint see the bed as a function of `θ`.
+"""
+bed(simulation, glacier_idx, θ) = simulation.glaciers[glacier_idx].B
+
+"""
+    add_MB!(dH, H, simulation, t::Real, B = glacier.B)
 
 Add the surface mass balance rate `ṁ(H, t)` to the ice flow tendency `dH`, in-place.
 
@@ -270,8 +279,10 @@ balance cache is inactive.
   - `H`: Current ice thickness.
   - `simulation`: Simulation object holding the model, the caches and the glaciers.
   - `t::Real`: Current simulation time.
+  - `B`: Bed elevation, see [`bed`](@ref).
 """
-function add_MB!(dH, H, simulation, t::Real)
+function add_MB!(dH, H, simulation, t::Real,
+        B = simulation.glaciers[simulation.cache.iceflow.glacier_idx].B)
     mb_cache = simulation.cache.mass_balance
     mb_cache_active(mb_cache) || return nothing
 
@@ -279,7 +290,7 @@ function add_MB!(dH, H, simulation, t::Real)
     glacier = simulation.glaciers[glacier_idx]
     mb_model = get_mb_model(simulation.model.mass_balance, glacier_idx)
 
-    MB_rate!(mb_cache.ṁ, H, mb_cache, mb_model, glacier, t)
+    MB_rate!(mb_cache.ṁ, H, mb_cache, mb_model, glacier, t, B)
     # Interior only: the border of `dH` is never written, so it would accumulate across stages
     inn(dH) .+= inn(mb_cache.ṁ)
     return nothing

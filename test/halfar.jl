@@ -289,8 +289,8 @@ function unit_halfar_test(;
             maximum(abs.((Vx .- getindex.(V_exact, 1))[ice])) +
             maximum(abs.((Vy .- getindex.(V_exact, 2))[ice]))
         end
-        @show error_centered = errors(:centered)
-        @show error_shifted = errors(:bottom_right)
+        error_centered = errors(:centered)
+        error_shifted = errors(:bottom_right)
         @test error_centered < 0.5 * error_shifted
     end
 end

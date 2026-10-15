@@ -58,7 +58,8 @@ function SIA2D!(
         Fx, Fy, Fxx, Fyy, Γ
     ) = SIA2D_cache
 
-    (; Δx, Δy, B) = glacier
+    (; Δx, Δy) = glacier
+    B = bed(simulation, glacier_idx, θ)
 
     (; ρ, g, ϵ) = params.physical
 
@@ -132,7 +133,7 @@ function SIA2D!(
     diff_y!(Fyy, Fy, Δy)
     inn(dH) .= .-(Fxx .+ Fyy)
 
-    add_MB!(dH, H, simulation, t)
+    add_MB!(dH, H, simulation, t, B)
     return nothing
 end
 
@@ -366,7 +367,7 @@ function surface_V_diffusivity!(
     (; ρ, g, ϵ) = params.physical
 
     # Geometry on the staggered grid, with ϵ as in SIA2D!
-    S = glacier.B .+ H
+    S = bed(simulation, glacier_idx, θ) .+ H
     diff_x!(dSdx, S, glacier.Δx)
     diff_y!(dSdy, S, glacier.Δy)
     avg_y!(∇Sx, dSdx)
@@ -423,7 +424,7 @@ function surface_V_inplace!(
     iceflow_cache = simulation.cache.iceflow
     glacier_idx = iceflow_cache.glacier_idx
     glacier = simulation.glaciers[glacier_idx]
-    B = glacier.B
+    B = bed(simulation, glacier_idx, θ)
     H̄ = iceflow_cache.H̄
     dSdx = iceflow_cache.dSdx
     dSdy = iceflow_cache.dSdy
@@ -765,7 +766,10 @@ function averageV(
     # 3. Aggregate the velocities
     avg_Vx = sum((Vx_pred .* dt)/T)
     avg_Vy = sum((Vy_pred .* dt)/T)
-    avg_V = (avg_Vx .^ 2 .+ avg_Vy .^ 2) .^ (1/2)
+    # The derivative of the square root is infinite where the velocity is zero (the cells
+    # without ice), and 0 × Inf is NaN in the automatic gradient
+    sq = avg_Vx .^ 2 .+ avg_Vy .^ 2
+    avg_V = ifelse.(sq .> 0, sqrt.(max.(sq, floatmin(F))), zero(F))
 
     return avg_Vx, avg_Vy, avg_V
 end
