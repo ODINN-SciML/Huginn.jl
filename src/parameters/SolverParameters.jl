@@ -70,7 +70,7 @@ Constructs a `SolverParameters` object with the specified parameters or using de
   - `dt::F`: Fixed step in years, used only when `adaptive` is `false`. Defaults to `1.0/120.0`.
   - `step::F`: The step size that controls at which frequency the solution should be computed and returned in the results.
     Defaults to `1.0/12.0` (i.e. a month).
-  - `tstops::Vector{Sleipnir.Float}`: Optional vector of time points where the solver should stop. Defaults to an empty vector.
+  - `tstops::Vector{Sleipnir.Float}`: Optional vector of time points where the solver should stop. Defaults to an empty vector. The times outside the time window of a glacier are not used for this glacier.
   - `save_everystep::Bool`: Whether to save the solution at every step computed by the solver. Defaults to `false`.
   - `progress::Bool`: Whether to show progress during the solving process. Defaults to `true`.
   - `progress_steps::I`: The number of steps between progress updates. Defaults to `10`.

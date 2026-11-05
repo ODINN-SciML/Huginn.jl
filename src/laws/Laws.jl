@@ -1,4 +1,4 @@
-export ConstantA, CuffeyPaterson, SyntheticC, TemperateA
+export ConstantA, CuffeyPaterson, SyntheticC, TemperateA, sliding_scale
 
 """
     ConstantA(A::F) where {F <: AbstractFloat}
@@ -40,6 +40,32 @@ function polyA_PatersonCuffey()
                      2.4e-24 1.7e-24 9.3e-25 3.5e-25 2.1e-25 1.2e-25 6.8e-26 3.7e-26 2.0e-26 1.0e-26 5.2e-27 2.6e-27]) # s⁻¹Pa⁻³
     A_values = hcat(A_values_sec[1, :], A_values_sec[2, :] .* 60.0*60.0*24.0*365.25)'
     return Polynomials.fit(A_values[1, :], A_values[2, :])
+end
+
+"""
+    sliding_scale(A, H; p = 3.0, q = 0.0, n = 3.0, ρg = 900.0 * 9.81)
+
+Value of `C` at which sliding and deformation contribute equally to the SIA diffusivity.
+
+In `SIA2D!` the diffusivity is `C(ρg)^(p-q) H^(p-q+1) ∇S^(p-1)` (sliding) plus
+`2A(ρg)ⁿHⁿ⁺²∇Sⁿ⁻¹/(n+2)` (deformation), so this value depends on the sliding law. Use it to
+choose the bound of `C` and the scale of its regularization in a `C` inversion: `C` changes by
+orders of magnitude between sliding laws, so a λ chosen for one law does not work for
+another. With `p == n` the `∇S` terms cancel, and the value only depends on the thickness `H`.
+
+Defaults are Weertman sliding (`q = 0`) in Glen's flow law with `n = 3`. The glaciers of
+`initialize_glaciers` use `q = 2` by default, so give `p` and `q` of the law you use. `ρg`
+must match `params.physical.ρ * params.physical.g` of the simulation.
+"""
+function sliding_scale(
+        A::Real, H::Real;
+        p::Real = 3.0, q::Real = 0.0, n::Real = 3.0, ρg::Real = 900.0 * 9.81
+)
+    p == n || throw(ArgumentError(
+        "sliding_scale: the ∇S factors only cancel when p == n (got p = $(p), n = $(n))."))
+    deformation = 2 * A * ρg^n * H^(n + 2) / (n + 2)
+    sliding_unit_C = ρg^(p - q) * H^(p - q + 1)
+    return deformation / sliding_unit_C
 end
 
 """

@@ -94,6 +94,17 @@ function pde_solve_test(;
     # We run the simulation
     @time run!(prediction)
 
+    # `surface_V_inplace!`, which ODINN differentiates, gives the velocities of `V_from_H`
+    prediction.cache = init_cache(model, prediction, 1, nothing)
+    H, t = prediction.results[1].H[end], prediction.results[1].t[end]
+    Huginn.apply_all_callback_laws!(
+        prediction.model.iceflow, prediction.cache.iceflow, prediction, 1, t, nothing)
+    Vx_ref, Vy_ref, _ = Huginn.V_from_H(prediction, H, t, nothing)
+    Vx, Vy = zero(H), zero(H)
+    Huginn.surface_V_inplace!(Vx, Vy, H, prediction, t, nothing)
+    @test Vx ≈ Vx_ref
+    @test Vy ≈ Vy_ref
+
     if !MB && isnothing(laws_A) && isnothing(laws_C) # Test this only once
         # Test below is not ready yet
         JET.@test_opt broken=true target_modules=(Sleipnir, Muninn, Huginn) Huginn.batch_iceflow_PDE!(

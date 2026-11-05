@@ -44,15 +44,18 @@ function batch_iceflow_PDE!(glacier_idx::I, simulation::Prediction) where {I <: 
     simulation.cache = init_cache(model, simulation, glacier_idx, nothing)
 
     # Define tstops
-    tstops = define_callback_steps(params.simulation.tspan, step)
-    tstops = unique(vcat(tstops, params.solver.tstops)) # Merge time steps controlled by `step` with the user provided time steps
+    tspan = glacier_tspan(simulation, glacier_idx)
+    tstops = define_callback_steps(tspan, step)
+    tstops = sort(unique(vcat(tstops, params.solver.tstops))) # Merge time steps controlled by `step` with the user provided time steps
+    # The user time steps outside the window of the glacier are never reached by the solver
+    tstops = filter(t -> tspan[1] <= t <= tspan[2], tstops)
 
     # Create iceflow law callback
     cb_iceflow = build_callback(
         model.iceflow,
         simulation.cache.iceflow,
         glacier_idx,
-        params.simulation.tspan
+        tspan
     )
 
     # Mass balance is a source term of the ice flow RHS, so there is no callback for it
@@ -87,6 +90,7 @@ function simulate_iceflow_PDE!(
 ) where {SIM <: Simulation, F <: AbstractFloat}
     cache = simulation.cache
     params = simulation.parameters
+    tspan = glacier_tspan(simulation, cache.iceflow.glacier_idx)
 
     solver_tstops, saveat = MB_solver_stops(simulation, tstops)
     # `dt` is passed only when stepping is fixed. In adaptive mode the solver picks its own
@@ -96,7 +100,7 @@ function simulate_iceflow_PDE!(
 
     # Define problem to be solved
     iceflow_prob = ODEProblem{true, SciMLBase.FullSpecialize}(
-        du, cache.iceflow.H, params.simulation.tspan, simulation; tstops = solver_tstops)
+        du, cache.iceflow.H, tspan, simulation; tstops = solver_tstops)
 
     iceflow_sol = solve(iceflow_prob,
         params.solver.supply_eigen_est ?
@@ -104,7 +108,7 @@ function simulate_iceflow_PDE!(
         callback = cb,
         reltol = params.solver.reltol,
         abstol = params.solver.scale_abstol ?
-                 effective_abstol(params.solver.abstol, params.simulation.tspan) :
+                 effective_abstol(params.solver.abstol, tspan) :
                  params.solver.abstol,
         adaptive = params.solver.adaptive,
         saveat = saveat,
@@ -259,7 +263,8 @@ states are saved for [`MB_diagnostics`](@ref) to read.
 function MB_solver_stops(simulation, tstops::Vector{F}) where {F <: AbstractFloat}
     mb_cache_active(simulation.cache.mass_balance) || return tstops, tstops
     params = simulation.parameters
-    edges = define_callback_steps(params.simulation.tspan, params.simulation.step_MB)
+    tspan = glacier_tspan(simulation, simulation.cache.iceflow.glacier_idx)
+    edges = define_callback_steps(tspan, params.simulation.step_MB)
     solver_tstops = sort(unique(vcat(tstops, edges)))
     return solver_tstops, solver_tstops
 end
@@ -279,6 +284,8 @@ MB_k ≈ ṁ\\left(\\frac{H_{k-1} + H_k}{2}, \\frac{t_{k-1} + t_k}{2}\\right) (t
 
 on the window grid, not the result grid — `MB` and `t_MB` don't depend on `step`. Without mass
 balance in the right hand side (`use_MB = false`) nothing is recorded, so both are empty.
+If the time window of the glacier is not a whole number of steps, the last entry covers only
+the part of the last window up to the end of the time window, and `t_MB[end]` is this end.
 """
 function MB_diagnostics(simulation, iceflow_sol)
     cache = simulation.cache
@@ -290,7 +297,7 @@ function MB_diagnostics(simulation, iceflow_sol)
     mb_model = get_mb_model(simulation.model.mass_balance, glacier_idx)
 
     params = simulation.parameters
-    tspan = params.simulation.tspan
+    tspan = glacier_tspan(simulation, glacier_idx)
     edges = define_callback_steps(tspan, params.simulation.step_MB)
     H = iceflow_sol.u[Sleipnir.indFromT(tspan, edges, iceflow_sol.t)]
 
@@ -355,7 +362,9 @@ function thickness_velocity_data(
         prediction.cache = init_cache(prediction.model, prediction, i, nothing)
         ts = prediction.results[i].t
         Hs = prediction.results[i].H
-        @assert ts ≈ tstops "Timestops of simulated PDE solution and the provided tstops do not match."
+        (length(ts) == length(tstops) && ts ≈ tstops) || throw(ArgumentError(
+            "Timestops of simulated PDE solution and the provided tstops do not match. \
+            The same tstops are used for all the glaciers, so the glaciers cannot have their own time window (`glacier_tspans`)."))
         if :V in store || :avgV in store
             @assert (:V in store) != (:avgV in store) "Cannot store :V and :avgV at the same time."
         end
@@ -389,7 +398,7 @@ function thickness_velocity_data(
             Vy = Array{Matrix{F}, 1}()
             Vabs = Array{Matrix{F}, 1}()
 
-            tspan_velocity = prediction.parameters.simulation.tspan # Use the whole simulation to compute average velocity
+            tspan_velocity = glacier_tspan(prediction, i) # Use the whole simulation to compute average velocity
             step_velocity = prediction.parameters.solver.step # Use the `step` parameter for average velocity computation
             avg_Vx_pred, avg_Vy_pred,
             avg_V_pred = Huginn.averageV(
@@ -412,7 +421,7 @@ function thickness_velocity_data(
 
         dhdtData = if :dhdt in store
             tdhdt = (minimum(ts), maximum(ts))
-            ind = Sleipnir.indFromT(prediction.parameters.simulation.tspan, tdhdt, ts)
+            ind = Sleipnir.indFromT(glacier_tspan(prediction, i), tdhdt, ts)
             H0 = Hs[ind[1]]
             H1 = Hs[ind[2]]
             mask = H0 .> 1e-2
@@ -479,7 +488,10 @@ function generate_ground_truth(
         tstops::Vector{F};
         store::Tuple = (:H, :V, :dhdt)
 ) where {G <: Sleipnir.AbstractGlacier, F <: AbstractFloat}
-    # Generate timespan from simulation
+    # The same tstops are used for all the glaciers
+    isempty(params.simulation.glacier_tspans) || throw(ArgumentError(
+        "generate_ground_truth does not support glacier_tspans. Set the time windows of the \
+        glaciers after generating the ground truth."))
     t₀, t₁ = params.simulation.tspan
     @assert t₀ <= minimum(tstops)
     @assert t₁ >= maximum(tstops)
