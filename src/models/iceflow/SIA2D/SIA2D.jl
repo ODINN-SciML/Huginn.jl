@@ -554,7 +554,7 @@ function Base.show(io::IO, model::SIA2Dmodel)
         printstyled(io, "D is the diffusivity"; color = colorD);
         println(io, "")
         print(io, " - ");
-        printstyled(io, "U is the flux"; color = colorU);
+        printstyled(io, "U is the diffusive velocity"; color = colorU);
         println(io, "")
         if model.U_is_provided
             # Nothing else to show in this case
@@ -608,7 +608,7 @@ function Base.show(io::IO, model::SIA2Dmodel)
         end
         if model.show_status[1] == 0
             println(io,
-                "> These details will be shown only once. To show them in future prints set model.show_status .= 1;")
+                "> These details will be shown only once. To show them in future prints, set `show_status .= 1` on the ice flow model, e.g. `model.iceflow.show_status .= 1`.")
             model.show_status .= -1 # Do not show so that many information in future show
         end
         println(io, "")
@@ -645,7 +645,7 @@ function Base.show(io::IO, model::SIA2Dmodel)
         print(io, ")")
         print(io, " H̄^(");
         printstyled(io, "p"; color = colorp);
-        print("-");
+        print(io, "-");
         printstyled(io, "q"; color = colorq);
         print(io, "+1) ∇S^(");
         printstyled(io, "p"; color = colorp);
@@ -713,12 +713,12 @@ function Base.show(io::IO, model::SIA2Dmodel)
         printstyled(io, "C"; color = colorC);
         print(io, " (ρg)^(");
         printstyled(io, "p"; color = colorp);
-        print("-");
+        print(io, "-");
         printstyled(io, "q"; color = colorq);
         print(io, ")")
         print(io, " H̄^(");
         printstyled(io, "p"; color = colorp);
-        print("-");
+        print(io, "-");
         printstyled(io, "q"; color = colorq);
         print(io, "+1) ∇S^(");
         printstyled(io, "p"; color = colorp);
